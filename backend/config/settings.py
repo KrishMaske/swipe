@@ -12,11 +12,10 @@ PLAID_ENV = os.getenv("PLAID_ENV")
 PLAID_PRODUCTS = os.getenv("PLAID_PRODUCTS").split(",")
 PLAID_REDIRECT_URI = os.getenv("PLAID_REDIRECT_URI")
 
-host = {
-        'sandbox': plaid.Environment.Sandbox,
-        'development': plaid.Environment.Development,
-        'production': plaid.Environment.Production,
-    }[PLAID_ENV],
+if PLAID_ENV == 'sandbox':
+    host = plaid.Environment.Sandbox
+elif PLAID_ENV == 'development':
+    host = plaid.Environment.Development
 
 configuration = plaid.Configuration(
     host=host,

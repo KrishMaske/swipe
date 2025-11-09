@@ -7,10 +7,8 @@ from utils.plaid_service import get_transactions
 router = APIRouter()
 
 
-
-@router.post("api/transactions/", tags=["transactions"])
+@router.get("/api/transactions/", tags=["transactions"])
 async def fetch_transactions(request: Request):
-    body = await request.json()
-    transactions = get_transactions(body)
-    return {"transactions": transactions}
+    transactions = get_transactions()
+    return {"latest_transactions": transactions}
     
