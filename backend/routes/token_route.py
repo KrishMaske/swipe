@@ -42,7 +42,7 @@ async def create_link_token():
         return {"error": str(e)}
     
 
-@router.post("/api/set_access_token", tags=["access_token"])
+@router.get("/api/set_access_token", tags=["access_token"])
 async def exchange_public_token(public_token: str = Form(...)):
     exchange_request = ItemPublicTokenExchangeRequest(
         public_token=public_token

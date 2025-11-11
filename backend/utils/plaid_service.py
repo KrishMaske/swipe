@@ -3,8 +3,6 @@ import plaid
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from config import state
 
-
-
 def get_transactions():
     if not state.access_token:
         return {"error": "Access token is not set."}

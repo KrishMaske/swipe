@@ -3,9 +3,11 @@ from dotenv import load_dotenv
 import plaid
 from plaid.api import plaid_api
 from plaid.model.products import Products
+import sqlite3
 
 load_dotenv()
 
+DB_PATH = os.getenv("DB_PATH")
 PLAID_CLIENT_ID = os.getenv("PLAID_CLIENT_ID")
 PLAID_SECRET = os.getenv("PLAID_SECRET")
 PLAID_ENV = os.getenv("PLAID_ENV")
@@ -27,6 +29,8 @@ configuration = plaid.Configuration(
 
 api_client = plaid.ApiClient(configuration)
 plaid_client = plaid_api.PlaidApi(api_client)
+conn = sqlite3.connect(DB_PATH)
+
 products = []
 for product in PLAID_PRODUCTS:
     products.append(Products(product))

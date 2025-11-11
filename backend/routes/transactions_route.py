@@ -8,7 +8,9 @@ router = APIRouter()
 
 
 @router.get("/api/transactions/", tags=["transactions"])
-async def fetch_transactions(request: Request):
+async def fetch_transactions():
     transactions = get_transactions()
     return {"latest_transactions": transactions}
+
+
     
