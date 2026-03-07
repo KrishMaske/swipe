@@ -10,7 +10,7 @@ class simplefin_payload(BaseModel):
     setup_token: str
 
 @router.post("/api/exchange_setup")
-def exchange_setup_endpoint(payload: simplefin_payload , context: dict = Depends(get_user_context())):
+def exchange_setup_endpoint(payload: simplefin_payload , context: dict = Depends(get_user_context)):
     access_url = exchange_setup(payload.setup_token)
     
     if isinstance(access_url, dict) and "error" in access_url:

@@ -1,14 +1,43 @@
 import requests
 import base64
+from fastapi import HTTPException
+
+def decode_setup_token(token: str) -> str:
+    token = token.strip()
+    if token.startswith("http://") or token.startswith("https://"):
+        return token
+    try:
+        padding = "=" * (-len(token) % 4)
+        raw = base64.urlsafe_b64decode(token + padding)
+        return raw.decode("utf-8")
+    except Exception:
+        return token
 
 def exchange_setup(setup_token):
-    claim_url = base64.b64decode(setup_token).decode('utf-8')
+    claim_url = decode_setup_token(setup_token)
     response = requests.post(claim_url)
     
     if response.status_code == 200:
         return response.text.strip()
     else:
         return {"error": f"Failed to claim setup: {response.status_code} - {response.text}"}
+
+def retrieve_accounts(access_url):
+    if not access_url or not (access_url.startswith("http://") or access_url.startswith("https://")):
+        raise HTTPException(status_code=500, detail=f"Invalid access URL provided: {access_url!r}")
+
+    try:
+        response = requests.get(f"{access_url.rstrip('/')}/accounts", timeout=10)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error fetching accounts: {e}")
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch accounts: {response.status_code} - {response.text}")
+
+    try:
+        return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to parse accounts JSON: {e}")
 
 if __name__ == "__main__":
     # Example usage

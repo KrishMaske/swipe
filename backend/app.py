@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from routes.token_exchange import router as token_exchange
+from routes.bank_routes import router as bank_routes
 
 app = FastAPI()
 
-cors = ["http://localhost:3000", "http://localhost:8000"]
+cors = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:5500"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors,
@@ -11,6 +13,9 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=True,
 )
+
+app.include_router(token_exchange)
+app.include_router(bank_routes)
 
 @app.get("/")
 def read_root():

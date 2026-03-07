@@ -3,7 +3,7 @@ import requests
 from jose import jwt, JWTError
 from fastapi import HTTPException, Request, Depends
 from supabase import create_client, Client, ClientOptions
-from settings import jwks_url, supabase_url, supabase_key
+from config.settings import jwks_url, supabase_url, supabase_key
 
 _jwks = None
 
