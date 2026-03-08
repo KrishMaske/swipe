@@ -2,6 +2,7 @@ import requests
 import base64
 from fastapi import HTTPException
 
+
 def decode_setup_token(token: str) -> str:
     token = token.strip()
     if token.startswith("http://") or token.startswith("https://"):
@@ -22,12 +23,12 @@ def exchange_setup(setup_token):
     else:
         return {"error": f"Failed to claim setup: {response.status_code} - {response.text}"}
 
-def retrieve_accounts(access_url):
+def retrieve_accounts(access_url, start_date):
     if not access_url or not (access_url.startswith("http://") or access_url.startswith("https://")):
         raise HTTPException(status_code=500, detail=f"Invalid access URL provided: {access_url!r}")
 
     try:
-        response = requests.get(f"{access_url.rstrip('/')}/accounts", timeout=10)
+        response = requests.get(f"{access_url.rstrip('/')}/accounts?start-date={start_date}&pending=1", timeout=10)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error fetching accounts: {e}")
 
