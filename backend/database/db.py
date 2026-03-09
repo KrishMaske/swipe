@@ -72,9 +72,8 @@ def sync_accounts(context, sfc_id, raw_simplefin_data):
             .upsert(accounts_to_upsert, on_conflict="acc_id")
             .execute()
         )
-        sync_transactions(context, all_acc_transactions)
-        update_sync_time(context, sfc_id)
-        return response.data 
+
+        return all_acc_transactions
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database upsert failed: {str(e)}")
