@@ -2,8 +2,7 @@ import time
 
 def ninety_days():
     current_epoch = int(time.time())
-    ninety_days = current_epoch - (89 * 24 * 60 * 60)
-    return ninety_days
+    return current_epoch - (90 * 24 * 60 * 60)
 
 def curr_time():
     return int(time.time())

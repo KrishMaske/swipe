@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
-from datasets import load_dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
@@ -35,22 +34,28 @@ def train_categorizer(df: pd.DataFrame):
     joblib.dump(classifier, CLASSIFIER_PATH)
     print(f"✅ Categorizer and Vectorizer successfully retrained and saved!")
 
+_vectorizer = None
+_classifier = None
+
+def _load_models():
+    global _vectorizer, _classifier
+    if _vectorizer is None or _classifier is None:
+        if not os.path.exists(CLASSIFIER_PATH) or not os.path.exists(VECTORIZER_PATH):
+            return False
+        _vectorizer = joblib.load(VECTORIZER_PATH)
+        _classifier = joblib.load(CLASSIFIER_PATH)
+    return True
+
 def predict_category(merchant: str) -> str:
-    if not os.path.exists(CLASSIFIER_PATH) or not os.path.exists(VECTORIZER_PATH):
+    if not _load_models():
         return "Uncategorized"
-        
-    vectorizer = joblib.load(VECTORIZER_PATH)
-    classifier = joblib.load(CLASSIFIER_PATH)
     
-    vector = vectorizer.transform([str(merchant)])
-    
-    probabilities = classifier.predict_proba(vector)[0]
+    vector = _vectorizer.transform([str(merchant)])
+    probabilities = _classifier.predict_proba(vector)[0]
     
     max_confidence = np.max(probabilities)
     predicted_index = np.argmax(probabilities)
-    predicted_category = classifier.classes_[predicted_index]
-    
-    print(f"   -> [DEBUG] {merchant[:35].ljust(35)}: {predicted_category} ({max_confidence * 100:.1f}% confident)")
+    predicted_category = _classifier.classes_[predicted_index]
     
     if max_confidence < 0.20:
         return "Uncategorized"

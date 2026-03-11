@@ -10,9 +10,14 @@ def decode_setup_token(token: str) -> str:
     try:
         padding = "=" * (-len(token) % 4)
         raw = base64.urlsafe_b64decode(token + padding)
-        return raw.decode("utf-8")
+        decoded = raw.decode("utf-8")
+        if not decoded.startswith("http://") and not decoded.startswith("https://"):
+            raise HTTPException(status_code=400, detail="Invalid setup token: decoded value is not a valid URL")
+        return decoded
+    except HTTPException:
+        raise
     except Exception:
-        return token
+        raise HTTPException(status_code=400, detail="Invalid setup token: failed to decode")
 
 def exchange_setup(setup_token):
     claim_url = decode_setup_token(setup_token)

@@ -3,6 +3,8 @@ from config.security import get_user_context
 from utils.crypt import encrypt, decrypt
 from datetime import datetime as dt, timezone
 from utils.date_service import curr_time
+from models.categorization import predict_category
+from models.ner import extract_location
 
 def create_simplefin_connection(context, access_url):
     sb = context["supabase"]
@@ -26,7 +28,7 @@ def get_access_url(context) -> dict:
     try:
         response = (
             sb.table("simplefin_conn")
-            .select("id, access_url", "last_sync")
+            .select("id, access_url, last_sync")
             .eq("user_id", user_id)
             .single()
             .execute()
@@ -104,14 +106,23 @@ def sync_transactions(context, transactions):
         txn_list = data["txn"]
         
         for txn in txn_list:
+            merchant = txn["payee"]
+            description = txn.get("description", "")
+            category = predict_category(merchant)
+            city, state = extract_location(description)
+            if not city and not state:
+                city, state = "REMOTE", "REMOTE"
             insert_list.append({
                 "user_id": user_id,
                 "txn_id": txn["id"],
                 "acc_id": acc_id,
                 "amount": float(txn["amount"]),
-                "merchant": txn["payee"],
-                "description": txn.get("description", ""),
-                "txn_date": txn["transacted_at"]
+                "merchant": merchant,
+                "description": description,
+                "category": category,
+                "city": city,
+                "state": state,
+                "txn_date": txn["transacted_at"],
             })
             
     if not insert_list:
