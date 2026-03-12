@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
-import supabase
 from cryptography.fernet import Fernet
+from google import genai
+from groq import Groq
+
 
 load_dotenv()
 
@@ -11,3 +13,6 @@ jwks_url = os.getenv("SUPABASE_JWK")
 
 FERNET_KEY = os.getenv("FERNET_KEY")
 fernet = Fernet(FERNET_KEY)
+
+gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
+groq_client = Groq(api_key=os.environ.get("GROQ_KEY"))

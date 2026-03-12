@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from config.security import get_user_context
 from utils.crypt import encrypt, decrypt
+from utils.embeddings import create_embedding
 from datetime import datetime as dt, timezone
 from utils.date_service import curr_time
 from models.categorization import predict_category
@@ -112,7 +113,7 @@ def sync_transactions(context, transactions):
             city, state = extract_location(description)
             if not city and not state:
                 city, state = "REMOTE", "REMOTE"
-            insert_list.append({
+            txn_dict = {
                 "user_id": user_id,
                 "txn_id": txn["id"],
                 "acc_id": acc_id,
@@ -123,8 +124,9 @@ def sync_transactions(context, transactions):
                 "city": city,
                 "state": state,
                 "txn_date": txn["transacted_at"],
-            })
-            
+            }
+            txn_dict["embedding"] = create_embedding(txn_dict)
+            insert_list.append(txn_dict)
     if not insert_list:
         return {"status": "success", "message": "No new transactions to sync."}
     
