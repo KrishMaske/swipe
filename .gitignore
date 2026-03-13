@@ -1,4 +1,11 @@
 .venv*
 __pycache__/
 .env
+*.env.local
 leaks-report.json*
+*csv
+*.pkl
+*.safetensors
+*.py[cod]
+.DS_Store
+Thumbs.db

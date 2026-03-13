@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
-from google import genai
+from sentence_transformers import SentenceTransformer
 from groq import Groq
 
 
@@ -14,5 +14,6 @@ jwks_url = os.getenv("SUPABASE_JWK")
 FERNET_KEY = os.getenv("FERNET_KEY")
 fernet = Fernet(FERNET_KEY)
 
-gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
 groq_client = Groq(api_key=os.environ.get("GROQ_KEY"))
+
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2')

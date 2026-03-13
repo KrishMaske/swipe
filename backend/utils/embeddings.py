@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
-from config.settings import gemini_client
-from google.genai import types
+from config.settings import embedding_model as model
 
 def create_embedding(txn: dict) -> list[float]:
     try:
@@ -22,10 +21,6 @@ def create_embedding(txn: dict) -> list[float]:
         f"Original bank description: {desc}."
     )
 
-    response = gemini_client.models.embed_content(
-        model='gemini-embedding-001',
-        contents=semantic_string,
-        config=types.EmbedContentConfig(output_dimensionality=768)
-    )
-    
-    return response.embeddings[0].values
+    embedding = model.encode(semantic_string)
+    return embedding.tolist()
+
