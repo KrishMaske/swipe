@@ -3,7 +3,7 @@ from config.security import get_user_context
 from utils.crypt import encrypt, decrypt
 from utils.embeddings import create_embedding
 from datetime import datetime as dt, timezone
-from utils.date_service import curr_time
+from utils.date_service import curr_time, epoch_to_date
 from models.categorization import predict_category
 from models.ner import extract_location
 
@@ -123,7 +123,7 @@ def sync_transactions(context, transactions):
                 "category": category,
                 "city": city,
                 "state": state,
-                "txn_date": txn["transacted_at"],
+                "txn_date": epoch_to_date(txn["transacted_at"]),
             }
             txn_dict["embedding"] = create_embedding(txn_dict)
             insert_list.append(txn_dict)
@@ -139,3 +139,34 @@ def sync_transactions(context, transactions):
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync transactions: {str(e)}")
+    
+def get_accounts(context):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("accounts")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve accounts: {str(e)}")
+    
+def get_transactions(context, acc_id):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("transactions")
+            .select("id, user_id, txn_id, acc_id, amount, merchant, description, category, city, state, txn_date")
+            .eq("user_id", user_id)
+            .eq("acc_id", acc_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve transactions: {str(e)}")

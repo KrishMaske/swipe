@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from utils.simplefin_service import retrieve_accounts
-from database.db import get_access_url, sync_accounts, sync_transactions, update_sync_time
+from database.db import get_access_url, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions
 from config.security import get_user_context
-from utils.date_service import ninety_days
+from utils.date_service import ninety_days, epoch_to_date
 
 router = APIRouter()
 
@@ -24,9 +24,17 @@ def sync_accounts_endpoint(background_tasks: BackgroundTasks, context: dict = De
         
         background_tasks.add_task(sync_transactions, context, all_acc_transactions)
         background_tasks.add_task(update_sync_time, context, data["id"])
-        return {"accounts": accounts}
+        return {"success": "Account sync initiated. Transactions will be updated in the background."}
     
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/accounts")
+def get_accounts_endpoint(context: dict = Depends(get_user_context)):
+    return get_accounts(context)
+
+@router.get("/api/transactions")
+def get_transactions_endpoint(acc_id, context: dict = Depends(get_user_context)):
+    return get_transactions(context, acc_id)
