@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, useRef } from 'react';
-import { api, Account, Transaction } from '../services/api';
+import { api, Account, Transaction, FraudTransaction } from '../services/api';
 
 interface DataContextType {
   accounts: Account[];
@@ -9,6 +9,10 @@ interface DataContextType {
   transactionsCache: Record<string, { data: Transaction[]; timestamp: number }>;
   transactionsLoading: Record<string, boolean>;
   fetchTransactions: (accId: string, forceRefresh?: boolean) => Promise<void>;
+  fraudAlertsCache: { data: FraudTransaction[]; timestamp: number } | null;
+  fraudAlertsLoading: boolean;
+  fetchFraudAlerts: (forceRefresh?: boolean) => Promise<void>;
+  optimisticallyRemoveFraudAlert: (txnId: string) => void;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -19,6 +23,10 @@ const DataContext = createContext<DataContextType>({
   transactionsCache: {},
   transactionsLoading: {},
   fetchTransactions: async () => {},
+  fraudAlertsCache: null,
+  fraudAlertsLoading: true,
+  fetchFraudAlerts: async () => {},
+  optimisticallyRemoveFraudAlert: () => {},
 });
 
 export const useData = () => useContext(DataContext);
@@ -34,6 +42,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [transactionsCache, setTransactionsCache] = useState<Record<string, { data: Transaction[]; timestamp: number }>>({});
   const [transactionsLoading, setTransactionsLoading] = useState<Record<string, boolean>>({});
   const txFetchInFlight = useRef<Record<string, Promise<void> | undefined>>({});
+
+  const [fraudAlertsCache, setFraudAlertsCache] = useState<{ data: FraudTransaction[]; timestamp: number } | null>(null);
+  const [fraudAlertsLoading, setFraudAlertsLoading] = useState(true);
+  const fraudFetchInFlight = useRef<Promise<void> | null>(null);
 
   const fetchAccounts = useCallback(async (forceRefresh = false) => {
     const now = Date.now();
@@ -71,6 +83,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const invalidateAccounts = useCallback(() => {
     lastFetchTime.current = 0;
     setTransactionsCache({}); // also clear transaction cache on full cache invalidation
+    setFraudAlertsCache(null);
   }, []);
 
   const fetchTransactions = useCallback(async (accId: string, forceRefresh = false) => {
@@ -113,6 +126,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await txFetchInFlight.current[accId];
   }, [transactionsCache]);
 
+  const fetchFraudAlerts = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+
+    if (!forceRefresh && fraudAlertsCache && now - fraudAlertsCache.timestamp < CACHE_TTL_MS) {
+      setFraudAlertsLoading(false);
+      return;
+    }
+
+    if (fraudFetchInFlight.current) {
+      await fraudFetchInFlight.current;
+      return;
+    }
+
+    const doFetch = async () => {
+      try {
+        setFraudAlertsLoading(true);
+        const data = await api.getFraudulentTransactions();
+        // pre-filter to unresolved alerts
+        const unresolved = data.filter((t: FraudTransaction) => t.is_confirmed_fraud === null);
+        setFraudAlertsCache({ data: unresolved, timestamp: Date.now() });
+      } catch (err) {
+        // Silently handle
+      } finally {
+        setFraudAlertsLoading(false);
+        fraudFetchInFlight.current = null;
+      }
+    };
+
+    fraudFetchInFlight.current = doFetch();
+    await fraudFetchInFlight.current;
+  }, [fraudAlertsCache]);
+
+  const optimisticallyRemoveFraudAlert = useCallback((txnId: string) => {
+    setFraudAlertsCache((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        data: prev.data.filter((t) => t.txn_id !== txnId)
+      };
+    });
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -123,6 +178,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         transactionsCache,
         transactionsLoading,
         fetchTransactions,
+        fraudAlertsCache,
+        fraudAlertsLoading,
+        fetchFraudAlerts,
+        optimisticallyRemoveFraudAlert,
       }}
     >
       {children}

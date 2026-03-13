@@ -14,6 +14,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import AccountDetailScreen from '../screens/AccountDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import FraudAlertsScreen from '../screens/FraudAlertsScreen';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -78,6 +79,8 @@ function TabNavigator() {
           let iconName: any;
           if (route.name === 'Dashboard') {
             iconName = focused ? 'grid' : 'grid-outline';
+          } else if (route.name === 'FraudAlerts') {
+            iconName = focused ? 'shield' : 'shield-outline';
           } else if (route.name === 'Chat') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Settings') {
@@ -91,6 +94,11 @@ function TabNavigator() {
         name="Dashboard"
         component={DashboardStack}
         options={{ tabBarLabel: 'Home' }}
+      />
+      <Tab.Screen
+        name="FraudAlerts"
+        component={FraudAlertsScreen}
+        options={{ tabBarLabel: 'Alerts' }}
       />
       <Tab.Screen
         name="Chat"
