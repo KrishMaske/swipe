@@ -4,8 +4,6 @@ __pycache__/
 *.env.local
 leaks-report.json*
 *csv
-*.pkl
-*.safetensors
 *.py[cod]
 .DS_Store
 Thumbs.db
