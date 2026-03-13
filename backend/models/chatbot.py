@@ -1,4 +1,5 @@
 from datetime import datetime
+from dateutil import parser as dateutil_parser
 import re
 from typing import List, Optional
 from fastapi import HTTPException
@@ -88,6 +89,23 @@ def _build_search_query(question: str, history: Optional[List[Message]]) -> str:
     # Keep embeddings stable and avoid very long retrieval prompts.
     return query[:600]
 
+def _parse_txn_date(raw) -> datetime | None:
+    """Parse txn_date whether it's an epoch number or a timestamp string."""
+    if raw is None:
+        return None
+    # Try epoch float first
+    try:
+        ts = float(raw)
+        if ts > 1e9:  # looks like a Unix epoch
+            return datetime.fromtimestamp(ts)
+    except (TypeError, ValueError):
+        pass
+    # Try parsing as a datetime string
+    try:
+        return dateutil_parser.parse(str(raw))
+    except (ValueError, TypeError):
+        return None
+
 
 def _fetch_transactions(sb, query_vector: list[float], user_id: str, threshold: float, count: int):
     response = sb.rpc(
@@ -139,10 +157,9 @@ def _compute_spending_stats(transactions: list[dict]) -> dict:
         except (TypeError, ValueError):
             continue
 
-        try:
-            timestamps.append(float(t.get("txn_date")))
-        except (TypeError, ValueError):
-            pass
+        parsed_dt = _parse_txn_date(t.get("txn_date"))
+        if parsed_dt:
+            timestamps.append(parsed_dt.timestamp())
 
     if not amounts:
         return {"count": 0, "total": 0.0, "weekly_avg": 0.0, "weeks": 0.0}
@@ -283,10 +300,8 @@ async def ask_financial_assistant(context, request: ChatRequest):
 
         formatted_swipes = []
         for t in transactions:
-            try:
-                readable_date = datetime.fromtimestamp(float(t['txn_date'])).strftime('%Y-%m-%d')
-            except:
-                readable_date = "Unknown Date"
+            parsed_dt = _parse_txn_date(t.get('txn_date'))
+            readable_date = parsed_dt.strftime('%Y-%m-%d') if parsed_dt else 'Unknown Date'
                 
             formatted_swipes.append(
                 f"{readable_date} - {t.get('merchant', 'Unknown')}: ${abs(float(t.get('amount', 0))):.2f} "

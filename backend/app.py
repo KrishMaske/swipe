@@ -6,7 +6,7 @@ from routes.chatbot_routes import router as chatbot_routes
 
 app = FastAPI()
 
-cors = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:5500"]
+cors = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:5500", "*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors,
@@ -26,4 +26,4 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
