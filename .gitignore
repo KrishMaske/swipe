@@ -9,3 +9,4 @@ leaks-report.json*
 *.py[cod]
 .DS_Store
 Thumbs.db
+index.html
