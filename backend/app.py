@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.token_exchange import router as token_exchange
 from routes.bank_routes import router as bank_routes
 from routes.chatbot_routes import router as chatbot_routes
+from routes.model_route import router as model_routes
 
 app = FastAPI()
 
@@ -18,6 +19,7 @@ app.add_middleware(
 app.include_router(token_exchange)
 app.include_router(bank_routes)
 app.include_router(chatbot_routes)
+app.include_router(model_routes)
 
 @app.get("/")
 def read_root():

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from utils.simplefin_service import retrieve_accounts
-from database.db import get_access_url, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions
+from database.db import get_access_url, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions, get_fraudulent_transactions, update_fraud_status
 from config.security import get_user_context
 from utils.date_service import ninety_days, epoch_to_date
 
@@ -38,3 +38,11 @@ def get_accounts_endpoint(context: dict = Depends(get_user_context)):
 @router.get("/api/transactions")
 def get_transactions_endpoint(acc_id, context: dict = Depends(get_user_context)):
     return get_transactions(context, acc_id)
+
+@router.get("/api/transactions/fraud")
+def get_fraudulent_transactions_endpoint(context: dict = Depends(get_user_context)):
+    return get_fraudulent_transactions(context)
+
+@router.post("/api/transactions/update-fraud-status")
+def update_fraud_status_endpoint(txn_id: str, is_confirmed_fraud: bool, context: dict = Depends(get_user_context)):
+    return update_fraud_status(context, txn_id, is_confirmed_fraud)

@@ -1,11 +1,13 @@
 from fastapi import HTTPException
 from config.security import get_user_context
+from config.settings import admin
 from utils.crypt import encrypt, decrypt
 from utils.embeddings import create_embedding
 from datetime import datetime as dt, timezone
 from utils.date_service import curr_time, epoch_to_date
 from models.categorization import predict_category
 from models.ner import extract_location
+from models.fraud_detector import score_transaction
 
 def create_simplefin_connection(context, access_url):
     sb = context["supabase"]
@@ -125,6 +127,10 @@ def sync_transactions(context, transactions):
                 "state": state,
                 "txn_date": epoch_to_date(txn["transacted_at"]),
             }
+            fraud_detected = score_transaction(txn_dict, user_id)
+            txn_dict["is_flagged_fraud"] = fraud_detected["is_anomaly"]
+            txn_dict["risk_score"] = fraud_detected["risk_score"]
+            txn_dict["feature_breakdown"] = fraud_detected["features"]
             txn_dict["embedding"] = create_embedding(txn_dict)
             insert_list.append(txn_dict)
     if not insert_list:
@@ -170,3 +176,48 @@ def get_transactions(context, acc_id):
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve transactions: {str(e)}")
+
+def get_all_non_fraudulent_transactions():
+    
+    try:
+        response = (
+            admin.table("transactions")
+            .select("*")
+            .or_("is_confirmed_fraud.eq.false,is_confirmed_fraud.is.null")
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve transactions: {str(e)}")
+
+def get_fraudulent_transactions(context):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("transactions")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("is_flagged_fraud", True)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve fraudulent transactions: {str(e)}")
+    
+def update_fraud_status(context, txn_id, is_confirmed_fraud):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("transactions")
+            .update({"is_confirmed_fraud": is_confirmed_fraud})
+            .eq("user_id", user_id)
+            .eq("txn_id", txn_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update fraud status: {str(e)}")
