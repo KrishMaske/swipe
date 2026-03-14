@@ -328,3 +328,69 @@ def update_fraud_status(context, txn_id, is_confirmed_fraud):
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update fraud status: {str(e)}")
+    
+    
+def create_card(context, card_data):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        sb.table("user_cards").upsert({
+            "user_id": user_id,
+            "card_name": card_data.card_name,
+            "issuer": card_data.issuer,
+            "last_four": card_data.last_four,
+            "card_network": card_data.card_network,
+            "logo_url": card_data.logo_url,
+            "reward_multiplier": card_data.reward_multiplier,
+            "reward_type": card_data.reward_type,
+            "annual_fee": card_data.annual_fee,
+        }).execute()
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create card: {str(e)}")
+    
+def get_cards(context):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("user_cards")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve cards: {str(e)}")
+    
+def update_card(context, card_id, card_data):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    update_fields = {k: v for k, v in card_data.dict().items() if v is not None}
+    if not update_fields:
+        return {"status": "success"}
+
+    try:
+        response = (
+            sb.table("user_cards")
+            .update(update_fields)
+            .eq("id", card_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update card: {str(e)}")
+
+def delete_card(context, card_id):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+
+    try:
+        sb.table("user_cards").delete().eq("id", card_id).eq("user_id", user_id).execute()
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete card: {str(e)}")

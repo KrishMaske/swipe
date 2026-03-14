@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.token_exchange import router as token_exchange
 from routes.bank_routes import router as bank_routes
 from routes.chatbot_routes import router as chatbot_routes
-from routes.model_route import router as model_routes
+from backend.routes.model_routes import router as model_routes
 
 app = FastAPI()
 
