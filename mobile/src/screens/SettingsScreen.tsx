@@ -11,12 +11,16 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { user, signOut } = useAuth();
   const [setupToken, setSetupToken] = useState('');
   const [linking, setLinking] = useState(false);
@@ -43,149 +47,153 @@ export default function SettingsScreen() {
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: signOut,
-      },
+      { text: 'Sign Out', style: 'destructive', onPress: signOut },
     ]);
   };
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
-      </View>
+  const aboutRows = [
+    { label: 'App', value: 'SwipeSmart' },
+    { label: 'Version', value: '1.0.0' },
+    { label: 'Backend', value: 'FastAPI + Supabase' },
+    { label: 'AI Engine', value: 'RAG + Groq' },
+  ];
 
-      {/* Profile Card */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <LinearGradient
-            colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-            style={styles.profileIcon}
-          >
-            <Ionicons name="person" size={24} color="#FFF" />
-          </LinearGradient>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileEmail}>{user?.email || 'Unknown'}</Text>
-            <Text style={styles.profileLabel}>Authenticated User</Text>
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#000000', '#000000', '#000000']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.bgGlowTop} />
+      <View style={styles.bgGlowBottom} />
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + 8, paddingBottom: 110 + insets.bottom },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+            <Text style={styles.headerTitle}>Settings</Text>
+          </View>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
+             <Ionicons name="close" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.profileRow}>
+            <LinearGradient
+              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+              style={styles.profileAvatar}
+            >
+              <Ionicons name="person" size={22} color="#fff" />
+            </LinearGradient>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileEmail} numberOfLines={1}>
+                {user?.email || 'Unknown'}
+              </Text>
+              <View style={styles.profileBadge}>
+                <View style={styles.profileDot} />
+                <Text style={styles.profileBadgeText}>Authenticated</Text>
+              </View>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Bank Linking Section */}
-      <View style={styles.sectionHeader}>
-        <Ionicons name="link" size={16} color={Colors.textSecondary} />
-        <Text style={styles.sectionTitle}>Link Bank Account</Text>
-      </View>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Link Bank Account</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardDesc}>
+            Paste your SimpleFIN setup token to connect your bank accounts. Get yours at{' '}
+            <Text style={styles.linkText}>bridge.simplefin.org</Text>
+          </Text>
+          <TextInput
+            style={styles.tokenInput}
+            value={setupToken}
+            onChangeText={setSetupToken}
+            placeholder="Paste base64 setup token..."
+            placeholderTextColor={Colors.textMuted}
+            multiline
+            numberOfLines={3}
+          />
+          <TouchableOpacity onPress={handleExchangeToken} disabled={linking} activeOpacity={0.85}>
+            <LinearGradient
+              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+              style={styles.primaryButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {linking ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="swap-horizontal" size={17} color="#fff" />
+                  <Text style={styles.primaryButtonText}>Exchange Token</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
 
-      <View style={styles.card}>
-        <Text style={styles.cardDescription}>
-          Paste your SimpleFIN setup token to connect your bank accounts. You can get this from{' '}
-          <Text style={styles.link}>bridge.simplefin.org</Text>
-        </Text>
-
-        <TextInput
-          style={styles.tokenInput}
-          value={setupToken}
-          onChangeText={setSetupToken}
-          placeholder="Paste base64 setup token..."
-          placeholderTextColor={Colors.textMuted}
-          multiline
-          numberOfLines={3}
-        />
-
-        <TouchableOpacity
-          onPress={handleExchangeToken}
-          disabled={linking}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-            style={styles.linkButton}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            {linking ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <>
-                <Ionicons name="swap-horizontal" size={18} color="#FFF" />
-                <Text style={styles.linkButtonText}>Exchange Token</Text>
-              </>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {linkResult && (
-          <View
-            style={[
-              styles.resultBadge,
-              {
-                backgroundColor: linkResult.success
-                  ? 'rgba(52, 211, 153, 0.15)'
-                  : 'rgba(248, 113, 113, 0.15)',
-              },
-            ]}
-          >
-            <Ionicons
-              name={linkResult.success ? 'checkmark-circle' : 'alert-circle'}
-              size={16}
-              color={linkResult.success ? Colors.success : Colors.error}
-            />
-            <Text
+          {linkResult && (
+            <View
               style={[
-                styles.resultText,
-                { color: linkResult.success ? Colors.success : Colors.error },
+                styles.resultBadge,
+                {
+                  backgroundColor: linkResult.success
+                    ? 'rgba(46,230,166,0.12)'
+                    : 'rgba(248,113,113,0.12)',
+                },
               ]}
             >
-              {linkResult.message}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* About Section */}
-      <View style={styles.sectionHeader}>
-        <Ionicons name="information-circle" size={16} color={Colors.textSecondary} />
-        <Text style={styles.sectionTitle}>About</Text>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>App</Text>
-          <Text style={styles.aboutValue}>SwipeSmart</Text>
+              <Ionicons
+                name={linkResult.success ? 'checkmark-circle' : 'alert-circle'}
+                size={15}
+                color={linkResult.success ? Colors.accentEmerald : Colors.negative}
+              />
+              <Text
+                style={[
+                  styles.resultText,
+                  { color: linkResult.success ? Colors.accentEmerald : Colors.negative },
+                ]}
+              >
+                {linkResult.message}
+              </Text>
+            </View>
+          )}
         </View>
-        <View style={styles.divider} />
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Version</Text>
-          <Text style={styles.aboutValue}>1.0.0</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Backend</Text>
-          <Text style={styles.aboutValue}>FastAPI + Supabase</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>AI Engine</Text>
-          <Text style={styles.aboutValue}>RAG + Groq</Text>
-        </View>
-      </View>
 
-      {/* Sign Out */}
-      <TouchableOpacity
-        style={styles.signOutButton}
-        onPress={handleSignOut}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </TouchableOpacity>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>About</Text>
+        </View>
+        <View style={styles.card}>
+          {aboutRows.map((row, i) => (
+            <View key={row.label}>
+              <View style={styles.aboutRow}>
+                <Text style={styles.aboutLabel}>{row.label}</Text>
+                <Text style={styles.aboutValue}>{row.value}</Text>
+              </View>
+              {i < aboutRows.length - 1 && <View style={styles.divider} />}
+            </View>
+          ))}
+        </View>
 
-      <View style={{ height: 100 }} />
-    </ScrollView>
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="log-out-outline" size={18} color={Colors.negative} />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -194,89 +202,122 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.bgPrimary,
   },
-  content: {
-    paddingBottom: 40,
+  bgGlowTop: {
+    display: 'none',
+  },
+  bgGlowBottom: {
+    display: 'none',
+  },
+  scroll: {
+    paddingHorizontal: 20,
   },
   header: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingBottom: 18,
+    paddingTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerEyebrow: {
+    ...Typography.caption1,
+    color: Colors.accentBlueBright,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   headerTitle: {
     ...Typography.largeTitle,
     color: Colors.textPrimary,
   },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+  },
   card: {
     backgroundColor: Colors.bgCard,
-    marginHorizontal: 20,
-    borderRadius: 18,
-    padding: 20,
+    borderRadius: 22,
+    padding: 18,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
     marginBottom: 8,
   },
-  cardHeader: {
+  profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
-  profileIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    justifyContent: 'center',
+  profileAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   profileInfo: {
     flex: 1,
   },
   profileEmail: {
-    ...Typography.headline,
+    ...Typography.subhead,
     color: Colors.textPrimary,
+    fontWeight: '700',
   },
-  profileLabel: {
-    ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  sectionHeader: {
+  profileBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 10,
+    gap: 5,
+    marginTop: 5,
   },
-  sectionTitle: {
-    ...Typography.footnote,
-    color: Colors.textSecondary,
+  profileDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.accentEmerald,
+  },
+  profileBadgeText: {
+    ...Typography.caption2,
+    color: Colors.accentEmerald,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  cardDescription: {
+  sectionHeader: {
+    paddingTop: 22,
+    paddingBottom: 8,
+    paddingLeft: 4,
+  },
+  sectionLabel: {
+    ...Typography.footnote,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontWeight: '600',
+  },
+  cardDesc: {
     ...Typography.footnote,
     color: Colors.textSecondary,
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  link: {
+  linkText: {
     color: Colors.accentBlueBright,
     fontWeight: '600',
   },
   tokenInput: {
     backgroundColor: Colors.bgInput,
     borderRadius: 14,
-    padding: 16,
+    padding: 14,
     color: Colors.textPrimary,
     ...Typography.mono,
     minHeight: 72,
     borderWidth: 1,
     borderColor: Colors.border,
     textAlignVertical: 'top',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  linkButton: {
+  primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -284,18 +325,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 8,
   },
-  linkButtonText: {
+  primaryButtonText: {
     ...Typography.headline,
-    color: '#FFF',
+    color: '#fff',
     fontSize: 15,
   },
   resultBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 14,
+    marginTop: 12,
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRadius: 10,
   },
   resultText: {
@@ -307,7 +348,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   aboutLabel: {
     ...Typography.subhead,
@@ -328,17 +369,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginHorizontal: 20,
     marginTop: 24,
     paddingVertical: 16,
     backgroundColor: Colors.bgCard,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.2)',
+    borderColor: 'rgba(248, 113, 113, 0.18)',
   },
   signOutText: {
     ...Typography.headline,
-    color: Colors.error,
+    color: Colors.negative,
     fontSize: 15,
   },
 });

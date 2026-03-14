@@ -1,17 +1,22 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Keyboard,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Markdown from 'react-native-markdown-display';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ChatMessage } from '../services/api';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -24,13 +29,119 @@ interface DisplayMessage {
 
 const CHAT_HISTORY_LIMIT = 20;
 
+const QUICK_PROMPTS = [
+  'Show my biggest categories this month in a table.',
+  'Give me a concise weekly spending summary.',
+  'Find unusual transactions I should verify.',
+];
+
+function TypingIndicator() {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.35,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View style={[styles.typingRow, { opacity: pulse }]}> 
+      <View style={styles.typingDot} />
+      <View style={styles.typingDot} />
+      <View style={styles.typingDot} />
+    </Animated.View>
+  );
+}
+
+function MessageBubble({ item }: { item: DisplayMessage }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const y = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(y, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, y]);
+
+  if (item.role === 'typing') {
+    return (
+      <Animated.View style={[styles.messageRow, styles.assistantRow, { opacity, transform: [{ translateY: y }] }]}> 
+        <View style={styles.assistantAvatar}>
+          <Ionicons name="sparkles" size={13} color="#0D1116" />
+        </View>
+        <View style={[styles.bubble, styles.assistantBubble]}>
+          <TypingIndicator />
+        </View>
+      </Animated.View>
+    );
+  }
+
+  const isUser = item.role === 'user';
+  return (
+    <Animated.View style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow, { opacity, transform: [{ translateY: y }] }]}> 
+      {!isUser && (
+        <View style={styles.assistantAvatar}>
+          <Image source={require('../../images/osho_chat.png')} style={styles.avatarImage} />
+        </View>
+      )}
+
+      {isUser ? (
+        <LinearGradient
+          colors={[Colors.gradientAccentStart, '#6EA6FF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.bubble, styles.userBubble]}
+        >
+          <Text style={styles.userText}>{item.content}</Text>
+        </LinearGradient>
+      ) : (
+        <View style={[styles.bubble, styles.assistantBubble]}>
+          <Markdown style={markdownStyles}>{item.content}</Markdown>
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
 export default function ChatScreen() {
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-  let msgCounter = useRef(0);
+  const flatListRef = useRef<FlatList<DisplayMessage>>(null);
+  const msgCounter = useRef(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
+
+  const quickPrompts = useMemo(() => QUICK_PROMPTS, []);
 
   const nextId = () => {
     msgCounter.current += 1;
@@ -40,7 +151,7 @@ export default function ChatScreen() {
   const scrollToEnd = () => {
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    }, 80);
   };
 
   const handleSend = async () => {
@@ -52,6 +163,7 @@ export default function ChatScreen() {
       role: 'user',
       content: question,
     };
+
     const typingMsg: DisplayMessage = {
       id: 'typing',
       role: 'typing',
@@ -63,24 +175,17 @@ export default function ChatScreen() {
     setSending(true);
     scrollToEnd();
 
-    // Build history for this request (before adding current turn)
     const requestHistory = [...history];
 
     try {
       const data = await api.ask(question, requestHistory);
-
-      // Remove typing indicator and add assistant response
       const assistantMsg: DisplayMessage = {
         id: nextId(),
         role: 'assistant',
         content: data.response,
       };
 
-      setMessages((prev) =>
-        prev.filter((m) => m.id !== 'typing').concat(assistantMsg)
-      );
-
-      // Update conversation history
+      setMessages((prev) => prev.filter((m) => m.id !== 'typing').concat(assistantMsg));
       setHistory((prev) => {
         const updated = [
           ...prev,
@@ -93,161 +198,117 @@ export default function ChatScreen() {
       const errorMsg: DisplayMessage = {
         id: nextId(),
         role: 'assistant',
-        content: `Error: ${err.message || 'Something went wrong'}`,
+        content: `I hit a snag: ${err?.message || 'Something went wrong.'}`,
       };
-      setMessages((prev) =>
-        prev.filter((m) => m.id !== 'typing').concat(errorMsg)
-      );
+      setMessages((prev) => prev.filter((m) => m.id !== 'typing').concat(errorMsg));
     } finally {
       setSending(false);
       scrollToEnd();
     }
   };
 
-  const renderMessage = ({ item }: { item: DisplayMessage }) => {
-    if (item.role === 'typing') {
-      return (
-        <View style={[styles.bubble, styles.assistantBubble]}>
-          <View style={styles.typingDots}>
-            <View style={[styles.dot, styles.dot1]} />
-            <View style={[styles.dot, styles.dot2]} />
-            <View style={[styles.dot, styles.dot3]} />
-          </View>
-        </View>
-      );
-    }
+  const canSend = input.trim().length > 0 && !sending;
 
-    const isUser = item.role === 'user';
-    return (
-      <View
-        style={[
-          styles.bubbleWrapper,
-          isUser ? styles.userWrapper : styles.assistantWrapper,
-        ]}
-      >
-        {!isUser && (
-          <View style={styles.avatarContainer}>
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.avatar}
-            >
-              <Ionicons name="sparkles" size={14} color="#FFF" />
-            </LinearGradient>
-          </View>
-        )}
-        <View
-          style={[
-            styles.bubble,
-            isUser ? styles.userBubble : styles.assistantBubble,
-          ]}
-        >
-          <Text
-            style={[
-              styles.bubbleText,
-              isUser ? styles.userBubbleText : styles.assistantBubbleText,
-            ]}
-          >
-            {item.content}
-          </Text>
-        </View>
-      </View>
-    );
+  const handleClearChat = () => {
+    setMessages([]);
+    setHistory([]);
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <LinearGradient
-          colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-          style={styles.headerIcon}
-        >
-          <Ionicons name="sparkles" size={18} color="#FFF" />
-        </LinearGradient>
-        <View>
-          <Text style={styles.headerTitle}>Financial Assistant</Text>
-          <Text style={styles.headerSubtitle}>Powered by RAG + Groq</Text>
+      <LinearGradient
+        colors={['#000000', '#000000']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+          <Text style={styles.headerTitle}>Osho</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>Online</Text>
+          </View>
+          <TouchableOpacity onPress={handleClearChat} style={styles.clearBtn} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={20} color={Colors.textMuted} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={[
-          styles.messageList,
-          messages.length === 0 && styles.emptyList,
-        ]}
+        renderItem={({ item }) => <MessageBubble item={item} />}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.messages,
+          messages.length === 0 && styles.emptyMessages,
+          { paddingBottom: 20 },
+        ]}
+        keyboardDismissMode="interactive"
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={52} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>Ask me anything</Text>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="chatbubble-ellipses" size={26} color={Colors.textPrimary} />
+            </View>
+            <Text style={styles.emptyTitle}>Talk to Osho</Text>
             <Text style={styles.emptySubtitle}>
-              I can analyze your transactions, answer spending questions, and provide financial guidance
+              SwipeChat delivers intelligent money insights with rich summaries, markdown tables, and concise recommendations.
             </Text>
-            <View style={styles.suggestions}>
-              {[
-                'What did I spend on food this week?',
-                'How can I cut down on spending?',
-                'Where was my last transaction?',
-              ].map((suggestion, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.suggestionChip}
-                  onPress={() => {
-                    setInput(suggestion);
-                  }}
-                >
-                  <Text style={styles.suggestionText}>{suggestion}</Text>
-                </TouchableOpacity>
+
+            <View style={styles.promptWrap}>
+              {quickPrompts.map((prompt) => (
+                <Pressable key={prompt} style={styles.promptChip} onPress={() => setInput(prompt)}>
+                  <Ionicons name="flash-outline" size={14} color={Colors.accentBlueBright} />
+                  <Text style={styles.promptText}>{prompt}</Text>
+                </Pressable>
               ))}
             </View>
           </View>
         }
       />
 
-      {/* Input Bar */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={90}
       >
-        <View style={styles.inputBar}>
-          <TextInput
-            style={styles.textInput}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask about your transactions..."
-            placeholderTextColor={Colors.textMuted}
-            multiline
-            maxLength={500}
-            editable={!sending}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
-            onPress={handleSend}
-            disabled={sending || !input.trim()}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={
-                input.trim() && !sending
-                  ? [Colors.gradientAccentStart, Colors.gradientAccentEnd]
-                  : [Colors.bgCardElevated, Colors.bgCardElevated]
-              }
-              style={styles.sendButton}
+        <View style={[styles.composerWrap]}> 
+            <View style={styles.composerInner}>
+              <TextInput
+                value={input}
+                onChangeText={setInput}
+                style={styles.input}
+                placeholder="Ask Osho about your finances..."
+                placeholderTextColor={Colors.textMuted}
+                keyboardAppearance="dark"
+                multiline
+                editable={!sending}
+                maxLength={700}
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
+            />
+            <TouchableOpacity
+              onPress={handleSend}
+              disabled={!canSend}
+              activeOpacity={0.85}
+              style={styles.sendTapTarget}
             >
-              <Ionicons
-                name="arrow-up"
-                size={20}
-                color={input.trim() && !sending ? '#FFF' : Colors.textMuted}
-              />
-            </LinearGradient>
-          </TouchableOpacity>
+              <View
+                style={[
+                  styles.sendButton,
+                  { backgroundColor: canSend ? Colors.accentBlueBright : '#2A3040' }
+                ]}
+              >
+                <Ionicons name="arrow-up" size={20} color={canSend ? '#FFF' : Colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
+        <View style={{ height: keyboardVisible ? 0 : 100 }} />
       </KeyboardAvoidingView>
     </View>
   );
@@ -259,166 +320,281 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgPrimary,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: 14,
-  },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
+    paddingBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  headerTitleWrap: {
+    justifyContent: 'center',
+  },
+  headerEyebrow: {
+    ...Typography.caption1,
+    color: Colors.accentBlueBright,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   headerTitle: {
-    ...Typography.headline,
+    ...Typography.largeTitle,
     color: Colors.textPrimary,
   },
-  headerSubtitle: {
-    ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginTop: 1,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  messageList: {
-    padding: 16,
-    paddingBottom: 8,
+  clearBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  emptyList: {
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(46,230,166,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.accentEmerald,
+  },
+  liveText: {
+    ...Typography.caption2,
+    color: Colors.accentEmerald,
+    fontWeight: '700',
+  },
+  messages: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  emptyMessages: {
     flex: 1,
     justifyContent: 'center',
   },
-  bubbleWrapper: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    alignItems: 'flex-end',
-  },
-  userWrapper: {
-    justifyContent: 'flex-end',
-  },
-  assistantWrapper: {
-    justifyContent: 'flex-start',
-  },
-  avatarContainer: {
-    marginRight: 8,
-    marginBottom: 2,
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bubble: {
-    maxWidth: '78%',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-  },
-  userBubble: {
-    backgroundColor: Colors.accentBlue,
-    borderBottomRightRadius: 6,
-    marginLeft: 'auto',
-  },
-  assistantBubble: {
-    backgroundColor: Colors.bgCard,
-    borderBottomLeftRadius: 6,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-  },
-  bubbleText: {
-    ...Typography.subhead,
-    lineHeight: 22,
-  },
-  userBubbleText: {
-    color: '#FFF',
-  },
-  assistantBubbleText: {
-    color: Colors.textPrimary,
-  },
-  typingDots: {
-    flexDirection: 'row',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.textMuted,
-  },
-  dot1: { opacity: 0.4 },
-  dot2: { opacity: 0.6 },
-  dot3: { opacity: 0.8 },
   emptyState: {
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  emptyIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(79,124,255,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(130,166,255,0.32)',
   },
   emptyTitle: {
-    ...Typography.title3,
-    color: Colors.textSecondary,
-    marginTop: 16,
+    ...Typography.title2,
+    color: Colors.textPrimary,
+    marginTop: 14,
   },
   emptySubtitle: {
     ...Typography.footnote,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
   },
-  suggestions: {
-    marginTop: 24,
-    gap: 10,
+  promptWrap: {
+    marginTop: 18,
     width: '100%',
+    gap: 10,
   },
-  suggestionChip: {
-    backgroundColor: Colors.bgCard,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+  promptChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  promptText: {
+    ...Typography.footnote,
+    color: '#CFE0FF',
+    flex: 1,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 12,
+  },
+  userRow: {
+    justifyContent: 'flex-end',
+  },
+  assistantRow: {
+    justifyContent: 'flex-start',
+  },
+  assistantAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+    marginBottom: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  bubble: {
+    maxWidth: '84%',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  userBubble: {
+    borderBottomRightRadius: 8,
+  },
+  assistantBubble: {
+    borderBottomLeftRadius: 8,
+    backgroundColor: '#1A1F2A',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
   },
-  suggestionText: {
-    ...Typography.footnote,
-    color: Colors.accentBlueBright,
-    textAlign: 'center',
+  userText: {
+    ...Typography.subhead,
+    color: '#fff',
+    lineHeight: 21,
   },
-  inputBar: {
+  typingRow: {
+    flexDirection: 'row',
+    gap: 5,
+    paddingHorizontal: 2,
+  },
+  typingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: Colors.textMuted,
+  },
+  composerWrap: {
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    backgroundColor: 'transparent',
+  },
+  composerInner: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 34,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.bgSecondary,
-    gap: 10,
-  },
-  textInput: {
-    flex: 1,
-    backgroundColor: Colors.bgInput,
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 12,
-    color: Colors.textPrimary,
-    ...Typography.subhead,
-    maxHeight: 100,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(38,42,50,0.92)',
+    paddingLeft: 13,
+    paddingRight: 8,
+    paddingVertical: 7,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  input: {
+    flex: 1,
+    ...Typography.subhead,
+    color: Colors.textPrimary,
+    minHeight: 38,
+    maxHeight: 120,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  sendTapTarget: {
+    paddingBottom: 0,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+const markdownStyles = StyleSheet.create({
+  body: {
+    color: Colors.textPrimary,
+    ...Typography.subhead,
+    lineHeight: 21,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 8,
+  },
+  strong: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  bullet_list: {
+    marginVertical: 0,
+  },
+  list_item: {
+    color: Colors.textPrimary,
+    marginBottom: 3,
+  },
+  fence: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: Colors.glassBorder,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    color: '#DEE8FF',
+    fontSize: 12,
+  },
+  table: {
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  thead: {
+    backgroundColor: 'rgba(79,124,255,0.14)',
+  },
+  th: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    color: '#E6EEFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  td: {
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    color: '#E4E8F0',
+    fontSize: 12,
+  },
+  tr: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.glassBorder,
+  },
+  hr: {
+    backgroundColor: Colors.glassBorder,
+    marginVertical: 8,
+  },
+  blockquote: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.accentBlueBright,
+    paddingLeft: 10,
+    opacity: 0.9,
   },
 });

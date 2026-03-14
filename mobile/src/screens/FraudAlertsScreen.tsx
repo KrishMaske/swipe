@@ -1,17 +1,26 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
   ActivityIndicator,
   Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { api, FraudTransaction } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
@@ -20,7 +29,7 @@ import { Typography } from '../theme/typography';
 function formatDate(txnDate: any): string {
   try {
     const d = new Date(txnDate);
-    if (!isNaN(d.getTime())) {
+    if (!Number.isNaN(d.getTime())) {
       return d.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -43,25 +52,57 @@ function formatAmount(amount: number): string {
 }
 
 function riskLabel(score: number): { text: string; color: string } {
-  if (score >= 0.75) return { text: 'Critical', color: '#EF4444' };
-  if (score >= 0.5) return { text: 'High', color: '#F97316' };
+  if (score >= 0.75) return { text: 'Critical', color: Colors.negative };
+  if (score >= 0.5) return { text: 'High', color: '#FFB347' };
   if (score >= 0.25) return { text: 'Medium', color: Colors.accentAmber };
   return { text: 'Low', color: Colors.accentEmerald };
 }
 
 export default function FraudAlertsScreen() {
+  const insets = useSafeAreaInsets();
   const {
     fraudAlertsCache,
     fraudAlertsLoading,
     fetchFraudAlerts,
     optimisticallyRemoveFraudAlert,
   } = useData();
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
 
   const transactions = fraudAlertsCache?.data || [];
   const loading = fraudAlertsLoading && transactions.length === 0;
+
+  const pulse = useSharedValue(0.9);
+  React.useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(1.08, {
+        duration: 1800,
+        easing: Easing.inOut(Easing.quad),
+      }),
+      -1,
+      true
+    );
+  }, [pulse]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+    opacity: 0.2 + (pulse.value - 0.9) * 1.2,
+  }));
+
+  const criticalCount = useMemo(
+    () => transactions.filter((t) => (t.risk_score ?? 0) >= 0.75).length,
+    [transactions]
+  );
+
+  const flaggedCount = transactions.filter((t) => (t.risk_score ?? 0) >= 0.5).length;
+
+  const recentScans = useMemo(() => {
+    return transactions.slice(0, 8).map((t) => ({
+      ...t,
+      status: (t.risk_score ?? 0) >= 0.5 ? 'Flagged' : 'Verified',
+    }));
+  }, [transactions]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -77,183 +118,179 @@ export default function FraudAlertsScreen() {
 
   const handleAction = async (txnId: string, isConfirmedFraud: boolean) => {
     setUpdating(txnId);
-    
-    // Optimistic UI update - remove instantly from the screen
     optimisticallyRemoveFraudAlert(txnId);
-    
+
     try {
-      // Fire-and-forget the API call so the UI doesn't block
       api.updateFraudStatus(txnId, isConfirmedFraud).catch((err: any) => {
-        // Only show error if the background call fails
         Alert.alert('Error', err.message || 'Failed to update status');
-        // A robust app might revert the optimistic update here, 
-        // but for now we'll just show the error.
       });
     } finally {
       setUpdating(null);
     }
   };
 
-  const renderTransaction = ({ item }: { item: FraudTransaction }) => {
-    const risk = riskLabel(item.risk_score ?? 0);
-    const isNegative = item.amount < 0;
-    const isProcessing = updating === item.txn_id;
-
-    return (
-      <View style={styles.card}>
-        {/* Risk badge */}
-        <View style={styles.cardHeader}>
-          <View style={styles.merchantRow}>
-            <View style={[styles.riskDot, { backgroundColor: risk.color }]} />
-            <Text style={styles.merchantName} numberOfLines={1}>
-              {item.merchant || 'Unknown Merchant'}
-            </Text>
-          </View>
-          <View style={[styles.riskBadge, { backgroundColor: risk.color + '22' }]}>
-            <Text style={[styles.riskText, { color: risk.color }]}>
-              {risk.text} Risk
-            </Text>
-          </View>
-        </View>
-
-        {/* Transaction details */}
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <Ionicons name="cash-outline" size={14} color={Colors.textMuted} />
-            <Text
-              style={[
-                styles.detailValue,
-                { color: isNegative ? Colors.negative : Colors.positive },
-              ]}
-            >
-              {formatAmount(item.amount)}
-            </Text>
-          </View>
-          <View style={styles.detailItem}>
-            <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
-            <Text style={styles.detailValue}>{formatDate(item.txn_date)}</Text>
-          </View>
-          {item.category && (
-            <View style={styles.detailItem}>
-              <Ionicons name="pricetag-outline" size={14} color={Colors.textMuted} />
-              <Text style={styles.detailValue}>{item.category}</Text>
-            </View>
-          )}
-        </View>
-
-        {item.city && item.city !== 'REMOTE' && (
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
-            <Text style={styles.locationText}>
-              {item.city}
-              {item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-            </Text>
-          </View>
-        )}
-
-        {/* Risk score bar */}
-        <View style={styles.riskBarContainer}>
-          <Text style={styles.riskBarLabel}>Risk Score</Text>
-          <View style={styles.riskBarTrack}>
-            <LinearGradient
-              colors={['#34D399', '#FBBF24', '#EF4444']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.riskBarFill, { width: `${Math.min((item.risk_score ?? 0) * 100, 100)}%` }]}
-            />
-          </View>
-          <Text style={[styles.riskBarValue, { color: risk.color }]}>
-            {((item.risk_score ?? 0) * 100).toFixed(0)}%
-          </Text>
-        </View>
-
-        {/* Action buttons */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.dismissBtn]}
-            onPress={() => handleAction(item.txn_id, false)}
-            disabled={isProcessing}
-            activeOpacity={0.7}
-          >
-            {isProcessing ? (
-              <ActivityIndicator size="small" color={Colors.accentEmerald} />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={18} color={Colors.accentEmerald} />
-                <Text style={[styles.actionText, { color: Colors.accentEmerald }]}>Not Fraud</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.confirmBtn]}
-            onPress={() => handleAction(item.txn_id, true)}
-            disabled={isProcessing}
-            activeOpacity={0.7}
-          >
-            {isProcessing ? (
-              <ActivityIndicator size="small" color={Colors.negative} />
-            ) : (
-              <>
-                <Ionicons name="alert-circle-outline" size={18} color={Colors.negative} />
-                <Text style={[styles.actionText, { color: Colors.negative }]}>Confirm Fraud</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.accentBlue} />
+        <ActivityIndicator size="large" color={Colors.accentBlueBright} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerIcon}>
-          <Ionicons name="shield" size={28} color={Colors.accentCoral} />
-        </View>
-        <View>
-          <Text style={styles.headerTitle}>Fraud Alerts</Text>
-          <Text style={styles.headerSubtitle}>
-            {transactions.length} flagged transaction{transactions.length !== 1 ? 's' : ''}
-          </Text>
-        </View>
-      </View>
+      <LinearGradient
+        colors={['#000000', '#000000', '#000000']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.bgGlow} />
 
-      {transactions.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="shield-checkmark" size={56} color={Colors.accentEmerald} />
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 8, paddingBottom: 110 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.accentBlueBright}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+            <Text style={styles.headerTitle}>SwipeGuard</Text>
           </View>
-          <Text style={styles.emptyTitle}>All Clear</Text>
-          <Text style={styles.emptySubtitle}>
-            No suspicious transactions detected. We'll alert you if anything looks off.
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>Scanning</Text>
+          </View>
+        </View>
+
+        <View style={styles.statusCard}>
+          <Animated.View style={[styles.pulseRing, pulseStyle]} />
+          <LinearGradient
+            colors={['rgba(79,124,255,0.28)', 'rgba(46,230,166,0.22)']}
+            style={styles.systemShield}
+          >
+            <Ionicons name="shield-checkmark" size={36} color={Colors.textPrimary} />
+          </LinearGradient>
+          <Text style={styles.systemLabel}>System Status</Text>
+          <Text style={styles.systemValue}>{flaggedCount > 0 ? 'Threats Detected' : 'Protected'}</Text>
+          <Text style={styles.systemSubtitle}>
+            {transactions.length} transactions scanned in this cycle
           </Text>
         </View>
-      ) : (
-        <FlatList
-          data={transactions}
-          keyExtractor={(item) => item.txn_id}
-          renderItem={renderTransaction}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={Colors.accentBlue}
-            />
-          }
-        />
-      )}
+
+        <View style={styles.metricRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Scanned</Text>
+            <Text style={styles.metricValue}>{transactions.length}</Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Flagged</Text>
+            <Text style={[styles.metricValue, { color: Colors.negative }]}>{flaggedCount}</Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Critical</Text>
+            <Text style={[styles.metricValue, { color: '#FFB3B3' }]}>{criticalCount}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Recent Scans</Text>
+        <View style={styles.scanList}>
+          {recentScans.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="shield-checkmark" size={44} color={Colors.accentEmerald} />
+              <Text style={styles.emptyTitle}>No alerts right now</Text>
+              <Text style={styles.emptySubtitle}>SwipeGuard is actively monitoring for anomalies.</Text>
+            </View>
+          ) : (
+            recentScans.map((item, index) => {
+              const flagged = item.status === 'Flagged';
+              const badgeColor = flagged ? Colors.negative : Colors.accentEmerald;
+              return (
+                <Animated.View key={item.txn_id} entering={FadeInDown.delay(index * 55).springify()} style={styles.scanItem}>
+                  <View style={styles.scanItemLeft}>
+                    <View style={styles.scanIconWrap}>
+                      <Ionicons name={flagged ? 'warning-outline' : 'checkmark-done-outline'} size={16} color={badgeColor} />
+                    </View>
+                    <View>
+                      <Text style={styles.scanMerchant} numberOfLines={1}>
+                        {item.merchant || 'Unknown Merchant'}
+                      </Text>
+                      <Text style={styles.scanMeta}>{formatDate(item.txn_date)} · {formatAmount(item.amount)}</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.scanBadge, { backgroundColor: badgeColor + '20' }]}>
+                    <Text style={[styles.scanBadgeText, { color: badgeColor }]}>{item.status}</Text>
+                  </View>
+                </Animated.View>
+              );
+            })
+          )}
+        </View>
+
+        {transactions.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Action Queue</Text>
+            <View style={styles.queueList}>
+              {transactions.map((item, index) => {
+                const risk = riskLabel(item.risk_score ?? 0);
+                const isProcessing = updating === item.txn_id;
+                return (
+                  <Animated.View key={item.txn_id} entering={FadeInDown.delay(index * 80).springify()} style={styles.queueCard}>
+                    <View style={styles.queueHeader}>
+                      <Text style={styles.queueMerchant}>{item.merchant || 'Unknown Merchant'}</Text>
+                      <View style={[styles.riskBadge, { backgroundColor: risk.color + '1F' }]}>
+                        <Text style={[styles.riskBadgeText, { color: risk.color }]}>{risk.text}</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.queueMeta}>{formatAmount(item.amount)} · {formatDate(item.txn_date)}</Text>
+
+                    <View style={styles.actionRow}>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.safeButton]}
+                        onPress={() => handleAction(item.txn_id, false)}
+                        disabled={isProcessing}
+                        activeOpacity={0.85}
+                      >
+                        {isProcessing ? (
+                          <ActivityIndicator size="small" color={Colors.accentEmerald} />
+                        ) : (
+                          <>
+                            <Ionicons name="checkmark-circle-outline" size={16} color={Colors.accentEmerald} />
+                            <Text style={[styles.actionText, { color: Colors.accentEmerald }]}>Mark Safe</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.fraudButton]}
+                        onPress={() => handleAction(item.txn_id, true)}
+                        disabled={isProcessing}
+                        activeOpacity={0.85}
+                      >
+                        {isProcessing ? (
+                          <ActivityIndicator size="small" color={Colors.negative} />
+                        ) : (
+                          <>
+                            <Ionicons name="alert-circle-outline" size={16} color={Colors.negative} />
+                            <Text style={[styles.actionText, { color: Colors.negative }]}>Confirm Fraud</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </Animated.View>
+                );
+              })}
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -267,178 +304,255 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 64,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    gap: 14,
+  scroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
   },
-  headerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: Colors.accentCoral + '18',
-    justifyContent: 'center',
+  bgGlow: {
+    display: 'none',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerEyebrow: {
+    ...Typography.caption1,
+    color: Colors.accentBlueBright,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   headerTitle: {
-    ...Typography.title2,
+    ...Typography.largeTitle,
     color: Colors.textPrimary,
   },
-  headerSubtitle: {
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(46,230,166,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.accentEmerald,
+  },
+  liveText: {
+    ...Typography.caption2,
+    color: Colors.accentEmerald,
+    fontWeight: '700',
+  },
+  statusCard: {
+    alignItems: 'center',
+    borderRadius: 24,
+    paddingTop: 22,
+    paddingBottom: 18,
+    marginBottom: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    overflow: 'hidden',
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1,
+    borderColor: 'rgba(130,166,255,0.55)',
+    top: -6,
+  },
+  systemShield: {
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+  },
+  systemLabel: {
+    ...Typography.caption1,
+    color: Colors.textMuted,
+    marginTop: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  systemValue: {
+    ...Typography.headline,
+    color: Colors.textPrimary,
+    marginTop: 4,
+  },
+  systemSubtitle: {
+    ...Typography.footnote,
+    color: Colors.textMuted,
+    marginTop: 4,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  metricCard: {
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  metricLabel: {
+    ...Typography.caption2,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+  },
+  metricValue: {
+    ...Typography.title3,
+    color: Colors.textPrimary,
+    marginTop: 4,
+  },
+  sectionTitle: {
+    ...Typography.headline,
+    color: Colors.textPrimary,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  scanList: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 10,
+    gap: 8,
+  },
+  scanItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+  },
+  scanItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  scanIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  scanMerchant: {
+    ...Typography.subhead,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  scanMeta: {
     ...Typography.caption1,
     color: Colors.textMuted,
     marginTop: 2,
   },
-  list: {
-    padding: 16,
-    paddingBottom: 100,
+  scanBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  card: {
-    backgroundColor: Colors.bgCard,
+  scanBadgeText: {
+    ...Typography.caption2,
+    fontWeight: '700',
+  },
+  queueList: {
+    gap: 10,
+  },
+  queueCard: {
     borderRadius: 18,
-    padding: 18,
-    marginBottom: 14,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
-  cardHeader: {
+  queueHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
+    gap: 8,
   },
-  merchantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
-  },
-  riskDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 10,
-  },
-  merchantName: {
-    ...Typography.headline,
+  queueMerchant: {
+    ...Typography.subhead,
     color: Colors.textPrimary,
+    fontWeight: '700',
     flex: 1,
   },
-  riskBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  riskText: {
-    ...Typography.caption2,
-    fontWeight: '700',
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 10,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  detailValue: {
-    ...Typography.footnote,
-    color: Colors.textSecondary,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 12,
-  },
-  locationText: {
+  queueMeta: {
     ...Typography.caption1,
     color: Colors.textMuted,
+    marginTop: 4,
   },
-  riskBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
+  riskBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
-  riskBarLabel: {
-    ...Typography.caption2,
-    color: Colors.textMuted,
-  },
-  riskBarTrack: {
-    flex: 1,
-    height: 6,
-    backgroundColor: Colors.bgCardElevated,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  riskBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  riskBarValue: {
+  riskBadgeText: {
     ...Typography.caption2,
     fontWeight: '700',
-    width: 34,
-    textAlign: 'right',
   },
-  actions: {
+  actionRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
+    marginTop: 10,
   },
-  actionBtn: {
+  actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
     borderRadius: 12,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
     gap: 6,
   },
-  dismissBtn: {
-    backgroundColor: Colors.accentEmerald + '14',
+  safeButton: {
+    backgroundColor: 'rgba(46,230,166,0.11)',
     borderWidth: 1,
-    borderColor: Colors.accentEmerald + '30',
+    borderColor: 'rgba(46,230,166,0.3)',
   },
-  confirmBtn: {
-    backgroundColor: Colors.negative + '14',
+  fraudButton: {
+    backgroundColor: 'rgba(255,107,107,0.11)',
     borderWidth: 1,
-    borderColor: Colors.negative + '30',
+    borderColor: 'rgba(255,107,107,0.3)',
   },
   actionText: {
     ...Typography.footnote,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   emptyState: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: Colors.accentEmerald + '14',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+    paddingVertical: 24,
   },
   emptyTitle: {
-    ...Typography.title2,
+    ...Typography.headline,
     color: Colors.textPrimary,
+    marginTop: 10,
   },
   emptySubtitle: {
-    ...Typography.subhead,
+    ...Typography.footnote,
     color: Colors.textMuted,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 22,
+    marginTop: 4,
   },
 });

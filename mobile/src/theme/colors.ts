@@ -1,54 +1,54 @@
 export const Colors = {
-  // Backgrounds
-  bgPrimary: '#0A0E1A',
-  bgSecondary: '#111827',
-  bgCard: '#1A2035',
-  bgCardElevated: '#1F2A42',
-  bgInput: '#151C2E',
+  // Backgrounds - premium deep slate surfaces
+  bgPrimary: '#000000',
+  bgSecondary: '#000000',
+  bgCard: '#171C24',
+  bgCardElevated: '#1B212B',
+  bgInput: '#1E2430',
 
   // Gradients
-  gradientStart: '#0A0E1A',
-  gradientMid: '#111827',
-  gradientEnd: '#1A1F36',
-  gradientAccentStart: '#6366F1',
-  gradientAccentEnd: '#818CF8',
-  gradientGreenStart: '#059669',
-  gradientGreenEnd: '#34D399',
+  gradientStart: '#000000',
+  gradientMid: '#000000',
+  gradientEnd: '#000000',
+  gradientAccentStart: '#4F7CFF',
+  gradientAccentEnd: '#2EE6A6',
+  gradientGreenStart: '#1ECF9A',
+  gradientGreenEnd: '#7AF7CC',
 
-  // Accents
-  accentBlue: '#6366F1',
-  accentBlueBright: '#818CF8',
-  accentCyan: '#22D3EE',
-  accentEmerald: '#34D399',
-  accentAmber: '#FBBF24',
-  accentCoral: '#F87171',
-  accentPink: '#F472B6',
+  // Accents - polished fintech tones
+  accentBlue: '#4F7CFF',
+  accentBlueBright: '#82A6FF',
+  accentCyan: '#43D4FF',
+  accentEmerald: '#2EE6A6',
+  accentAmber: '#FFB347',
+  accentCoral: '#FF6B6B',
+  accentPink: '#FF7AC8',
 
   // Text
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  textInverse: '#0F172A',
+  textPrimary: '#F5F7FA',
+  textSecondary: '#C4CAD4',
+  textMuted: '#8E8E93',
+  textInverse: '#0D1016',
 
   // Status
-  success: '#34D399',
-  warning: '#FBBF24',
-  error: '#F87171',
-  info: '#60A5FA',
+  success: '#2EE6A6',
+  warning: '#FFB347',
+  error: '#FF6B6B',
+  info: '#4F7CFF',
 
-  // Borders
-  border: '#1E293B',
-  borderLight: '#334155',
-  borderAccent: '#6366F1',
+  // Borders - subtle translucent layering
+  border: 'rgba(255, 255, 255, 0.06)',
+  borderLight: 'rgba(255, 255, 255, 0.1)',
+  borderAccent: 'rgba(79, 124, 255, 0.5)',
 
   // Glassmorphism
-  glassWhite: 'rgba(255, 255, 255, 0.06)',
-  glassBorder: 'rgba(255, 255, 255, 0.08)',
-  glassOverlay: 'rgba(0, 0, 0, 0.3)',
+  glassWhite: 'rgba(255, 255, 255, 0.04)',
+  glassBorder: 'rgba(255, 255, 255, 0.05)',
+  glassOverlay: 'rgba(9, 12, 18, 0.65)',
 
   // Specific
-  positive: '#34D399',
-  negative: '#F87171',
-  tabBar: '#0D1117',
-  tabBarBorder: '#1E293B',
+  positive: '#2EE6A6',
+  negative: '#FF6B6B',
+  tabBar: '#000000',
+  tabBarBorder: 'rgba(255, 255, 255, 0.06)',
 };

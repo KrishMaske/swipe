@@ -1,44 +1,86 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
   ActivityIndicator,
   Alert,
-  Modal,
-  TextInput,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 
 const CATEGORIES = [
-  "Food & Dining",
-  "Transportation",
-  "Shopping & Retail",
-  "Entertainment & Recreation",
-  "Healthcare & Medical",
-  "Utilities & Services",
-  "Financial Services",
-  "Income",
-  "Government & Legal",
-  "Charity & Donations"
+  'Food & Dining',
+  'Transportation',
+  'Shopping & Retail',
+  'Entertainment & Recreation',
+  'Healthcare & Medical',
+  'Utilities & Services',
+  'Financial Services',
+  'Income',
+  'Government & Legal',
+  'Charity & Donations',
 ];
 
+const PERIOD_OPTIONS = ['daily', 'weekly', 'biweekly', 'monthly', '3-month', '6-month', 'yearly'];
+
+function ScalePressable({
+  onPress,
+  onLongPress,
+  delayLongPress,
+  style,
+  children,
+}: {
+  onPress?: () => void;
+  onLongPress?: () => void;
+  delayLongPress?: number;
+  style?: any;
+  children: React.ReactNode;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: withSpring(scale.value, { damping: 15, stiffness: 400 }) }],
+  }));
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={delayLongPress}
+      onPressIn={() => { scale.value = 0.965; }}
+      onPressOut={() => { scale.value = 1; }}
+    >
+      <Animated.View style={[style, animStyle]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
+
 export default function DashboardScreen({ navigation }: any) {
-  const { 
-    accounts, 
-    accountsLoading: loading, 
-    fetchAccounts, 
+  const insets = useSafeAreaInsets();
+  const {
+    accounts,
+    accountsLoading: loading,
+    fetchAccounts,
     invalidateAccounts,
     budgetsCache,
     fetchBudgets,
@@ -46,30 +88,34 @@ export default function DashboardScreen({ navigation }: any) {
     budgetTransactions,
     fetchTransactions,
   } = useData();
+
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  
-  // Budget Modal State
+
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [newBudget, setNewBudget] = useState({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
+  const [newBudget, setNewBudget] = useState({
+    name: '',
+    amount: '',
+    category: 'Food & Dining',
+    period: 'monthly',
+  });
   const [creatingBudget, setCreatingBudget] = useState(false);
   const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
-  
-  // Transaction Modal State
+
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [contextMenuBudget, setContextMenuBudget] = useState<any>(null);
 
   useFocusEffect(
     useCallback(() => {
-      fetchAccounts(); // uses cache — no duplicate calls
+      fetchAccounts();
       fetchBudgets();
     }, [fetchAccounts, fetchBudgets])
   );
 
-  // Pre-fetch transactions for all accounts so the budget tracker has data
   useEffect(() => {
     if (accounts && accounts.length > 0) {
-      accounts.forEach(acc => {
+      accounts.forEach((acc) => {
         if (acc.acc_id) {
           fetchTransactions(acc.acc_id);
         }
@@ -79,10 +125,10 @@ export default function DashboardScreen({ navigation }: any) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchAccounts(true); // force refresh
+    await fetchAccounts(true);
     await fetchBudgets(true);
     if (accounts) {
-      await Promise.all(accounts.map(acc => fetchTransactions(acc.acc_id, true)));
+      await Promise.all(accounts.map((acc) => fetchTransactions(acc.acc_id, true)));
     }
     setRefreshing(false);
   };
@@ -91,8 +137,10 @@ export default function DashboardScreen({ navigation }: any) {
     setSyncing(true);
     try {
       const result = await api.syncAccounts();
-      Alert.alert('Sync Started', result.success || 'Account sync initiated. Transactions will update in the background.');
-      // Invalidate cache and refresh after background sync has time to write
+      Alert.alert(
+        'Sync Started',
+        result.success || 'Account sync initiated. Transactions will update in the background.'
+      );
       setTimeout(async () => {
         invalidateAccounts();
         await fetchAccounts(true);
@@ -109,7 +157,7 @@ export default function DashboardScreen({ navigation }: any) {
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
-    
+
     setCreatingBudget(true);
     try {
       if (editingBudgetId) {
@@ -117,20 +165,21 @@ export default function DashboardScreen({ navigation }: any) {
           name: newBudget.name,
           amount: parseFloat(newBudget.amount),
           category: newBudget.category,
-          period: newBudget.period
+          period: newBudget.period,
         });
       } else {
         await api.createBudget({
           name: newBudget.name,
           amount: parseFloat(newBudget.amount),
           category: newBudget.category,
-          period: newBudget.period
+          period: newBudget.period,
         });
       }
       setBudgetModalVisible(false);
       setEditingBudgetId(null);
       setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
-      await fetchBudgets(true); // refresh budgets list
+      setCategoryDropdownVisible(false);
+      await fetchBudgets(true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to save budget.');
     } finally {
@@ -138,33 +187,38 @@ export default function DashboardScreen({ navigation }: any) {
     }
   };
 
-  const handleDeleteBudget = async () => {
-    if (!editingBudgetId) return;
-    Alert.alert(
-      "Delete Budget",
-      "Are you sure you want to delete this budget?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive",
-          onPress: async () => {
-            setCreatingBudget(true);
-            try {
-              await api.deleteBudget(editingBudgetId);
-              setBudgetModalVisible(false);
-              setEditingBudgetId(null);
-              setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
-              await fetchBudgets(true);
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete budget.');
-            } finally {
-              setCreatingBudget(false);
-            }
-          }
+  const handleDeleteBudget = async (id?: string | any) => {
+    const targetId = typeof id === 'string' ? id : editingBudgetId;
+    if (!targetId) return;
+
+    Alert.alert('Delete Budget', 'Are you sure you want to delete this budget?', [
+      { 
+        text: 'Cancel', 
+        style: 'cancel',
+        onPress: () => {
+          setContextMenuBudget(null);
         }
-      ]
-    );
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setCreatingBudget(true);
+          try {
+            await api.deleteBudget(targetId);
+            setBudgetModalVisible(false);
+            setEditingBudgetId(null);
+            setContextMenuBudget(null);
+            setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
+            await fetchBudgets(true);
+          } catch (err: any) {
+            Alert.alert('Error', err.message || 'Failed to delete budget.');
+          } finally {
+            setCreatingBudget(false);
+          }
+        },
+      },
+    ]);
   };
 
   const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
@@ -178,10 +232,25 @@ export default function DashboardScreen({ navigation }: any) {
     return amount < 0 ? `-$${formatted}` : `$${formatted}`;
   };
 
+  const linkedAccountLabel = `${accounts.length} linked account${accounts.length !== 1 ? 's' : ''}`;
+  const budgets = budgetsCache?.data || [];
+
+  const accountLogos = useMemo(
+    () => ['business-outline', 'card-outline', 'wallet-outline', 'albums-outline'] as const,
+    []
+  );
+
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={['#000000', '#000000']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -189,212 +258,279 @@ export default function DashboardScreen({ navigation }: any) {
             tintColor={Colors.accentBlue}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.greeting}>SwipeSmart</Text>
-          <Text style={styles.headerSubtitle}>Financial Overview</Text>
-        </View>
-
-        {/* Balance Card */}
-        <LinearGradient
-          colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.balanceCard}
-        >
-          <Text style={styles.balanceLabel}>Total Balance</Text>
-          <Text style={styles.balanceAmount}>
-            {loading ? '...' : formatCurrency(totalBalance)}
-          </Text>
-          <Text style={styles.accountCount}>
-            {accounts.length} linked account{accounts.length !== 1 ? 's' : ''}
-          </Text>
-
-          <View style={styles.balanceActions}>
-            <TouchableOpacity
-              style={styles.balanceButton}
-              onPress={handleSync}
-              disabled={syncing}
-            >
-              {syncing ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="sync" size={16} color="#FFF" />
-                  <Text style={styles.balanceButtonText}>Sync</Text>
-                </>
-              )}
-            </TouchableOpacity>
+        <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
+          <View>
+            <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+            <Text style={styles.headerTitle}>Overview</Text>
           </View>
-        </LinearGradient>
-
-        {/* Quick Stats */}
-        {accounts.length > 0 && (
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Ionicons name="trending-up" size={22} color={Colors.accentEmerald} />
-              <Text style={styles.statValue}>{accounts.length}</Text>
-              <Text style={styles.statLabel}>Accounts</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="card" size={22} color={Colors.accentCyan} />
-              <Text style={styles.statValue}>
-                {[...new Set(accounts.map((a) => a.provider))].length}
-              </Text>
-              <Text style={styles.statLabel}>Providers</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="wallet" size={22} color={Colors.accentAmber} />
-              <Text style={styles.statValue}>
-                {[...new Set(accounts.map((a) => a.currency))].length}
-              </Text>
-              <Text style={styles.statLabel}>Currencies</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Section Title */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Budgets</Text>
-          <TouchableOpacity onPress={() => {
-            setEditingBudgetId(null);
-            setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
-            setBudgetModalVisible(true);
-          }}>
-            <Ionicons name="add-circle" size={24} color={Colors.accentBlue} />
+          <TouchableOpacity
+            style={styles.settingsBtn}
+            onPress={() => navigation.navigate('Settings')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="settings-outline" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
-        {/* Budgets List */}
-        {!budgetsCache?.data || budgetsCache.data.length === 0 ? (
+        <View style={styles.heroSection}> 
+          <Text style={styles.heroLabel}>Total Balance</Text>
+          <Text style={styles.heroBalance}>{loading ? '...' : formatCurrency(totalBalance)}</Text>
+          <Text style={styles.heroMeta}>{linkedAccountLabel}</Text>
+
+          <TouchableOpacity
+            style={styles.syncPillWrap}
+            onPress={handleSync}
+            disabled={syncing}
+            activeOpacity={0.8}
+          >
+            <BlurView intensity={28} tint="dark" style={styles.syncPill}>
+              {syncing ? (
+                <ActivityIndicator size="small" color={Colors.textPrimary} />
+              ) : (
+                <>
+                  <Ionicons name="sync" size={15} color={Colors.textPrimary} />
+                  <Text style={styles.syncText}>Sync</Text>
+                </>
+              )}
+            </BlurView>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Budgets</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setEditingBudgetId(null);
+              setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
+              setCategoryDropdownVisible(false);
+              setBudgetModalVisible(true);
+            }}
+            hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
+          >
+            <Ionicons name="add-circle" size={26} color={Colors.accentBlueBright} />
+          </TouchableOpacity>
+        </View>
+
+        {budgets.length === 0 ? (
           <View style={styles.emptyBudgets}>
-            <Text style={styles.emptySubtitle}>No budgets set. Track your spending!</Text>
+            <Text style={styles.emptySubtitle}>No budgets yet. Create one to track your spending flow.</Text>
           </View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.budgetsScroll}>
-            {budgetsCache.data.map(budget => {
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.budgetList}>
+            {budgets.map((budget, index) => {
               const spent = spendingByBudget[budget.id!] || 0;
-            const progress = Math.min(spent / budget.amount, 1);
-            let progressColor = Colors.accentBlue;
-            if (progress >= 1) progressColor = Colors.negative;
-            else if (progress >= 0.8) progressColor = Colors.accentAmber;
-            
-            return (
-              <TouchableOpacity 
-                key={budget.id} 
-                style={styles.budgetCard}
-                activeOpacity={0.7}
-                onPress={() => setSelectedBudgetId(budget.id!)}
-              >
-                <View style={styles.budgetHeaderRow}>
-                  <Text style={styles.budgetName}>{budget.name}</Text>
-                  <Text style={styles.budgetPeriod}>({budget.period})</Text>
-                </View>
-                <Text style={styles.budgetCategory}>{budget.category}</Text>
-                <View style={styles.budgetProgressContainer}>
-                  <View style={[styles.budgetProgressBar, { width: `${progress * 100}%`, backgroundColor: progressColor }]} />
-                </View>
-                <View style={styles.budgetAmounts}>
-                  <Text style={styles.budgetSpent}>{formatCurrency(spent)} spent</Text>
-                  <Text style={styles.budgetTotal}>{formatCurrency(budget.amount)}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+              const progress = Math.min(spent / budget.amount, 1);
+              const gradient =
+                progress >= 1
+                  ? ['#FF6B6B', '#FF8A8A']
+                  : progress >= 0.8
+                    ? ['#FFB347', '#FFD27A']
+                    : [Colors.gradientAccentStart, Colors.gradientAccentEnd];
+
+              return (
+                <Animated.View key={budget.id} entering={FadeInDown.delay(index * 70).springify()}>
+                  <ScalePressable
+                    onLongPress={() => setContextMenuBudget(budget)}
+                    delayLongPress={500}
+                    style={styles.budgetCard}
+                  >
+                  <View style={styles.budgetHeadRow}>
+                    <Text style={styles.budgetName}>{budget.name}</Text>
+                    <Text style={styles.budgetPeriod}>{budget.period}</Text>
+                  </View>
+                  <Text style={styles.budgetCategory}>{budget.category}</Text>
+                  <View style={styles.progressTrack}>
+                    <LinearGradient
+                      colors={gradient as [string, string]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.progressFill, { width: `${progress * 100}%` }]}
+                    />
+                  </View>
+                  <Text style={styles.budgetAmountText}>
+                    {formatCurrency(spent)} / {formatCurrency(budget.amount)}
+                  </Text>
+                  </ScalePressable>
+                </Animated.View>
+              );
+            })}
           </ScrollView>
         )}
 
-        {/* Section Title */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Your Accounts</Text>
+          <Text style={styles.sectionTitle}>Accounts</Text>
         </View>
 
-        {/* Accounts List */}
         {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.accentBlue} />
-          </View>
+          <>
+            {[0, 1, 2].map((i) => (
+              <Animated.View
+                key={i}
+                entering={FadeInDown.delay(i * 80).springify()}
+                style={styles.skeletonAccountRow}
+              >
+                <View style={styles.skeletonLogo} />
+                <View style={styles.skeletonInfo}>
+                  <View style={styles.skeletonLine} />
+                  <View style={[styles.skeletonLine, styles.skeletonLineShort]} />
+                </View>
+                <View style={[styles.skeletonLine, { width: 60 }]} />
+              </Animated.View>
+            ))}
+          </>
         ) : accounts.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="business-outline" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Accounts Linked</Text>
-            <Text style={styles.emptySubtitle}>
-              Go to Settings to link your bank with SimpleFIN
-            </Text>
-            <TouchableOpacity
-              style={styles.linkButton}
-              onPress={() => navigation.navigate('Settings')}
-            >
+            <Text style={styles.emptySubtitle}>Go to Settings to link your bank with SimpleFIN.</Text>
+            <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('Settings')}>
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                 style={styles.linkButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Ionicons name="link" size={18} color="#FFF" />
+                <Ionicons name="link" size={18} color="#fff" />
                 <Text style={styles.linkButtonText}>Link Bank Account</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
         ) : (
-          accounts.map((account) => (
-            <TouchableOpacity
-              key={account.acc_id}
-              style={styles.accountCard}
-              activeOpacity={0.7}
-              onPress={() =>
-                navigation.navigate('AccountDetail', {
-                  accId: account.acc_id,
-                  accType: account.acc_type,
-                  provider: account.provider,
-                })
-              }
-            >
-              <View style={styles.accountIcon}>
-                <Ionicons name="card" size={22} color={Colors.accentBlue} />
+          accounts.map((account, index) => (
+            <Animated.View key={account.acc_id} entering={FadeInDown.delay(index * 80).springify()}>
+              <TouchableOpacity
+                style={styles.accountRow}
+                activeOpacity={0.85}
+                onPress={() =>
+                  navigation.navigate('AccountDetail', {
+                    accId: account.acc_id,
+                    accType: account.acc_type,
+                    provider: account.provider,
+                  })
+                }
+              >
+              <View style={styles.accountLeft}>
+                <LinearGradient
+                  colors={['rgba(130,166,255,0.25)', 'rgba(46,230,166,0.15)']}
+                  style={styles.accountLogo}
+                >
+                  <Ionicons
+                    name={accountLogos[index % accountLogos.length]}
+                    size={18}
+                    color={Colors.accentBlueBright}
+                  />
+                </LinearGradient>
+                <View>
+                  <Text style={styles.accountName}>{account.acc_type}</Text>
+                  <Text style={styles.accountProvider}>{account.provider}</Text>
+                </View>
               </View>
-              <View style={styles.accountInfo}>
-                <Text style={styles.accountName}>{account.acc_type}</Text>
-                <Text style={styles.accountProvider}>{account.provider}</Text>
-              </View>
-              <View style={styles.accountBalanceContainer}>
+
+              <View style={styles.accountRight}>
                 <Text
                   style={[
                     styles.accountBalance,
-                    { color: account.balance >= 0 ? Colors.positive : Colors.negative },
+                    { color: account.balance >= 0 ? Colors.textPrimary : Colors.negative },
                   ]}
                 >
                   {formatCurrency(account.balance)}
                 </Text>
                 <Text style={styles.accountCurrency}>{account.currency}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </Animated.View>
           ))
         )}
       </ScrollView>
 
-      {/* Budget Creation Modal */}
-      <Modal visible={budgetModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
+      <Modal visible={!!contextMenuBudget} transparent animationType="fade">
+        <View style={styles.centeredCardOverlay}>
+          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setContextMenuBudget(null)} />
+          <BlurView intensity={65} tint="dark" style={styles.contextMenu}>
+            <TouchableOpacity
+              style={styles.contextMenuItem}
+              onPress={() => {
+                setSelectedBudgetId(contextMenuBudget.id!);
+                setContextMenuBudget(null);
+              }}
+            >
+              <Ionicons name="list" size={20} color={Colors.textPrimary} />
+              <Text style={styles.contextMenuText}>Show Transactions</Text>
+            </TouchableOpacity>
+            <View style={styles.contextMenuDivider} />
+            <TouchableOpacity
+              style={styles.contextMenuItem}
+              onPress={() => {
+                 setEditingBudgetId(contextMenuBudget.id!);
+                 setNewBudget({
+                   name: contextMenuBudget.name,
+                   amount: contextMenuBudget.amount.toString(),
+                   category: contextMenuBudget.category,
+                   period: contextMenuBudget.period,
+                 });
+                 setBudgetModalVisible(true);
+                 setContextMenuBudget(null);
+              }}
+            >
+              <Ionicons name="pencil" size={20} color={Colors.textPrimary} />
+              <Text style={styles.contextMenuText}>Edit Budget</Text>
+            </TouchableOpacity>
+            <View style={styles.contextMenuDivider} />
+            <TouchableOpacity
+              style={styles.contextMenuItem}
+              onPress={() => {
+                const idToDel = contextMenuBudget.id!;
+                handleDeleteBudget(idToDel);
+              }}
+            >
+              <Ionicons name="trash-outline" size={20} color={Colors.negative} />
+              <Text style={[styles.contextMenuText, { color: Colors.negative }]}>Delete Budget</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </View>
+      </Modal>
+
+      <Modal visible={budgetModalVisible} transparent animationType="fade">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.centeredCardOverlay}
         >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingBudgetId ? 'Edit Budget' : 'Create Budget'}</Text>
-              <TouchableOpacity onPress={() => {
-                setBudgetModalVisible(false);
-                setEditingBudgetId(null);
-              }}>
-                <Ionicons name="close" size={24} color={Colors.textMuted} />
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.sheetBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              setBudgetModalVisible(false);
+              setEditingBudgetId(null);
+            }}
+          />
+          <BlurView intensity={65} tint="dark" style={styles.staticSquareCard}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{editingBudgetId ? 'Edit Budget' : 'Create Budget'}</Text>
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setBudgetModalVisible(false);
+                    setEditingBudgetId(null);
+                  }}
+                  style={{ marginRight: 16 }}
+                >
+                  <Ionicons name="close" size={26} color={Colors.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCreateBudget} disabled={creatingBudget}>
+                  {creatingBudget ? (
+                    <ActivityIndicator color={Colors.accentBlueBright} size="small" />
+                  ) : (
+                    <Ionicons name="checkmark" size={26} color={Colors.accentBlueBright} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <Text style={styles.inputLabel}>Budget Name</Text>
             <TextInput
-              style={styles.input}
+              style={styles.sheetInput}
               placeholder="e.g., Grocery Limit"
               placeholderTextColor={Colors.textMuted}
               value={newBudget.name}
@@ -405,29 +541,40 @@ export default function DashboardScreen({ navigation }: any) {
             <View style={styles.dropdownContainer}>
               <TouchableOpacity
                 style={styles.dropdownButton}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
                 onPress={() => setCategoryDropdownVisible(!categoryDropdownVisible)}
               >
-                <Text style={newBudget.category ? styles.dropdownButtonText : styles.dropdownButtonTextPlaceholder}>
-                  {newBudget.category || "Select a Category"}
-                </Text>
-                <Ionicons name={categoryDropdownVisible ? "chevron-up" : "chevron-down"} size={20} color={Colors.textMuted} />
+                <Text style={styles.dropdownButtonText}>{newBudget.category || 'Select a Category'}</Text>
+                <Ionicons
+                  name={categoryDropdownVisible ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={Colors.textMuted}
+                />
               </TouchableOpacity>
-              
+
               {categoryDropdownVisible && (
                 <View style={styles.dropdownList}>
                   <ScrollView nestedScrollEnabled style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
-                    {CATEGORIES.map(cat => (
-                      <TouchableOpacity 
-                        key={cat} 
+                    {CATEGORIES.map((cat) => (
+                      <TouchableOpacity
+                        key={cat}
                         style={styles.dropdownItem}
                         onPress={() => {
                           setNewBudget({ ...newBudget, category: cat });
                           setCategoryDropdownVisible(false);
                         }}
                       >
-                        <Text style={[styles.dropdownItemText, newBudget.category === cat && styles.dropdownItemTextSelected]}>{cat}</Text>
-                        {newBudget.category === cat && <Ionicons name="checkmark" size={18} color={Colors.accentBlue} />}
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            newBudget.category === cat && styles.dropdownItemTextSelected,
+                          ]}
+                        >
+                          {cat}
+                        </Text>
+                        {newBudget.category === cat && (
+                          <Ionicons name="checkmark" size={18} color={Colors.accentBlueBright} />
+                        )}
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -437,122 +584,78 @@ export default function DashboardScreen({ navigation }: any) {
 
             <Text style={styles.inputLabel}>Amount Limit ($)</Text>
             <TextInput
-              style={styles.input}
+              style={styles.sheetInput}
               placeholder="e.g., 500"
               placeholderTextColor={Colors.textMuted}
               keyboardType="numeric"
               value={newBudget.amount}
               onChangeText={(text) => setNewBudget({ ...newBudget, amount: text })}
             />
-            
-            <View style={styles.periodSelector}>
-               <Text style={styles.periodLabel}>Period</Text>
-               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodScroll}>
-                 {['daily', 'weekly', 'biweekly', 'monthly', '3-month', '6-month', 'yearly'].map(p => (
-                   <TouchableOpacity 
-                     key={p} 
-                     style={[styles.periodPill, newBudget.period === p && styles.periodPillActive]}
-                     onPress={() => setNewBudget({ ...newBudget, period: p })}
-                   >
-                     <Text style={[styles.periodPillText, newBudget.period === p && styles.periodPillTextActive]}>{p}</Text>
-                   </TouchableOpacity>
-                 ))}
-               </ScrollView>
-            </View>
 
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
-              {editingBudgetId && (
-                <TouchableOpacity
-                  style={[styles.createButton, { flex: 1, marginTop: 0 }, creatingBudget && { opacity: 0.7 }]}
-                  onPress={handleDeleteBudget}
-                  disabled={creatingBudget}
-                >
-                  <View style={[styles.createButtonGradient, { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.negative }]}>
-                    <Text style={[styles.createButtonText, { color: Colors.negative }]}>Delete</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              
-              <TouchableOpacity
-                style={[styles.createButton, { flex: 2, marginTop: 0 }, creatingBudget && { opacity: 0.7 }]}
-                onPress={handleCreateBudget}
-                disabled={creatingBudget}
-              >
-                <LinearGradient
-                  colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-                  style={styles.createButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  {creatingBudget ? (
-                    <ActivityIndicator color="#FFF" size="small" />
-                  ) : (
-                    <Text style={styles.createButtonText}>{editingBudgetId ? 'Update' : 'Create'}</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+            <Text style={styles.inputLabel}>Period</Text>
+            <View style={styles.segmentedRail}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segmentedInner}>
+                {PERIOD_OPTIONS.map((period) => {
+                  const active = newBudget.period === period;
+                  return (
+                    <TouchableOpacity
+                      key={period}
+                      style={[styles.segmentChip, active && styles.segmentChipActive]}
+                      onPress={() => setNewBudget({ ...newBudget, period })}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.segmentChipText, active && styles.segmentChipTextActive]}>{period}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
-          </View>
+          </BlurView>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Budget Transactions Details Modal */}
       <Modal visible={selectedBudgetId !== null} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { height: '70%' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {selectedBudgetId !== null && budgetsCache?.data?.find(b => b.id === selectedBudgetId)?.name} Spending
+        <View style={styles.sheetOverlay}>
+          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setSelectedBudgetId(null)} />
+          <BlurView intensity={35} tint="dark" style={[styles.sheetContent, styles.transactionsSheet]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>
+                {selectedBudgetId !== null && budgets.find((b) => b.id === selectedBudgetId)?.name} Transactions
               </Text>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 16}}>
-                <TouchableOpacity onPress={() => {
-                   const b = budgetsCache?.data?.find(b => b.id === selectedBudgetId);
-                   if (b) {
-                     setEditingBudgetId(b.id!);
-                     setNewBudget({
-                       name: b.name,
-                       amount: b.amount.toString(),
-                       category: b.category,
-                       period: b.period,
-                     });
-                     setSelectedBudgetId(null);
-                     setBudgetModalVisible(true);
-                   }
-                }}>
-                  <Ionicons name="pencil" size={22} color={Colors.accentBlue} />
-                </TouchableOpacity>
+              <View style={styles.modalActionsRow}>
                 <TouchableOpacity onPress={() => setSelectedBudgetId(null)}>
-                  <Ionicons name="close" size={24} color={Colors.textMuted} />
+                  <Ionicons name="close" size={26} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.transactionsScroll}>
+            <ScrollView contentContainerStyle={styles.transactionsList} showsVerticalScrollIndicator={false}>
               {selectedBudgetId !== null && budgetTransactions[selectedBudgetId]?.length > 0 ? (
-                budgetTransactions[selectedBudgetId].map(txn => (
-                  <View key={txn.id} style={styles.transactionItem}>
+                budgetTransactions[selectedBudgetId].map((txn) => (
+                  <View key={txn.id} style={styles.transactionRow}>
                     <View style={styles.transactionIcon}>
-                      <Ionicons name="receipt" size={20} color={Colors.accentBlue} />
+                      <Ionicons name="receipt-outline" size={16} color={Colors.accentBlueBright} />
                     </View>
                     <View style={styles.transactionInfo}>
                       <Text style={styles.transactionMerchant}>{txn.merchant}</Text>
                       <Text style={styles.transactionDate}>
-                        {new Date(typeof txn.txn_date === 'string' ? txn.txn_date : txn.txn_date * 1000).toLocaleDateString()}
+                        {new Date(
+                          typeof txn.txn_date === 'string' ? txn.txn_date : txn.txn_date * 1000
+                        ).toLocaleDateString()}
                       </Text>
                     </View>
-                    <Text style={[styles.transactionAmount, { color: Colors.negative }]}>
-                      -${Math.abs(txn.amount).toFixed(2)}
-                    </Text>
+                    <Text style={styles.transactionAmount}>-${Math.abs(txn.amount).toFixed(2)}</Text>
                   </View>
                 ))
               ) : (
                 <View style={styles.emptyTransactions}>
-                   <Ionicons name="search-outline" size={40} color={Colors.textMuted} />
-                   <Text style={styles.emptyTransactionsText}>No transactions found for this period.</Text>
+                  <Ionicons name="search-outline" size={36} color={Colors.textMuted} />
+                  <Text style={styles.emptyTransactionsText}>No transactions found for this period.</Text>
                 </View>
               )}
             </ScrollView>
-          </View>
+          </BlurView>
         </View>
       </Modal>
     </View>
@@ -565,215 +668,123 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgPrimary,
   },
   scroll: {
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 8,
-  },
-  greeting: {
-    ...Typography.largeTitle,
-    color: Colors.textPrimary,
-  },
-  headerSubtitle: {
-    ...Typography.subhead,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  balanceCard: {
-    margin: 20,
-    borderRadius: 24,
-    padding: 28,
-    shadowColor: Colors.accentBlue,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  balanceLabel: {
-    ...Typography.footnote,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  balanceAmount: {
-    ...Typography.largeTitle,
-    color: '#FFF',
-    fontSize: 38,
-    marginTop: 8,
-  },
-  accountCount: {
-    ...Typography.footnote,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 8,
-  },
-  balanceActions: {
-    flexDirection: 'row',
-    marginTop: 20,
-    gap: 12,
-  },
-  balanceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 6,
-  },
-  balanceButtonText: {
-    ...Typography.footnote,
-    color: '#FFF',
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 8,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: Colors.bgCard,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-  },
-  statValue: {
-    ...Typography.title3,
-    color: Colors.textPrimary,
-    marginTop: 8,
-  },
-  statLabel: {
-    ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  sectionHeader: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 12,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  headerEyebrow: {
+    ...Typography.caption1,
+    color: Colors.accentBlueBright,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  headerTitle: {
+    ...Typography.largeTitle,
+    color: Colors.textPrimary,
+  },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+  },
+  heroSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
+  heroLabel: {
+    ...Typography.footnote,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  heroBalance: {
+    ...Typography.largeTitle,
+    color: Colors.textPrimary,
+    marginTop: 10,
+    fontSize: 44,
+    letterSpacing: -1,
+  },
+  heroMeta: {
+    ...Typography.subhead,
+    color: Colors.textMuted,
+    marginTop: 6,
+  },
+  syncPillWrap: {
+    marginTop: 18,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  syncPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  syncText: {
+    ...Typography.footnote,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   sectionTitle: {
     ...Typography.headline,
     color: Colors.textPrimary,
   },
-  centered: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    ...Typography.headline,
-    color: Colors.textSecondary,
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    ...Typography.footnote,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  linkButton: {
-    marginTop: 24,
-  },
-  linkButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 14,
-    gap: 8,
-  },
-  linkButtonText: {
-    ...Typography.headline,
-    color: '#FFF',
-    fontSize: 15,
-  },
-  accountCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.bgCard,
+  emptyBudgets: {
     marginHorizontal: 20,
-    marginBottom: 10,
-    padding: 18,
-    borderRadius: 16,
+    borderRadius: 18,
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
   },
-  accountIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: Colors.bgCardElevated,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  accountName: {
-    ...Typography.subhead,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  accountProvider: {
-    ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  accountBalanceContainer: {
-    alignItems: 'flex-end',
-    marginRight: 8,
-  },
-  accountBalance: {
-    ...Typography.headline,
-    fontSize: 16,
-  },
-  accountCurrency: {
-    ...Typography.caption2,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  emptyBudgets: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-  },
-  budgetsScroll: {
+  budgetList: {
+    gap: 12,
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingRight: 28,
   },
   budgetCard: {
-    backgroundColor: Colors.bgCard,
-    width: 280,
-    marginRight: 16,
-    padding: 16,
-    borderRadius: 16,
+    width: 300,
+    borderRadius: 22,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
   },
-  budgetHeaderRow: {
+  budgetHeadRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    alignItems: 'center',
   },
   budgetName: {
-    ...Typography.headline,
+    ...Typography.subhead,
     color: Colors.textPrimary,
+    fontWeight: '700',
+    flex: 1,
   },
   budgetPeriod: {
     ...Typography.caption2,
@@ -782,220 +793,395 @@ const styles = StyleSheet.create({
   },
   budgetCategory: {
     ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginBottom: 12,
+    color: Colors.textMuted,
+    marginTop: 3,
   },
-  budgetProgressContainer: {
-    height: 8,
-    backgroundColor: Colors.bgCardElevated,
+  progressTrack: {
+    marginTop: 12,
+    height: 6,
     borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.09)',
     overflow: 'hidden',
-    marginBottom: 8,
   },
-  budgetProgressBar: {
+  progressFill: {
     height: '100%',
     borderRadius: 4,
   },
-  budgetAmounts: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  budgetSpent: {
+  budgetAmountText: {
     ...Typography.footnote,
-    color: Colors.textPrimary,
+    color: Colors.textSecondary,
+    marginTop: 10,
   },
-  budgetTotal: {
+  centered: {
+    paddingVertical: 36,
+    alignItems: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    ...Typography.headline,
+    color: Colors.textPrimary,
+    marginTop: 14,
+  },
+  emptySubtitle: {
     ...Typography.footnote,
     color: Colors.textMuted,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  modalOverlay: {
+  linkButton: {
+    marginTop: 20,
+  },
+  linkButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderRadius: 14,
+  },
+  linkButtonText: {
+    ...Typography.subhead,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  accountRow: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  accountLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  accountLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+  },
+  accountName: {
+    ...Typography.subhead,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  accountProvider: {
+    ...Typography.caption1,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  accountRight: {
+    alignItems: 'flex-end',
+    marginLeft: 10,
+  },
+  accountBalance: {
+    ...Typography.headline,
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+  accountCurrency: {
+    ...Typography.caption2,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  skeletonAccountRow: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  skeletonLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  skeletonInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  skeletonLine: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    width: '55%',
+  },
+  skeletonLineShort: {
+    width: '35%' as any,
+    opacity: 0.6,
+  },
+  sheetOverlay: {
+    flex: 1,
     justifyContent: 'flex-end',
+    backgroundColor: 'transparent',
   },
-  modalContent: {
-    backgroundColor: Colors.bgPrimary,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.glassOverlay,
+  },
+  centeredCardOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contextMenu: {
+    width: 250,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(30,30,30,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  contextMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  contextMenuDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 16,
+  },
+  contextMenuText: {
+    ...Typography.body,
+    color: '#FFF',
+    marginLeft: 12,
+    fontSize: 16,
+  },
+  staticSquareCard: {
+    width: '85%',
+    maxWidth: 400,
+    backgroundColor: 'rgba(30,30,30,0.85)',
+    borderRadius: 24,
     padding: 24,
-    paddingBottom: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
   },
-  modalHeader: {
+  sheetContent: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 18,
+    paddingBottom: 30,
+    paddingTop: 8,
+    overflow: 'hidden',
+    borderTopWidth: 1,
+    borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(23,28,36,0.82)',
+  },
+  budgetFormSheet: {
+    maxHeight: '76%',
+  },
+  transactionsSheet: {
+    height: '72%',
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    marginVertical: 8,
+  },
+  sheetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  modalTitle: {
-    ...Typography.title2,
+  sheetTitle: {
+    ...Typography.title3,
     color: Colors.textPrimary,
   },
   inputLabel: {
     ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginBottom: 6,
+    color: Colors.textMuted,
+    marginBottom: 8,
     marginLeft: 4,
-    fontWeight: '500',
   },
-  input: {
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    borderRadius: 12,
-    padding: 16,
-    color: Colors.textPrimary,
-    marginBottom: 16,
+  sheetInput: {
     ...Typography.body,
+    color: Colors.textPrimary,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
   },
   dropdownContainer: {
+    marginBottom: 14,
     position: 'relative',
-    marginBottom: 16,
     zIndex: 10,
   },
   dropdownButton: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.bgCard,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    borderRadius: 12,
-    padding: 16,
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   dropdownButtonText: {
     ...Typography.body,
     color: Colors.textPrimary,
   },
-  dropdownButtonTextPlaceholder: {
-    ...Typography.body,
-    color: Colors.textMuted,
-  },
   dropdownList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    marginTop: 4,
-    backgroundColor: Colors.bgCardElevated,
-    borderRadius: 12,
+    marginTop: 6,
+    borderRadius: 14,
+    maxHeight: 200,
+    overflow: 'hidden',
+    backgroundColor: '#222936',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-    maxHeight: 200,
-    zIndex: 100,
   },
   dropdownScroll: {
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   dropdownItem: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
   },
   dropdownItemText: {
-    ...Typography.body,
-    color: Colors.textPrimary,
+    ...Typography.subhead,
+    color: Colors.textSecondary,
   },
   dropdownItemTextSelected: {
-    color: Colors.accentBlue,
-    fontWeight: '600',
-  },
-  periodSelector: {
-    marginVertical: 4,
-  },
-  periodLabel: {
-    ...Typography.subhead,
     color: Colors.textPrimary,
-    marginBottom: 8,
   },
-  periodScroll: {
-    flexDirection: 'row',
+  segmentedRail: {
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    padding: 4,
+    marginBottom: 18,
   },
-  periodPill: {
-    paddingHorizontal: 16,
+  segmentedInner: {
+    gap: 6,
+  },
+  segmentChip: {
+    borderRadius: 12,
+    paddingHorizontal: 13,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.bgCardElevated,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
-  periodPillActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderColor: Colors.accentBlue,
+  segmentChipActive: {
+    backgroundColor: 'rgba(130,166,255,0.25)',
   },
-  periodPillText: {
-    ...Typography.footnote,
+  segmentChipText: {
+    ...Typography.caption1,
     color: Colors.textMuted,
     textTransform: 'capitalize',
   },
-  periodPillTextActive: {
-    color: Colors.accentBlue,
-    fontWeight: '600',
+  segmentChipTextActive: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
   },
-  createButton: {
-    marginTop: 24,
+  primaryButtonWrap: {
+    borderRadius: 14,
+    overflow: 'hidden',
   },
-  createButtonGradient: {
-    paddingVertical: 16,
+  primaryButton: {
     borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+    backgroundColor: '#2E3440',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
-  createButtonText: {
+  primaryButtonText: {
     ...Typography.headline,
-    color: '#FFF',
-    fontSize: 16,
+    color: '#fff',
+    fontWeight: '700',
   },
-  transactionsScroll: {
-    paddingBottom: 20,
-  },
-  transactionItem: {
-    flexDirection: 'row',
+  destructiveTextButton: {
     alignItems: 'center',
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.glassBorder,
+  },
+  destructiveText: {
+    ...Typography.subhead,
+    color: Colors.negative,
+    fontWeight: '600',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  transactionsList: {
+    paddingBottom: 22,
+  },
+  transactionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginBottom: 10,
   },
   transactionIcon: {
-    width: 40,
-    height: 40,
+    width: 34,
+    height: 34,
     borderRadius: 12,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(130,166,255,0.12)',
+    marginRight: 10,
   },
   transactionInfo: {
     flex: 1,
   },
   transactionMerchant: {
-    ...Typography.body,
+    ...Typography.subhead,
     color: Colors.textPrimary,
     fontWeight: '600',
   },
   transactionDate: {
     ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginTop: 4,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   transactionAmount: {
-    ...Typography.headline,
-    fontSize: 15,
+    ...Typography.subhead,
+    color: Colors.negative,
+    fontWeight: '700',
   },
   emptyTransactions: {
-    paddingVertical: 40,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 34,
   },
   emptyTransactionsText: {
-    ...Typography.subhead,
-    color: Colors.textSecondary,
-    marginTop: 12,
+    ...Typography.footnote,
+    color: Colors.textMuted,
+    marginTop: 10,
   },
 });
