@@ -25,10 +25,12 @@ import { BlurView } from 'expo-blur';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SvgUri } from 'react-native-svg';
 import { api } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { getProviderLogoUrl, normalizeProviderKey } from '../utils/providerLogos';
 
 const CATEGORIES = [
   'Food & Dining',
@@ -44,6 +46,14 @@ const CATEGORIES = [
 ];
 
 const PERIOD_OPTIONS = ['daily', 'weekly', 'biweekly', 'monthly', '3-month', '6-month', 'yearly'];
+
+const LOGO_BASE_SIZE = 52;
+const PROVIDER_LOGO_SCALE: Record<string, number> = {
+  chase: 3.2,
+  'jp morgan': 2.2,
+  'bank of america': 1.65,
+  bofa: 1.65,
+};
 
 function ScalePressable({
   onPress,
@@ -105,6 +115,7 @@ export default function DashboardScreen({ navigation }: any) {
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [contextMenuBudget, setContextMenuBudget] = useState<any>(null);
+  const [failedLogoProviders, setFailedLogoProviders] = useState<Record<string, boolean>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -262,7 +273,7 @@ export default function DashboardScreen({ navigation }: any) {
       >
         <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
           <View>
-            <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+            <Text style={styles.headerEyebrow}>Swipe</Text>
             <Text style={styles.headerTitle}>Overview</Text>
           </View>
           <TouchableOpacity
@@ -398,7 +409,14 @@ export default function DashboardScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         ) : (
-          accounts.map((account, index) => (
+          accounts.map((account, index) => {
+            const providerKey = normalizeProviderKey(account.provider);
+            const logoUrl = getProviderLogoUrl(account.provider);
+            const showProviderLogo = !!logoUrl && !failedLogoProviders[providerKey];
+            const logoScale = PROVIDER_LOGO_SCALE[providerKey] ?? 1;
+            const logoSize = Math.round(LOGO_BASE_SIZE * logoScale);
+
+            return (
             <Animated.View key={account.acc_id} entering={FadeInDown.delay(index * 80).springify()}>
               <TouchableOpacity
                 style={styles.accountRow}
@@ -412,16 +430,30 @@ export default function DashboardScreen({ navigation }: any) {
                 }
               >
               <View style={styles.accountLeft}>
-                <LinearGradient
-                  colors={['rgba(130,166,255,0.25)', 'rgba(46,230,166,0.15)']}
-                  style={styles.accountLogo}
-                >
-                  <Ionicons
-                    name={accountLogos[index % accountLogos.length]}
-                    size={18}
-                    color={Colors.accentBlueBright}
-                  />
-                </LinearGradient>
+                {showProviderLogo ? (
+                  <View style={styles.accountLogoImageWrap}>
+                    <SvgUri
+                      uri={logoUrl}
+                      width={logoSize}
+                      height={logoSize}
+                      onError={() => {
+                        if (!providerKey) return;
+                        setFailedLogoProviders((prev) => ({ ...prev, [providerKey]: true }));
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <LinearGradient
+                    colors={['rgba(130,166,255,0.25)', 'rgba(46,230,166,0.15)']}
+                    style={styles.accountLogo}
+                  >
+                    <Ionicons
+                      name={accountLogos[index % accountLogos.length]}
+                      size={18}
+                      color={Colors.accentBlueBright}
+                    />
+                  </LinearGradient>
+                )}
                 <View>
                   <Text style={styles.accountName}>{account.acc_type}</Text>
                   <Text style={styles.accountProvider}>{account.provider}</Text>
@@ -441,7 +473,8 @@ export default function DashboardScreen({ navigation }: any) {
               </View>
               </TouchableOpacity>
             </Animated.View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
@@ -767,10 +800,10 @@ const styles = StyleSheet.create({
     paddingRight: 28,
   },
   budgetCard: {
-    width: 300,
-    borderRadius: 22,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    width: 280,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
@@ -876,6 +909,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
+  },
+  accountLogoImageWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    overflow: 'visible',
   },
   accountName: {
     ...Typography.subhead,

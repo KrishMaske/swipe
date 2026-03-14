@@ -86,7 +86,7 @@ export default function LoginScreen({ navigation }: Props) {
             >
               <Text style={styles.logoText}>S</Text>
             </LinearGradient>
-            <Text style={styles.appName}>SwipeSmart</Text>
+            <Text style={styles.appName}>Swipe</Text>
             <Text style={styles.tagline}>Your AI-powered financial companion</Text>
           </View>
 

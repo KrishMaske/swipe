@@ -225,7 +225,7 @@ export default function ChatScreen() {
 
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+          <Text style={styles.headerEyebrow}>Swipe</Text>
           <Text style={styles.headerTitle}>Osho</Text>
         </View>
         <View style={styles.headerRight}>

@@ -52,7 +52,7 @@ export default function SettingsScreen() {
   };
 
   const aboutRows = [
-    { label: 'App', value: 'SwipeSmart' },
+    { label: 'App', value: 'Swipe' },
     { label: 'Version', value: '1.0.0' },
     { label: 'Backend', value: 'FastAPI + Supabase' },
     { label: 'AI Engine', value: 'RAG + Groq' },
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+            <Text style={styles.headerEyebrow}>Swipe</Text>
             <Text style={styles.headerTitle}>Settings</Text>
           </View>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>

@@ -160,7 +160,7 @@ export default function FraudAlertsScreen() {
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerEyebrow}>SwipeSmart</Text>
+            <Text style={styles.headerEyebrow}>Swipe</Text>
             <Text style={styles.headerTitle}>SwipeGuard</Text>
           </View>
           <View style={styles.liveBadge}>
