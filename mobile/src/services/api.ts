@@ -52,6 +52,33 @@ async function apiPost<T = any>(endpoint: string, body: any): Promise<T> {
   return res.json();
 }
 
+async function apiPut<T = any>(endpoint: string, body: any): Promise<T> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function apiDelete<T = any>(endpoint: string): Promise<T> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ─── API Methods ──────────────────────────────────────────
 
 export interface Account {
@@ -79,7 +106,6 @@ export interface Transaction {
   state: string;
   txn_date: number; // epoch
 }
-
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -92,6 +118,17 @@ export interface FraudTransaction extends Transaction {
   feature_breakdown: Record<string, any> | null;
 }
 
+export interface Budget {
+  id?: string;
+  user_id?: string;
+  name: string;
+  amount: number;
+  category: string;
+  period: string; // 'daily', 'weekly', 'biweekly', 'monthly', '3-month', '6-month', 'yearly'
+  created_at?: string;
+  updated_at?: string;
+}
+
 export const api = {
   /** Exchange a SimpleFIN setup token */
   exchangeSetupToken: (setupToken: string) =>
@@ -101,7 +138,7 @@ export const api = {
 
   /** Trigger bank account sync */
   syncAccounts: () =>
-    apiGet<{ success: string }>('/api/sync_accounts'),
+    apiGet<{ success: string }>('/api/accounts/sync'),
 
   /** Get all linked accounts */
   getAccounts: () => apiGet<Account[]>('/api/accounts'),
@@ -122,6 +159,25 @@ export const api = {
     ),
 
   /** Ask the financial assistant */
-  ask: (question: string, history: ChatMessage[]) =>
-    apiPost<{ response: string }>('/api/ask', { question, history }),
+  ask: (question: string, history?: ChatMessage[]) =>
+    apiPost<{ response: string }>('/api/ask', {
+      question,
+      history: history || [],
+    }),
+
+  /** Get active budgets */
+  getBudgets: () =>
+    apiGet<Budget[]>('/api/transactions/budgets'),
+
+  /** Create a new budget */
+  createBudget: (budget: Omit<Budget, 'id' | 'user_id' | 'created_at' | 'updated_at'>) =>
+    apiPost<{ status: string }>('/api/transactions/create-budget', budget),
+    
+  /** Update an existing budget */
+  updateBudget: (budgetId: string, budget: Partial<Budget>) =>
+    apiPut<{ status: string }>(`/api/transactions/budgets/${budgetId}`, budget),
+    
+  /** Delete a budget */
+  deleteBudget: (budgetId: string) =>
+    apiDelete<{ status: string }>(`/api/transactions/budgets/${budgetId}`),
 };
