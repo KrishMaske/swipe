@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from utils.simplefin_service import retrieve_accounts
+from typing import Optional
 from database.db import create_budget, update_budget, delete_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions, get_fraudulent_transactions, update_fraud_status
 from config.security import get_user_context
 from utils.date_service import ninety_days, epoch_to_date
@@ -10,12 +11,12 @@ class BudgetCreateRequest(BaseModel):
     amount: float
     category: str
     period: str
-    
+
 class BudgetUpdateRequest(BaseModel):
-    name: str | None = None
-    amount: float | None = None
-    category: str | None = None
-    period: str | None = None
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    category: Optional[str] = None
+    period: Optional[str] = None
 
 router = APIRouter()
 

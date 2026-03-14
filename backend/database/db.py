@@ -254,6 +254,36 @@ def get_active_budgets(context):
         print(f"Failed to retrieve budgets: {str(e)}")
         return []
 
+def delete_budget(context, budget_id: str):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        sb.table("budgets").delete().eq("id", budget_id).eq("user_id", user_id).execute()
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete budget: {str(e)}")
+
+def update_budget(context, budget_id: str, budget_data):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    update_fields = {k: v for k, v in budget_data.dict().items() if v is not None}
+    if not update_fields:
+        return {"status": "success"}
+
+    try:
+        response = (
+            sb.table("budgets")
+            .update(update_fields)
+            .eq("id", budget_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update budget: {str(e)}")
+
 def get_all_non_fraudulent_transactions():
     
     try:
