@@ -197,6 +197,47 @@ def create_budget(context, budget):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create budget: {str(e)}")
 
+def update_budget(context, budget_id: str, budget):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    update_data = {}
+    if budget.name is not None: update_data["name"] = budget.name
+    if budget.amount is not None: update_data["amount"] = budget.amount
+    if budget.category is not None: update_data["category"] = budget.category
+    if budget.period is not None: update_data["period"] = budget.period
+    
+    if not update_data:
+        return {"status": "success", "message": "No fields to update."}
+        
+    try:
+        response = (
+            sb.table("budgets")
+            .update(update_data)
+            .eq("id", budget_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update budget: {str(e)}")
+
+def delete_budget(context, budget_id: str):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("budgets")
+            .delete()
+            .eq("id", budget_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete budget: {str(e)}")
+
 def get_active_budgets(context):
     sb = context["supabase"]
     user_id = context["user_id"]

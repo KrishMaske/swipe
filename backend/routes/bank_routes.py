@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from utils.simplefin_service import retrieve_accounts
-from database.db import create_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions, get_fraudulent_transactions, update_fraud_status
+from database.db import create_budget, update_budget, delete_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions, get_fraudulent_transactions, update_fraud_status
 from config.security import get_user_context
 from utils.date_service import ninety_days, epoch_to_date
 
@@ -11,6 +11,11 @@ class BudgetCreateRequest(BaseModel):
     category: str
     period: str
     
+class BudgetUpdateRequest(BaseModel):
+    name: str | None = None
+    amount: float | None = None
+    category: str | None = None
+    period: str | None = None
 
 router = APIRouter()
 
@@ -61,3 +66,11 @@ def get_budgets_endpoint(context: dict = Depends(get_user_context)):
 @router.post("/api/transactions/create-budget")
 def create_budget_endpoint(budget: BudgetCreateRequest, context: dict = Depends(get_user_context)):
     return create_budget(context, budget)
+
+@router.put("/api/transactions/budgets/{budget_id}")
+def update_budget_endpoint(budget_id: str, budget: BudgetUpdateRequest, context: dict = Depends(get_user_context)):
+    return update_budget(context, budget_id, budget)
+
+@router.delete("/api/transactions/budgets/{budget_id}")
+def delete_budget_endpoint(budget_id: str, context: dict = Depends(get_user_context)):
+    return delete_budget(context, budget_id)
