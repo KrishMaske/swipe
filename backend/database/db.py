@@ -177,6 +177,42 @@ def get_transactions(context, acc_id):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve transactions: {str(e)}")
 
+def create_budget(context, budget):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("budgets")
+            .upsert({
+                "user_id": user_id,
+                "name": budget.name,
+                "amount": budget.amount,
+                "category": budget.category,
+                "period": budget.period,
+            })
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create budget: {str(e)}")
+
+def get_active_budgets(context):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+    
+    try:
+        response = (
+            sb.table("budgets")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        print(f"Failed to retrieve budgets: {str(e)}")
+        return []
+
 def get_all_non_fraudulent_transactions():
     
     try:

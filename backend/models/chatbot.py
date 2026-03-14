@@ -5,6 +5,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
 from config.settings import embedding_model, groq_client
+from database.db import get_active_budgets
 
 class Message(BaseModel):
     role: str
@@ -202,8 +203,16 @@ async def ask_financial_assistant(context, request: ChatRequest):
     user_id = context["user_id"]
     
     try:
-        search_query = _build_search_query(request.question, request.history)
+        budget_response = sb.table("budgets").select("*").eq("user_id", user_id).execute()
+        active_budgets = budget_response.data or []
+        
+        if active_budgets:
+            budget_lines = [f"- {b['category']}: ${b['amount']} ({b.get('period', 'monthly')})" for b in active_budgets]
+            budget_text = "\n".join(budget_lines)
+        else:
+            budget_text = "No active budgets set."
 
+        search_query = _build_search_query(request.question, request.history)
         query_vector = embedding_model.encode(search_query).tolist()
 
         direct_general = _is_general_finance_question(request.question)
@@ -224,7 +233,6 @@ async def ask_financial_assistant(context, request: ChatRequest):
             count=25,
         )
 
-        # Spending-cutdown prompts are broad; retry with a lower threshold to avoid false misses.
         if not transactions and wants_spending_advice:
             transactions = _fetch_transactions(
                 sb=sb,
@@ -234,11 +242,9 @@ async def ask_financial_assistant(context, request: ChatRequest):
                 count=50,
             )
 
-        # Final fallback for spending/budget discussions: use recent user transactions directly.
         if not transactions and (wants_spending_advice or wants_general_guidance):
             transactions = _fetch_recent_transactions(sb=sb, user_id=user_id, limit=60)
 
-        # Deterministic comparison for weekly budget questions to avoid contradictory answers.
         if transactions and (wants_spending_advice or wants_general_guidance):
             food_txns = _filter_food_transactions(transactions)
             food_stats = _compute_spending_stats(food_txns)
@@ -275,7 +281,8 @@ async def ask_financial_assistant(context, request: ChatRequest):
                         "The user asked for general finance guidance. "
                         "If transaction context is unavailable, provide practical advice and clearly say it is general guidance. "
                         "Give clear, practical advice in concise steps. "
-                        "Keep the response under 140 words unless the user asks for more detail."
+                        "Keep the response under 140 words unless the user asks for more detail.\n\n"
+                        f"USER'S ACTIVE BUDGETS:\n{budget_text}"
                     ),
                 }]
 
@@ -319,15 +326,19 @@ async def ask_financial_assistant(context, request: ChatRequest):
         )
 
         system_prompt = f"""You are a helpful, precise personal finance AI assistant.
-        Answer the user's question using ONLY the following transaction data. 
+        Answer the user's question using ONLY the following transaction data and budgets. 
         If the data does not contain the answer, explicitly state that you don't know. 
         For follow-up questions, use the prior chat history to resolve references like "it", "that", or "last time".
         If the latest user question is ambiguous (for example "can you do it for me"), infer intent from recent user turns.
         Do not give general financial advice unless specifically asked.
         Keep responses concise and complete, ideally under 120 words unless the user asks for detailed guidance.        
+        
         {food_summary}
 
-        User's Transaction Context:
+        USER'S ACTIVE BUDGETS:
+        {budget_text}
+
+        USER'S RECENT / RELEVANT TRANSACTIONS:
         {context_text}"""
 
         llm_messages = [{"role": "system", "content": system_prompt}]
