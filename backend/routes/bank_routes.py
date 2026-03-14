@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from pydantic import BaseModel
 from utils.simplefin_service import retrieve_accounts
-from database.db import get_access_url, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions, get_fraudulent_transactions, update_fraud_status
+from database.db import create_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions, get_fraudulent_transactions, update_fraud_status
 from config.security import get_user_context
 from utils.date_service import ninety_days, epoch_to_date
 
+class BudgetCreateRequest(BaseModel):
+    name: str
+    amount: float
+    category: str
+    period: str
+    
+
 router = APIRouter()
 
-
-@router.get("/api/sync_accounts")
+@router.get("/api/accounts/sync")
 def sync_accounts_endpoint(background_tasks: BackgroundTasks, context: dict = Depends(get_user_context)):
     try:
         data = get_access_url(context)
@@ -46,3 +53,11 @@ def get_fraudulent_transactions_endpoint(context: dict = Depends(get_user_contex
 @router.post("/api/transactions/update-fraud-status")
 def update_fraud_status_endpoint(txn_id: str, is_confirmed_fraud: bool, context: dict = Depends(get_user_context)):
     return update_fraud_status(context, txn_id, is_confirmed_fraud)
+
+@router.get("/api/transactions/budgets")
+def get_budgets_endpoint(context: dict = Depends(get_user_context)):
+    return get_active_budgets(context)
+
+@router.post("/api/transactions/create-budget")
+def create_budget_endpoint(budget: BudgetCreateRequest, context: dict = Depends(get_user_context)):
+    return create_budget(context, budget)

@@ -85,9 +85,16 @@ def build_user_profile(transactions: list[dict]) -> dict:
     location_fam = _build_familiarity_map(df, "city", now_epoch)
     state_fam = _build_familiarity_map(df, "state", now_epoch)
 
+    std_val = df["amount"].std()
+    if pd.isna(std_val) or len(df) < 10:
+        # Cold start padding: pad std for new users so z-score doesn't blow up
+        std_val = max(std_val if not pd.isna(std_val) else 0.0, 20.0)
+    elif std_val == 0:
+        std_val = 0.01
+
     return {
         "avg_amount": df["amount"].mean(),
-        "std_amount": df["amount"].std() or 0.01,
+        "std_amount": std_val,
         "median_amount": df["amount"].median(),
         "max_amount": df["amount"].max(),
         "most_common_hour": df["hour"].mode().iloc[0] if not df["hour"].mode().empty else 12,
@@ -102,7 +109,7 @@ def build_user_profile(transactions: list[dict]) -> dict:
 
 # ── Feature Extraction ────────────────────────────────────
 
-def extract_features(txn: dict, profile: dict) -> list[float]:
+def extract_features(txn: dict, profile: dict, global_merchant_stats: dict = None) -> list[float]:
     """Extracts behavioral deviation features for a single transaction against the user's profile."""
     amount = abs(float(txn.get("amount", 0)))
 
@@ -131,6 +138,14 @@ def extract_features(txn: dict, profile: dict) -> list[float]:
     # geo_jump: fires when the location is new but the merchant IS familiar (cloned card pattern)
     geo_jump = (1.0 - new_merchant) * new_location
 
+    # Global merchant feedback stats
+    global_merchant_stats = global_merchant_stats or {}
+    merchant_key = txn.get("merchant", "").upper().strip() if txn.get("merchant") else ""
+    stats = global_merchant_stats.get(merchant_key, {"flagged": 0, "fraud": 0, "legit": 0})
+    similar_flagged = float(stats["flagged"])
+    similar_fraud = float(stats["fraud"])
+    similar_legit = float(stats["legit"])
+
     return [
         amount,
         (amount - avg) / std,                        # z-score vs user average
@@ -146,6 +161,9 @@ def extract_features(txn: dict, profile: dict) -> list[float]:
         new_location,                                 # binary: never/rarely seen location
         location_risk,                                # amplified: unknown merchant + unknown location
         geo_jump,                                     # amplified: known merchant + unknown location (cloned card)
+        similar_flagged,                              # historical global flags for this merchant
+        similar_fraud,                                # user-confirmed fraud count for this merchant
+        similar_legit,                                # user-confirmed legit count for this merchant
     ]
 
 
@@ -164,6 +182,9 @@ FEATURE_NAMES = [
     "new_location",
     "location_risk",
     "geo_jump",
+    "similar_flagged_count",
+    "similar_fraud_count",
+    "similar_legit_count",
 ]
 
 
@@ -191,12 +212,34 @@ def train_global_fraud_detector(all_transactions: list[dict]):
     for uid, txns in txns_by_user.items():
         user_profiles[uid] = build_user_profile(txns)
 
+    # 2.5 ── Build global merchant stats
+    global_merchant_stats = {}
+    for txn in all_transactions:
+        merch = txn.get("merchant", "")
+        if not merch:
+            continue
+        merch_key = merch.upper().strip()
+        if merch_key not in global_merchant_stats:
+            global_merchant_stats[merch_key] = {"flagged": 0, "fraud": 0, "legit": 0}
+            
+        if txn.get("is_flagged_fraud"):
+            global_merchant_stats[merch_key]["flagged"] += 1
+            
+        is_conf = txn.get("is_confirmed_fraud")
+        if is_conf is True:
+            global_merchant_stats[merch_key]["fraud"] += 1
+        elif is_conf is False:
+            global_merchant_stats[merch_key]["legit"] += 1
+            
+    # Stash it in user profiles so it gets saved to disk automatically
+    user_profiles["__GLOBAL_MERCHANT_STATS__"] = global_merchant_stats
+
     # 3 ── Extract features using each transaction's owner profile
     all_features = []
     for txn in all_transactions:
         uid = txn.get("user_id", "unknown")
         profile = user_profiles[uid]
-        all_features.append(extract_features(txn, profile))
+        all_features.append(extract_features(txn, profile, global_merchant_stats))
 
     # 4 ── Train
     X = np.array(all_features)
@@ -205,7 +248,7 @@ def train_global_fraud_detector(all_transactions: list[dict]):
 
     model = IsolationForest(
         n_estimators=200,
-        contamination=0.10,
+        contamination=0.05,  # Lowered to reduce false positives for clean histories
         random_state=42,
     )
     model.fit(X_scaled)
@@ -256,7 +299,8 @@ def score_transaction(txn: dict, user_id: str) -> dict:
     if profile is None:
         return {"is_anomaly": False, "risk_score": 0.0, "message": "No profile for this user yet."}
 
-    features = extract_features(txn, profile)
+    global_merchant_stats = _user_profiles.get("__GLOBAL_MERCHANT_STATS__", {})
+    features = extract_features(txn, profile, global_merchant_stats)
     X = np.array([features])
     X_scaled = _global_scaler.transform(X)
 
@@ -268,8 +312,33 @@ def score_transaction(txn: dict, user_id: str) -> dict:
 
     feature_breakdown = {k: float(v) for k, v in zip(FEATURE_NAMES, features)}
 
+    # --- Hybrid Rules Engine ---
+    f_amt = feature_breakdown.get("amount", 0.0)
+    f_loc_risk = feature_breakdown.get("location_risk", 0.0)
+    f_geo_jump = feature_breakdown.get("geo_jump", 0.0)
+    f_late_night = feature_breakdown.get("late_night", 0.0)
+    f_new_loc = feature_breakdown.get("new_location", 0.0)
+
+    # 1. Carding Test
+    if f_amt <= 2.00 and f_loc_risk == 1.0:
+        risk_score = max(risk_score, 0.85)
+
+    # 2. Cloned Card
+    if f_geo_jump == 1.0:
+        risk_score = max(risk_score, 0.75)
+
+    # 3. Blind Travel
+    if f_loc_risk == 1.0 and f_amt > 25.0:
+        risk_score = min(risk_score + 0.25, 1.0)
+
+    # 4. Late Night Suspicious
+    if f_late_night == 1.0 and f_new_loc == 1.0:
+        risk_score = max(risk_score, 0.80)
+        
+    risk_score = round(risk_score, 3)
+
     return {
-        "is_anomaly": bool(prediction == -1 or risk_score > 0.45),
+        "is_anomaly": bool(prediction == -1 or risk_score >= 0.45),
         "risk_score": risk_score,
         "features": feature_breakdown,
     }
@@ -297,10 +366,10 @@ if __name__ == "__main__":
         
         if is_anomaly:
             # Red text for Anomalies
-            status_text = f"\033[91m🚨 ANOMALY DETECTED (Risk: {risk_score})\033[0m"
+            status_text = f"\033[91m[!] ANOMALY DETECTED (Risk: {risk_score})\033[0m"
         else:
             # Green text for Normal
-            status_text = f"\033[92m✅ NORMAL (Risk: {risk_score})\033[0m"
+            status_text = f"\033[92m[OK] NORMAL (Risk: {risk_score})\033[0m"
 
         # 3. Print the clean UI
         print(f"[{txn_date}] {merchant} | ${abs(amount):.2f} | {city}, {state}")
