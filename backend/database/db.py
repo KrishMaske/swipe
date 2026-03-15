@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+import re
 from config.security import get_user_context
 from config.settings import admin
 from utils.crypt import encrypt, decrypt
@@ -330,67 +331,74 @@ def update_fraud_status(context, txn_id, is_confirmed_fraud):
         raise HTTPException(status_code=500, detail=f"Failed to update fraud status: {str(e)}")
     
     
-def create_card(context, card_data):
+def _slugify_card_name(card_name: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", (card_name or "").strip().lower())
+    return normalized.strip("-") or "saved-card"
+
+
+def _infer_card_network(card_name: str) -> str:
+    normalized = (card_name or "").lower()
+    if "visa" in normalized:
+        return "Visa"
+    if "mastercard" in normalized:
+        return "Mastercard"
+    if "american express" in normalized or "amex" in normalized:
+        return "American Express"
+    if "discover" in normalized:
+        return "Discover"
+    return "Unknown"
+
+
+def replace_user_cards(context, cards):
     sb = context["supabase"]
     user_id = context["user_id"]
-    
-    try:
-        sb.table("user_cards").upsert({
+
+    rows = []
+    for card in cards:
+        rows.append({
             "user_id": user_id,
-            "card_name": card_data.card_name,
-            "issuer": card_data.issuer,
-            "last_four": card_data.last_four,
-            "card_network": card_data.card_network,
-            "logo_url": card_data.logo_url,
-            "reward_multiplier": card_data.reward_multiplier,
-            "reward_type": card_data.reward_type,
-            "annual_fee": card_data.annual_fee,
-        }).execute()
-        return {"status": "success"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create card: {str(e)}")
-    
-def get_cards(context):
-    sb = context["supabase"]
-    user_id = context["user_id"]
-    
+            "card_name": card.get("card_name"),
+            "issuer": card.get("issuer"),
+            "last_four": card.get("last_four") or "0000",
+            "card_network": card.get("card_network") or _infer_card_network(card.get("card_name", "")),
+            "logo_url": card.get("card_image_url") or card.get("logo_url"),
+            "reward_multipliers": card.get("reward_multipliers") or card.get("reward_multiplier") or {},
+            "reward_type": card.get("reward_type"),
+            "annual_fee": float(card.get("annual_fee") or 0),
+        })
+
     try:
-        response = (
-            sb.table("user_cards")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        return response.data
+        sb.table("user_cards").delete().eq("user_id", user_id).execute()
+        if rows:
+            sb.table("user_cards").insert(rows).execute()
+        return get_saved_user_cards(context)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve cards: {str(e)}")
-    
-def update_card(context, card_id, card_data):
+        raise HTTPException(status_code=500, detail=f"Failed to replace wallet cards: {str(e)}")
+
+
+def get_saved_user_cards(context):
     sb = context["supabase"]
     user_id = context["user_id"]
-    
-    update_fields = {k: v for k, v in card_data.dict().items() if v is not None}
-    if not update_fields:
-        return {"status": "success"}
 
     try:
         response = (
             sb.table("user_cards")
-            .update(update_fields)
-            .eq("id", card_id)
+            .select("id, card_name, issuer, logo_url, reward_multipliers, reward_type, annual_fee")
             .eq("user_id", user_id)
             .execute()
         )
-        return response.data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update card: {str(e)}")
 
-def delete_card(context, card_id):
-    sb = context["supabase"]
-    user_id = context["user_id"]
-
-    try:
-        sb.table("user_cards").delete().eq("id", card_id).eq("user_id", user_id).execute()
-        return {"status": "success"}
+        cards = []
+        for row in response.data or []:
+            cards.append({
+                "id": _slugify_card_name(row.get("card_name", "")),
+                "card_name": row.get("card_name"),
+                "issuer": row.get("issuer"),
+                "card_image_url": row.get("logo_url"),
+                "reward_type": row.get("reward_type"),
+                "annual_fee": float(row.get("annual_fee") or 0),
+                "reward_multipliers": row.get("reward_multipliers") or {},
+            })
+        return cards
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete card: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve saved wallet cards: {str(e)}")
