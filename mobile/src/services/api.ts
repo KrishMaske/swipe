@@ -154,6 +154,35 @@ export interface LocationEvaluationResponse {
   longitude?: number;
 }
 
+const USER_CARDS_CACHE_TTL_MS = 60_000;
+let userCardsCache: { data: WalletCard[]; timestamp: number } | null = null;
+let userCardsInFlight: Promise<WalletCard[]> | null = null;
+
+async function getUserCardsCached(forceRefresh = false): Promise<WalletCard[]> {
+  const now = Date.now();
+
+  if (!forceRefresh && userCardsCache && now - userCardsCache.timestamp < USER_CARDS_CACHE_TTL_MS) {
+    return userCardsCache.data;
+  }
+
+  if (!forceRefresh && userCardsInFlight) {
+    return userCardsInFlight;
+  }
+
+  const fetchPromise = apiGet<WalletCard[]>('/api/user/cards')
+    .then((cards) => {
+      const normalized = cards || [];
+      userCardsCache = { data: normalized, timestamp: Date.now() };
+      return normalized;
+    })
+    .finally(() => {
+      userCardsInFlight = null;
+    });
+
+  userCardsInFlight = fetchPromise;
+  return fetchPromise;
+}
+
 export const api = {
   /** Exchange a SimpleFIN setup token */
   exchangeSetupToken: (setupToken: string) =>
@@ -207,12 +236,15 @@ export const api = {
     apiDelete<{ status: string }>(`/api/transactions/budgets/${budgetId}`),
 
   /** Save a user's selected wallet cards */
-  saveUserCards: (cards: WalletCard[]) =>
-    apiPost<{ status?: string; success?: boolean; count?: number; cards?: WalletCard[] }>('/api/user/cards', { cards }),
+  saveUserCards: async (cards: WalletCard[]) => {
+    const response = await apiPost<{ status?: string; success?: boolean; count?: number; cards?: WalletCard[] }>('/api/user/cards', { cards });
+    userCardsCache = { data: response.cards || cards, timestamp: Date.now() };
+    return response;
+  },
 
   /** Get the user's saved wallet cards */
-  getUserCards: () =>
-    apiGet<WalletCard[]>('/api/user/cards'),
+  getUserCards: (forceRefresh = false) =>
+    getUserCardsCached(forceRefresh),
 
   /** Evaluate a location for the best card recommendation */
   evaluateLocation: (payload: { latitude: number; longitude: number }) =>

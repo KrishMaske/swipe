@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
 from config.settings import embedding_model, groq_client
-from database.db import get_active_budgets
+from database.db import get_chat_summary, upsert_chat_summary
 
 class Message(BaseModel):
     role: str
@@ -17,6 +17,9 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+
+SUMMARY_CHAR_LIMIT = 1500
 
 
 def _recent_user_text(history: Optional[List[Message]], turns: int = 3) -> str:
@@ -198,9 +201,65 @@ def _is_budget_comparison_question(question: str) -> bool:
     triggers = ["more than", "higher than", "too high", "too much", "help me save", "wouldnt help", "wouldn't help"]
     return ("week" in q or "weekly" in q) and any(t in q for t in triggers)
 
+
+def _history_for_summary(history: Optional[List[Message]], keep: int = 8) -> str:
+    if not history:
+        return ""
+    lines = []
+    for msg in history[-keep:]:
+        role = "User" if msg.role == "user" else "Assistant"
+        text = (msg.content or "").strip().replace("\n", " ")
+        if text:
+            lines.append(f"{role}: {text}")
+    return "\n".join(lines)
+
+
+def _fallback_summary(existing_summary: str, question: str, answer: str) -> str:
+    q = question.strip().replace("\n", " ")
+    a = answer.strip().replace("\n", " ")
+    combined = f"{existing_summary}\nLatest user question: {q}\nLatest assistant answer: {a}".strip()
+    return combined[-SUMMARY_CHAR_LIMIT:]
+
+
+def _roll_summary(existing_summary: str, question: str, answer: str, history: Optional[List[Message]]) -> str:
+    history_text = _history_for_summary(history)
+    system_prompt = (
+        "You maintain a rolling memory summary for a personal finance assistant. "
+        "Update the memory with only durable, high-signal facts and preferences. "
+        "Keep it concise, <= 10 bullet lines, plain text, no markdown headers."
+    )
+    user_prompt = (
+        f"Existing summary:\n{existing_summary or '(none)'}\n\n"
+        f"Recent conversation:\n{history_text or '(none)'}\n\n"
+        f"Latest user question:\n{question}\n\n"
+        f"Latest assistant response:\n{answer}\n\n"
+        "Return the updated summary only."
+    )
+
+    try:
+        completion = groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            model="openai/gpt-oss-120b",
+            temperature=0.1,
+            max_completion_tokens=280,
+            top_p=1,
+            reasoning_effort="medium",
+            stop=None,
+        )
+        summary = (completion.choices[0].message.content or "").strip()
+        if not summary:
+            return _fallback_summary(existing_summary, question, answer)
+        return summary[-SUMMARY_CHAR_LIMIT:]
+    except Exception:
+        return _fallback_summary(existing_summary, question, answer)
+
 async def ask_financial_assistant(context, request: ChatRequest):
     sb = context["supabase"]
     user_id = context["user_id"]
+    rolling_summary = get_chat_summary(context)
     
     try:
         budget_response = sb.table("budgets").select("*").eq("user_id", user_id).execute()
@@ -269,7 +328,8 @@ async def ask_financial_assistant(context, request: ChatRequest):
                         f"(from ${food_stats['total']:.2f} across {food_stats['count']} transactions over about {food_stats['weeks']:.1f} weeks). "
                         f"A savings target would be around ${recommended:.2f}/week."
                     )
-
+                updated_summary = _roll_summary(rolling_summary, request.question, msg, request.history)
+                upsert_chat_summary(context, updated_summary)
                 return ChatResponse(response=msg)
         
         if not transactions:
@@ -282,6 +342,7 @@ async def ask_financial_assistant(context, request: ChatRequest):
                         "If transaction context is unavailable, provide practical advice and clearly say it is general guidance. "
                         "Give clear, practical advice in concise steps. "
                         "Keep the response under 140 words unless the user asks for more detail.\n\n"
+                        f"ROLLING MEMORY SUMMARY:\n{rolling_summary or 'No prior summary available.'}\n\n"
                         f"USER'S ACTIVE BUDGETS:\n{budget_text}"
                     ),
                 }]
@@ -293,17 +354,22 @@ async def ask_financial_assistant(context, request: ChatRequest):
 
                 chat_completion = groq_client.chat.completions.create(
                     messages=llm_messages,
-                    model="openai/gpt-oss-120b",
+                    model="llama-3.3-70b-versatile",
                     temperature=0.2,
                     max_completion_tokens=500,
                     top_p=1,
                     reasoning_effort="medium",
                     stop=None,
                 )
+                assistant_response = chat_completion.choices[0].message.content
+                updated_summary = _roll_summary(rolling_summary, request.question, assistant_response, request.history)
+                upsert_chat_summary(context, updated_summary)
+                return ChatResponse(response=assistant_response)
 
-                return ChatResponse(response=chat_completion.choices[0].message.content)
-
-            return ChatResponse(response="I couldn't find matching transactions for that question right now. I can still give general advice, or you can sync accounts and ask again for spending-specific recommendations.")
+            fallback_response = "I couldn't find matching transactions for that question right now. I can still give general advice, or you can sync accounts and ask again for spending-specific recommendations."
+            updated_summary = _roll_summary(rolling_summary, request.question, fallback_response, request.history)
+            upsert_chat_summary(context, updated_summary)
+            return ChatResponse(response=fallback_response)
 
         formatted_swipes = []
         for t in transactions:
@@ -333,6 +399,9 @@ async def ask_financial_assistant(context, request: ChatRequest):
         Do not give general financial advice unless specifically asked.
         Keep responses concise and complete, ideally under 120 words unless the user asks for detailed guidance.        
         
+        ROLLING MEMORY SUMMARY:
+        {rolling_summary or 'No prior summary available.'}
+
         {food_summary}
 
         USER'S ACTIVE BUDGETS:
@@ -357,8 +426,11 @@ async def ask_financial_assistant(context, request: ChatRequest):
             reasoning_effort="medium",
             stop=None
         )
+        assistant_response = chat_completion.choices[0].message.content
+        updated_summary = _roll_summary(rolling_summary, request.question, assistant_response, request.history)
+        upsert_chat_summary(context, updated_summary)
 
-        return ChatResponse(response=chat_completion.choices[0].message.content)
+        return ChatResponse(response=assistant_response)
 
     except Exception as e:
         print(f"Chatbot Error: {str(e)}")

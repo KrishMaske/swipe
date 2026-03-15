@@ -8,7 +8,6 @@ leaks-report.json*
 .DS_Store
 Thumbs.db
 index.html
-backend
 
 # React Native / Expo
 mobile/node_modules/

@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import {
+  GEOFENCE_ENTER_TASK,
   MERCHANT_SEED_TASK,
   ensureLocationNotificationChannelAsync,
 } from '../services/LocationService';
@@ -29,6 +30,25 @@ export function useLocationTracking(enabled = true) {
 
   useEffect(() => {
     if (!enabled) {
+      const stopTracking = async () => {
+        try {
+          const isLocationUpdatesActive = await Location.hasStartedLocationUpdatesAsync(MERCHANT_SEED_TASK);
+          if (isLocationUpdatesActive) {
+            await Location.stopLocationUpdatesAsync(MERCHANT_SEED_TASK);
+          }
+
+          const isGeofencingActive = await Location.hasStartedGeofencingAsync(GEOFENCE_ENTER_TASK);
+          if (isGeofencingActive) {
+            await Location.stopGeofencingAsync(GEOFENCE_ENTER_TASK);
+          }
+        } catch {
+          // no-op; cleanup should not crash app startup
+        } finally {
+          setState(initialState);
+        }
+      };
+
+      stopTracking();
       return;
     }
 

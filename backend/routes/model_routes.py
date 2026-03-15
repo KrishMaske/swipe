@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from database.db import get_all_non_fraudulent_transactions
-from config.security import get_user_context
+from config.security import get_user_context, require_admin_context
 from models.fraud_detector import train_global_fraud_detector, score_transaction
 
 router = APIRouter()
 
 
 @router.post("/api/train-fraud-model")
-async def trigger_global_training():
+async def trigger_global_training(context: dict = Depends(require_admin_context)):
     """Fetches ALL transactions (admin) and trains the global fraud model."""
 
     all_txns = get_all_non_fraudulent_transactions()
