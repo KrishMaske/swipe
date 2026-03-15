@@ -1,0 +1,27 @@
+.venv*
+__pycache__/
+.env
+*.env.local
+leaks-report.json*
+*csv
+*.py[cod]
+.DS_Store
+Thumbs.db
+index.html
+backend
+
+# React Native / Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/npm-debug.log*
+mobile/yarn-error.log
+mobile/yarn-debug.log*
+mobile/.pnp.*
+mobile/.yarn/*
+!mobile/.yarn/patches
+!mobile/.yarn/plugins
+!mobile/.yarn/releases
+!mobile/.yarn/sdks
+!mobile/.yarn/versions
+package-lock.json

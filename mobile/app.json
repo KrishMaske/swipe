@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "swipe",
+    "slug": "swipe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "remote-notification"
+        ],
+        "NSLocationWhenInUseUsageDescription": "SwipeSmart uses your location while the app is open to recommend the best card for nearby merchants.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "SwipeSmart uses your location in the background to suggest the best card when you arrive at stores, restaurants, and travel locations.",
+        "NSLocationAlwaysUsageDescription": "SwipeSmart uses your location in the background to suggest the best card when you arrive at stores, restaurants, and travel locations."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SwipeSmart uses your location while the app is open to recommend the best card for nearby merchants.",
+          "locationAlwaysAndWhenInUsePermission": "SwipeSmart uses your location in the background to recommend the best card when you arrive at merchants.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-notifications"
+    ]
+  }
+}

@@ -1,0 +1,551 @@
+[
+  {
+    "id": "american-express-gold-card",
+    "card_name": "American Express® Gold Card",
+    "issuer": "American Express",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/2921dc2e-e2b0-4003-82af-f6ca0f575d1c/9939cc4d8238dcd5ad2100cc9696bd6e5999526b1b8b99e9296ca85a800a83e6.jpg",
+    "reward_type": "Points",
+    "annual_fee": 325,
+    "reward_multipliers": {
+      "dining": 4.0,
+      "grocery": 4.0,
+      "flights": 3.0,
+      "amextravel_hotels": 2.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "american-express-platinum-card",
+    "card_name": "American Express Platinum Card®",
+    "issuer": "American Express",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/fd24850b-46ce-4ea8-9314-3594fe77944f/ef4003770aeed9c41fd5e172aaf2224611a39cde217bc4f9d10f8c75e9bb31b6.jpg",
+    "reward_type": "Points",
+    "annual_fee": 895,
+    "reward_multipliers": {
+      "flights": 5.0,
+      "prepaid_hotels_amextravel": 5.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "chase-sapphire-preferred-card",
+    "card_name": "Chase Sapphire Preferred® Card",
+    "issuer": "Chase",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/7dce19da-5d96-4502-9fd2-70ff9655f13a/3f8b79d90932c89dcb16ddad07861bbc7d0c804366870949527ae9b89e1df384.png",
+    "reward_type": "Points",
+    "annual_fee": 95,
+    "reward_multipliers": {
+      "travel_chase_portal": 5.0,
+      "dining": 3.0,
+      "streaming": 3.0,
+      "online_grocery": 3.0,
+      "travel": 2.0,
+      "lyft": 5.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "chase-sapphire-reserve",
+    "card_name": "Chase Sapphire Reserve®",
+    "issuer": "Chase",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/d89e10ed-e781-4d28-ae74-205056a10244/5df1be45283a52f362a78554a755a61fd2e3d460293822e19a196af38a256794.jpg",
+    "reward_type": "Points",
+    "annual_fee": 795,
+    "reward_multipliers": {
+      "travel_chase_portal": 8.0,
+      "airline_hotel_direct": 4.0,
+      "dining": 3.0,
+      "lyft": 5.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "capital-one-venture-x-rewards-credit-card",
+    "card_name": "Capital One Venture X Rewards Credit Card",
+    "issuer": "Capital One",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/39cdfd80-3372-11ec-ba1e-0bd72314c41b/27f20fb951994ae679d050cefe931ef9cb6653edc5ca85faf4a3dd893a202fc0.jpg",
+    "reward_type": "Points",
+    "annual_fee": 395,
+    "reward_multipliers": {
+      "flights_capital_one_travel": 5.0,
+      "vacation_rentals_capital_one_travel": 5.0,
+      "hotels_capital_one_travel": 10.0,
+      "rental_cars_capital_one_travel": 10.0,
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "capital-one-venture-rewards-credit-card",
+    "card_name": "Capital One Venture Rewards Credit Card",
+    "issuer": "Capital One",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/1fc99a80-1508-4e14-83d7-eb5d5da65d97/e27e47a9d72f779091d0211ae8a487813ffd479c1866022bd68cc162f77dfd07.jpg",
+    "reward_type": "Points",
+    "annual_fee": 95,
+    "reward_multipliers": {
+      "hotels_capital_one_travel": 5.0,
+      "vacation_rentals_capital_one_travel": 5.0,
+      "rental_cars_capital_one_travel": 5.0,
+      "capital_one_entertainment": 5.0,
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "chase-freedom-unlimited",
+    "card_name": "Chase Freedom Unlimited®",
+    "issuer": "Chase",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/84e1494c-bae2-4b0d-ac8d-e8c095ceb2fe/3a0cac78e497688cdc58fb030fd6c59eea6a6275256e6a523d7999e1827ffd06.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "travel_chase_portal": 5.0,
+      "dining": 3.0,
+      "drugstores": 3.0,
+      "lyft": 2.0,
+      "everything_else": 1.5
+    }
+  },
+  {
+    "id": "chase-freedom-flex",
+    "card_name": "Chase Freedom Flex®",
+    "issuer": "Chase",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/33ee088c-f6bb-11ea-8bc1-3f958c527fba/9dacf16bb533669a8781f403e54dc3a5a68405fc1bfce38fda34f3bd4d5c67ec.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "rotating_categories": 5.0,
+      "travel_chase_portal": 5.0,
+      "dining": 3.0,
+      "drugstores": 3.0,
+      "lyft": 2.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "capital-one-savor-cash-rewards-credit-card",
+    "card_name": "Capital One Savor Cash Rewards Credit Card",
+    "issuer": "Capital One",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/cfeca922-52db-4b18-be5e-8e4fe1448448/100c06e3ec474abd370542a36eca1b6ffb5cf3fde15560aa2b78589c1a38e542.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "dining": 3.0,
+      "grocery": 3.0,
+      "entertainment": 3.0,
+      "streaming": 3.0,
+      "hotels_capital_one_travel": 5.0,
+      "vacation_rentals_capital_one_travel": 5.0,
+      "rental_cars_capital_one_travel": 5.0,
+      "capital_one_entertainment": 8.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "wells-fargo-active-cash-card",
+    "card_name": "Wells Fargo Active Cash® Card",
+    "issuer": "Wells Fargo",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/b954a46c-caec-11eb-abf1-efb90fc6e740/403a0deae03eaff0d1ca2c7ab1175fcc45ebc9a9551d0c8104e758b3d82771d1.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "citi-double-cash-card",
+    "card_name": "Citi Double Cash® Card",
+    "issuer": "Citi",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/2a5d5681-8a3b-4e4c-9509-7476a4d3290d/e336c70dca87c32aab9a7bb224023d69a2e3920fa2ed2acce940f2f4f4a6956e.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "hotels_citi_travel": 5.0,
+      "car_rentals_citi_travel": 5.0,
+      "attractions_citi_travel": 5.0,
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "blue-cash-preferred-card-from-american-express",
+    "card_name": "Blue Cash Preferred® Card from American Express",
+    "issuer": "American Express",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/2681330d-450d-4f71-af38-3cb16f592c02/596f22094df609999878f43629debc8d416e18334ea8f5e68f9d92a72dd0b912.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 95,
+    "reward_multipliers": {
+      "grocery": 6.0,
+      "streaming": 6.0,
+      "gas": 3.0,
+      "transit": 3.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "blue-cash-everyday-card-from-american-express",
+    "card_name": "Blue Cash Everyday® Card from American Express",
+    "issuer": "American Express",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/5ed2eb69-5e8c-4014-b8b7-23c4d600591c/bfccadb4c5dc3dc5a88464e70bf2c7339280bf494e9c8fad0ee4e5230c465dc4.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "grocery": 3.0,
+      "gas": 3.0,
+      "online_retail": 3.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "discover-it-cash-back",
+    "card_name": "Discover it® Cash Back",
+    "issuer": "Discover",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/a4a36a73-0294-4ca1-b36b-3eef5cee53ca/a1de1f5a52d4ab48b729c2ea25588d40b1b0382c84ddac318b584f1d62aa37bd.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "rotating_categories": 5.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "apple-card",
+    "card_name": "Apple Card",
+    "issuer": "Apple",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/4528cd20-add2-11eb-b8c6-230f8597051d/ff9cbb30ffe2501aa1b667251366a4faf92194234ad19d87f24ccd8c839c5c7b.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "apple_and_select_merchants_via_apple_pay": 3.0,
+      "apple_pay": 2.0,
+      "physical_card": 1.0
+    }
+  },
+  {
+    "id": "citi-custom-cash-card",
+    "card_name": "Citi Custom Cash® Card",
+    "issuer": "Citi",
+    "card_image_url": "https://cdn.nerdwallet.com/img/cc/CC_placeholder.svg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "grocery": 5.0,
+      "dining": 5.0,
+      "gas": 5.0,
+      "streaming": 5.0,
+      "drugstores": 5.0,
+      "home_improvement": 5.0,
+      "fitness_clubs": 5.0,
+      "select_travel": 5.0,
+      "select_transit": 5.0,
+      "live_entertainment": 5.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "capital-one-quicksilver-cash-rewards-credit-card",
+    "card_name": "Capital One Quicksilver Cash Rewards Credit Card",
+    "issuer": "Capital One",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/eb6605ae-a8c6-480d-9a3b-d79da54b2d7e/787ac1703db994bfc2a38e36805cd09f602d50a7a91d70599e5321e883e6988b.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "hotels_capital_one_travel": 5.0,
+      "vacation_rentals_capital_one_travel": 5.0,
+      "rental_cars_capital_one_travel": 5.0,
+      "everything_else": 1.5
+    }
+  },
+  {
+    "id": "bank-of-america-customized-cash-rewards-credit-card",
+    "card_name": "Bank of America® Customized Cash Rewards credit card",
+    "issuer": "Bank of America",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/56683306-5399-4ad5-873f-925ac4b61e9a/d3347ac1afd4dd51c1b27be9a82ac80c99876ebc7beb2d118830b3c5975bcfb3.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "chosen_category": 3.0,
+      "grocery": 2.0,
+      "wholesale_clubs": 2.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "costco-anywhere-visa-card-by-citi",
+    "card_name": "Costco Anywhere Visa® Card by Citi",
+    "issuer": "Citi",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/55e47fc1-e5b0-4006-b969-d6cf8c24c80f/b60634a081f84e0e3629c4404c542557c5ce9531825352d66c3075e2d6f3656e.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "costco_gas": 5.0,
+      "gas": 4.0,
+      "ev_charging": 4.0,
+      "dining": 3.0,
+      "travel": 3.0,
+      "costco": 2.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "us-bank-cash-plus-visa-signature-card",
+    "card_name": "U.S. Bank Cash+® Visa Signature® Card",
+    "issuer": "U.S. Bank",
+    "card_image_url": "https://www.usbank.com/content/dam/usbank/en/images/illustrations/card-art/credit-cards/photo-cash-plus-signature-angle-left.png",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "chosen_categories": 5.0,
+      "travel_us_bank_rewards_center": 5.0,
+      "everyday_category": 2.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "amazon-prime-visa",
+    "card_name": "Prime Visa",
+    "issuer": "Chase",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/596f3680-378f-4997-9e57-4db39fd85249/3caf6644a53331a7ae8754a86521afa854212eeccd62136e0ef3c6abd3dfe110.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "amazon": 5.0,
+      "whole_foods": 5.0,
+      "travel_chase_portal": 5.0,
+      "dining": 2.0,
+      "gas": 2.0,
+      "transit": 2.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "fidelity-rewards-visa-signature-card",
+    "card_name": "Fidelity® Rewards Visa Signature® Card",
+    "issuer": "Elan Financial Services",
+    "card_image_url": "https://cdn.nerdwallet.com/img/cc/CC_placeholder.svg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "alliant-cashback-visa-signature-credit-card",
+    "card_name": "Alliant Cashback Visa® Signature Credit Card",
+    "issuer": "Alliant Credit Union",
+    "card_image_url": "https://cdn.nerdwallet.com/img/cc/CC_placeholder.svg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "qualified_spend": 2.5,
+      "everything_else": 1.5
+    }
+  },
+  {
+    "id": "target-circle-credit-card",
+    "card_name": "Target Circle™ Credit Card",
+    "issuer": "TD Bank",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/e0158fcc-c3a7-4a3e-9c44-7c90062ab7a8/a95963d84518157a831a8f7b55d656d474258e6f3870038ce9d32b2442423277.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "target": 5.0
+    }
+  },
+  {
+    "id": "target-circle-debit-card",
+    "card_name": "Target Circle Debit Card",
+    "issuer": "Target",
+    "card_image_url": "https://www.nerdwallet.com/cdn-cgi/image/format=auto,width=212,quality=80,sharpen=1/cdn/images/marketplace/credit_cards/e0158fcc-c3a7-4a3e-9c44-7c90062ab7a8/a95963d84518157a831a8f7b55d656d474258e6f3870038ce9d32b2442423277.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "target": 5.0
+    }
+  },
+  {
+    "id": "american-express-rewards-checking-debit-card",
+    "card_name": "American Express Rewards Checking Debit Card",
+    "issuer": "American Express",
+    "card_image_url": "https://icm.aexp-static.com/Internet/Acquisition/US_en/AppContent/OneSite/consumer-checking/dont-do-checking-tablet.png",
+    "reward_type": "Points",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "eligible_debit_purchases": 0.5
+    }
+  },
+  {
+    "id": "sofi-unlimited-2-percent-credit-card",
+    "card_name": "SoFi Unlimited 2% Credit Card",
+    "issuer": "SoFi",
+    "card_image_url": "https://d32ijn7u0aqfv4.cloudfront.net/wp/wp-content/uploads/raw/CC24-2177731-AB_CC-LP-Redesign-for-PQ-Flow_Unlimited-CC_Desktop%402x.png",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "sofi_travel": 3.0,
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "pnc-cash-rewards-visa-credit-card",
+    "card_name": "PNC Cash Rewards® Visa® Credit Card",
+    "issuer": "PNC Bank",
+    "card_image_url": "https://www.pnc.com/en/personal-banking/banking/credit-cards/pnc-cash-rewards-visa-credit-card/_jcr_content/main/pageHead/containergrid_copy_c/embeddedGrid/containergrid_531262/embeddedGrid/image.coreimg.png/1758561926091/creditcard-cash-rewards.png",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "gas": 4.0,
+      "dining": 3.0,
+      "grocery": 2.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "navy-federal-more-rewards-american-express-card",
+    "card_name": "Navy Federal More Rewards American Express® Card",
+    "issuer": "Navy Federal Credit Union",
+    "card_image_url": "https://www.navyfederal.org/content/dam/card-art/amex/amex-no-name.svg",
+    "reward_type": "Points",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "dining": 3.0,
+      "grocery": 3.0,
+      "gas": 3.0,
+      "transit": 3.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "fnbo-evergreen-rewards-visa-card",
+    "card_name": "Evergreen Rewards Visa® Card",
+    "issuer": "FNBO",
+    "card_image_url": "https://s7d1.scene7.com/is/image/fnnistage/evergreen-1?ts=1752175650096&$TransparentPNG$&dpr=off",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "citizens-summit-world-mastercard",
+    "card_name": "Citizens Summit® World Mastercard®",
+    "issuer": "Citizens Bank",
+    "card_image_url": "https://www.citizensbank.com/assets/CB_media/images/CREDIT_CARDS/summit-tilted-sage-fs.png",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "dining": 3.0,
+      "grocery": 3.0,
+      "everything_else": 1.5
+    }
+  },
+  {
+    "id": "citizens-summit-reserve-world-elite-mastercard",
+    "card_name": "Citizens Summit Reserve® World Elite Mastercard®",
+    "issuer": "Citizens Bank",
+    "card_image_url": "https://www.citizensbank.com/assets/CB_media/images/CREDIT_CARDS/summitreserve-tilted-sage-fg.png",
+    "reward_type": "Cashback",
+    "annual_fee": 295,
+    "reward_multipliers": {
+      "dining": 3.0,
+      "grocery": 3.0,
+      "entertainment": 3.0,
+      "everything_else": 1.5
+    }
+  },
+  {
+    "id": "verizon-visa-signature-card",
+    "card_name": "Verizon Visa Signature® Card",
+    "issuer": "Synchrony Bank",
+    "card_image_url": "https://ss7.vzw.com/is/image/VerizonWireless/vvc_may2025_mlp_hero_d?fmt=webp-alpha&scl=1",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "gas": 4.0,
+      "grocery": 4.0,
+      "dining": 4.0,
+      "verizon_store": 4.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "becu-cash-back-credit-card",
+    "card_name": "BECU Cash Back Credit Card",
+    "issuer": "BECU",
+    "card_image_url": "https://www.becu.org/-/media/Images/heroes-page-promos/660x371/everyday-banking/credit-card/Everyday-Banking_Credit-Card_Cash-Back-Credit-Card-2024.jpg?rev=5df0da63f04242c0a5bb40c346de8a83",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 1.5
+    }
+  },
+  {
+    "id": "abound-platinum-credit-card",
+    "card_name": "Abound Platinum Credit Card",
+    "issuer": "Abound Credit Union",
+    "card_image_url": "https://www.aboundcu.com/aboundcu/media/Images/open-graph.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "gas": 5.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "navy-federal-cashrewards-card",
+    "card_name": "Navy Federal cashRewards Credit Card",
+    "issuer": "Navy Federal Credit Union",
+    "card_image_url": "https://www.navyfederal.org/assets/images/nfcu-logo-bluegrad-800.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 1.5
+    }
+  },
+  {
+    "id": "navy-federal-cashrewards-plus-card",
+    "card_name": "Navy Federal cashRewards Plus Credit Card",
+    "issuer": "Navy Federal Credit Union",
+    "card_image_url": "https://www.navyfederal.org/assets/images/nfcu-logo-bluegrad-800.jpg",
+    "reward_type": "Cashback",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 2.0
+    }
+  },
+  {
+    "id": "fnbo-getaway-credit-card",
+    "card_name": "Getaway Credit Card",
+    "issuer": "FNBO",
+    "card_image_url": "https://s7d1.scene7.com/is/image/fnnistage/getaway-colorful-salt-water-fish-shadow-2x?ts=1751996624210&dpr=off",
+    "reward_type": "Points",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "travel": 3.0,
+      "dining": 3.0,
+      "gas": 3.0,
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "first-tech-platinum-rewards-mastercard",
+    "card_name": "Platinum Rewards Mastercard®",
+    "issuer": "First Tech Federal Credit Union",
+    "card_image_url": "https://www.firsttechfed.com/-/media/firsttech-web/rte-with-image/img_1254404_q1platinumsc_200113_card-art.png?h=351&iar=0&w=551",
+    "reward_type": "Points",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 1.0
+    }
+  },
+  {
+    "id": "navy-federal-go-rewards-credit-card",
+    "card_name": "GO REWARDS® Credit Card",
+    "issuer": "Navy Federal Credit Union",
+    "card_image_url": "https://www.navyfederal.org/assets/images/nfcu-logo-bluegrad-800.jpg",
+    "reward_type": "Points",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "dining": 3.0,
+      "gas": 2.0,
+      "everything_else": 1.0
+    }
+  }
+]
