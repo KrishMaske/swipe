@@ -226,11 +226,11 @@ export default function ChatScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerEyebrow}>Swipe</Text>
-          <Text style={styles.headerTitle}>Osho</Text>
+          <Text style={styles.headerTitle}>Chat</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={handleClearChat} style={styles.clearBtn} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={20} color={Colors.textMuted} />
+            <Ionicons name="trash-outline" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -249,9 +249,7 @@ export default function ChatScreen() {
         keyboardDismissMode="interactive"
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="chatbubble-ellipses" size={26} color={Colors.textPrimary} />
-            </View>
+            <Image source={require('../../images/osho_chat.png')} style={styles.emptyHeroImage} />
             <Text style={styles.emptyTitle}>Talk to Osho</Text>
             <Text style={styles.emptySubtitle}>
               SwipeChat delivers intelligent money insights with rich summaries, markdown tables, and concise recommendations.
@@ -342,9 +340,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   clearBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   livePill: {
     flexDirection: 'row',
@@ -382,20 +385,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 24,
   },
-  emptyIconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(79,124,255,0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(130,166,255,0.32)',
+  emptyHeroImage: {
+    width: 132,
+    height: 132,
+    borderRadius: 66,
+    marginBottom: 8,
   },
   emptyTitle: {
     ...Typography.title2,
     color: Colors.textPrimary,
-    marginTop: 14,
+    marginTop: 8,
   },
   emptySubtitle: {
     ...Typography.footnote,

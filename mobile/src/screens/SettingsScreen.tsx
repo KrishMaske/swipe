@@ -8,12 +8,14 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { api } from '../services/api';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -22,6 +24,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user, signOut } = useAuth();
+  const { locationTrackingEnabled, setLocationTrackingEnabled } = useSettings();
   const [setupToken, setSetupToken] = useState('');
   const [linking, setLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -114,6 +117,22 @@ export default function SettingsScreen() {
             Choose the cards in your wallet so SwipeSmart can recommend the best one when you
             arrive at restaurants, stores, and travel spots.
           </Text>
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleTextWrap}>
+              <Text style={styles.toggleTitle}>Background SwipeSmart Alerts</Text>
+              <Text style={styles.toggleSubtitle}>
+                Requires location and notification permissions. Alerts run only while this switch is enabled.
+              </Text>
+            </View>
+            <Switch
+              value={locationTrackingEnabled}
+              onValueChange={setLocationTrackingEnabled}
+              trackColor={{ false: 'rgba(255,255,255,0.16)', true: 'rgba(79,124,255,0.55)' }}
+              thumbColor={locationTrackingEnabled ? '#EAF2FF' : '#A1A6B0'}
+            />
+          </View>
+
           <TouchableOpacity
             onPress={() => (navigation as any).navigate('SwipeSmart')}
             activeOpacity={0.85}
@@ -269,6 +288,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.glassBorder,
     marginBottom: 8,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    gap: 12,
+  },
+  toggleTextWrap: {
+    flex: 1,
+  },
+  toggleTitle: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  toggleSubtitle: {
+    ...Typography.caption1,
+    color: Colors.textMuted,
+    lineHeight: 18,
   },
   profileRow: {
     flexDirection: 'row',

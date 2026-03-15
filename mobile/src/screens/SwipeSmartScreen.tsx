@@ -90,9 +90,9 @@ export default function SwipeSmartScreen({ navigation }: any) {
   // Long-press context menu
   const [contextMenuCard, setContextMenuCard] = useState<WalletCard | null>(null);
 
-  const loadSavedCards = useCallback(async () => {
+  const loadSavedCards = useCallback(async (forceRefresh = false) => {
     try {
-      const cards = await api.getUserCards();
+      const cards = await api.getUserCards(forceRefresh);
       setSavedCards(cards);
     } catch {
       setSavedCards([]);
@@ -110,7 +110,7 @@ export default function SwipeSmartScreen({ navigation }: any) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadSavedCards();
+    await loadSavedCards(true);
     setRefreshing(false);
   };
 

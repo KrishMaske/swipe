@@ -161,7 +161,7 @@ export default function FraudAlertsScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerEyebrow}>Swipe</Text>
-            <Text style={styles.headerTitle}>SwipeGuard</Text>
+            <Text style={styles.headerTitle}>Guard</Text>
           </View>
         </View>
 
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 100,
   },
   bgGlow: {

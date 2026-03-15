@@ -1,263 +1,390 @@
-# SwipeSmart
+# Swipe Platform Engineering Handbook
 
-SwipeSmart is a smart payments tracking app that connects to bank data via SimpleFIN, enriches transactions with machine learning, and answers natural-language spending questions using retrieval-augmented generation (RAG).
+Swipe is an AI-first personal finance platform built around four product pillars:
 
-The project currently includes:
+- SwipeSmart: context-aware card recommendations using geofencing and merchant categorization.
+- SwipeGuard: transaction anomaly detection with behavioral and rules-based fraud scoring.
+- SwipeChat: RAG-style financial assistant with transaction retrieval and rolling memory.
+- Live Sync + Smart Categorization: transaction ingestion from SimpleFIN with ML enrichment.
 
-- A FastAPI backend for auth-aware data sync and assistant responses.
-- Supabase-backed storage with user-scoped access.
-- A simple web portal for login, account sync, and chat.
-- ML enrichment for categorization, location extraction, embeddings, and optional fraud scoring.
+This document is written as a systems-level engineering guide for implementation, operation, and extension.
 
-## Table Of Contents
+## 1. Audience And Intent
 
-1. Project Goals
-2. High-Level Architecture
-3. Repository Structure
-4. Runtime Data Flow
-5. Prerequisites
-6. Environment Configuration
-7. Installation And Local Run
-8. Database Design And RLS Guidance
-9. API Reference
-10. Chat Assistant Design
-11. ML Components
-12. Security Model
-13. Operational Notes
-14. Concurrency, Real-Time, And Scalability Model
-15. Troubleshooting
-16. Development Roadmap Ideas
+This README is for:
 
-## 1) Project Goals
+- Backend engineers working on FastAPI, ML orchestration, and Supabase integration.
+- Mobile engineers working on Expo background tasks, auth, and feature surface orchestration.
+- Infra and security engineers responsible for auth boundaries, data isolation, and production controls.
+- New team members onboarding into architecture, runtime behavior, and failure modes.
 
-SwipeSmart is designed to answer practical payments and spending questions using a user’s own transactions.
+Primary goals:
 
-Core goals:
+- Explain what the system does and why each subsystem exists.
+- Define authoritative contracts between frontend, backend, and database.
+- Document operational behavior under normal and degraded conditions.
+- Reduce ambiguity for future changes and code reviews.
 
-- Connect user bank data using SimpleFIN.
-- Persist and normalize account + transaction data.
-- Enrich each transaction with category and location context.
-- Support contextual follow-up chat questions.
-- Provide actionable spending and budgeting guidance.
+## 2. Product And System Objectives
 
-## 2) High-Level Architecture
+### 2.1 Functional Objectives
 
-### Backend
+- Securely connect bank data using SimpleFIN setup token flow.
+- Normalize account/transaction records under a user-scoped tenancy model.
+- Enrich transactions with category, location, embedding, and fraud telemetry.
+- Provide context-aware card recommendations based on real-world location events.
+- Serve accurate, concise conversational analytics through grounded retrieval.
 
-- Framework: FastAPI
-- Entry point: backend/app.py
-- Routers:
-  - backend/routes/token_exchange.py
-  - backend/routes/bank_routes.py
-  - backend/routes/chatbot_routes.py
+### 2.2 Non-Functional Objectives
 
-### Data + Auth
+- Strong tenant isolation with JWT verification + RLS defense-in-depth.
+- Idempotent write behavior for sync and retry safety.
+- Low interaction latency for chat and dashboard paths.
+- Predictable degradation when external dependencies fail.
+- Clear observability and incident response playbooks.
 
-- Supabase Postgres for persistence.
-- Supabase Auth JWT (ES256) verified against JWKS.
-- User-scoped Supabase client built per request using bearer token.
+## 3. Current Stack
 
-### Payments Data Ingestion
+- Mobile App: React Native (Expo), TypeScript.
+- Backend API: FastAPI (Python).
+- Database/Auth: Supabase Postgres + Supabase Auth + pgvector.
+- ML/AI Components:
+  - TF-IDF + LogisticRegression category classifier.
+  - Local BERT NER model for location extraction.
+  - IsolationForest fraud detector with behavioral features.
+  - SentenceTransformer embeddings for semantic retrieval.
+  - Groq-hosted LLM completions for assistant responses and memory summarization.
+- External Integrations:
+  - SimpleFIN for bank account/transaction ingestion.
+  - Overpass API for nearby merchant POI discovery.
+  - Nominatim reverse geocoding for merchant context.
 
-- SimpleFIN setup token exchange to access URL.
-- Accounts + transactions fetched from SimpleFIN endpoint.
-- Upsert into local database for idempotent sync behavior.
-
-### ML Enrichment
-
-- Merchant category prediction via TF-IDF + Logistic Regression.
-- City/state extraction via DistilBERT NER + regex state parser.
-- Embedding creation for transaction semantic search.
-- Optional fraud scoring module with Isolation Forest.
-
-### Assistant
-
-- RAG over user transactions.
-- Follow-up aware history handling.
-- Intent carry-over for ambiguous short turns.
-- Spending/budget fallback logic and deterministic comparison path for weekly budget checks.
-
-### System Architecture Characteristics
-
-- Request-driven API architecture with strict auth boundaries per call.
-- Async request handling for I/O-heavy operations such as model inference and external API/database calls.
-- Background task offloading for long-running sync writes to keep user-facing latency low.
-- Near-real-time interaction model: users receive immediate API responses while heavy persistence work continues in background.
-- Idempotent write strategy (upsert) for resilient repeated sync operations.
-
-## 3) Repository Structure
+## 4. Repository Topology
 
 Top-level:
 
-- index.html: lightweight web portal for auth + API testing + assistant chat.
-- README.md: this documentation.
-- backend/: main service and model code.
+- index.html: lightweight web test harness for auth, sync, and chat calls.
+- backend/: API, ML orchestration, data access, and security.
+- mobile/: Expo client application.
+- leaks-report.json: local report artifact.
 
-Backend key areas:
+Backend:
 
-- backend/app.py: app bootstrap, CORS, router mounting.
-- backend/config/settings.py: environment and shared clients.
-- backend/config/security.py: token extraction + verification + user context.
-- backend/database/db.py: Supabase read/write and sync persistence.
-- backend/routes/: API endpoint handlers.
-- backend/utils/simplefin_service.py: SimpleFIN token exchange and account retrieval.
-- backend/utils/embeddings.py: transaction embedding generation.
-- backend/models/chatbot.py: assistant orchestration, retrieval, and response generation.
-- backend/models/categorization.py: category model train/infer.
-- backend/models/ner.py: NER pipeline and location extraction.
-- backend/models/fraud_dect.py: fraud profile + scoring utilities.
+- backend/app.py: FastAPI app bootstrap and middleware registration.
+- backend/config/settings.py: env loading, shared clients, model loading.
+- backend/config/security.py: token extraction, JWT verification, user/admin context.
+- backend/database/db.py: data access layer and sync persistence logic.
+- backend/database/chat_summaries.sql: rolling summary table and RLS migration script.
+- backend/routes/: API route modules.
+- backend/models/: categorization, chatbot, fraud, NER models.
+- backend/utils/: SimpleFIN, embeddings, cryptography, date helpers, location evaluation.
 
-## 4) Runtime Data Flow
+Mobile:
 
-### A. User authentication
+- mobile/App.tsx: root providers and location tracking gate.
+- mobile/src/context/: auth/data/settings context providers.
+- mobile/src/services/: API client, Supabase client, location task definitions.
+- mobile/src/hooks/useLocationTracking.ts: permission flow + task start/stop.
+- mobile/src/screens/: dashboard, chat, fraud, swipesmart, auth/settings screens.
 
-1. User signs in through Supabase from index.html.
-2. Frontend stores session and sends bearer token to backend.
-3. Backend verifies JWT with JWKS and builds user-scoped Supabase client.
+## 5. Architecture Overview
 
-### B. Bank linking and sync
+### 5.1 Logical Layers
 
-1. User sends SimpleFIN setup token to POST /api/exchange_setup.
-2. Backend decodes/claims token and receives an access URL.
-3. Access URL is encrypted and stored in simplefin_conn.
-4. GET /api/sync_accounts fetches accounts and transactions.
-5. Accounts are upserted, transactions are enriched and upserted.
+- Presentation Layer:
+  - Mobile app and local web harness.
+- API Layer:
+  - FastAPI route handlers validating inputs and composing service calls.
+- Domain/Service Layer:
+  - Sync, enrichment, recommendation, fraud scoring, assistant orchestration.
+- Persistence Layer:
+  - Supabase tables, vector retrieval RPC, RLS policies.
+- External Provider Layer:
+  - SimpleFIN, Overpass, Nominatim, Groq.
 
-### C. Transaction enrichment
+### 5.2 System Characteristics
 
-For each transaction in sync:
+- API is request-driven, with background tasks used for async persistence during sync.
+- Security model is bearer token auth + request-scoped Supabase client + RLS.
+- Data access patterns are user-scoped read/write with explicit user_id filters.
+- Write patterns favor upsert for idempotency and duplicate suppression.
 
-1. Category prediction from merchant.
-2. City/state extraction from description.
-3. Embedding generation from semantic transaction string.
-4. Upsert into transactions table using txn_id conflict key.
+## 6. Service Boundaries And Responsibilities
 
-### D. Assistant question flow
+### 6.1 Auth And Security Boundary
 
-1. Frontend sends question + conversation history to POST /api/ask.
-2. Backend builds retrieval query from recent user turns.
-3. Embedding search calls match_transactions RPC.
-4. For spending/budget intents, fallback retrieval broadens recall.
-5. LLM receives curated transaction context and history.
-6. Backend returns concise, contextual response.
+File focus:
 
-Latency characteristics:
+- backend/config/security.py
 
-- Chat endpoint is async and optimized for interactive turn-based response.
-- Transaction sync endpoint returns account payload first, then processes transaction writes using background tasks.
+Responsibilities:
 
-## 5) Prerequisites
+- Extract Bearer token from Authorization header.
+- Validate JWT against Supabase JWKS (ES256).
+- Build user-scoped Supabase client.
+- Derive admin privilege from role/app_metadata/user_metadata claims.
+- Enforce privileged route access through require_admin_context dependency.
 
-- Python 3.10+ recommended.
-- Supabase project with Auth enabled.
-- SimpleFIN Bridge account/setup token flow.
-- Groq API key for assistant completions.
-- Internet access for external services and model downloads.
+### 6.2 Bank Sync Boundary
 
-## 6) Environment Configuration
+File focus:
 
-Create backend/.env and set:
+- backend/routes/token_exchange.py
+- backend/routes/bank_routes.py
+- backend/utils/simplefin_service.py
+- backend/database/db.py
 
-| Variable | Required | Purpose |
-|---|---|---|
-| SUPABASE_URL | Yes | Supabase project URL |
-| SUPABASE_KEY | Yes | Supabase anon/public key used by API client |
-| SUPABASE_JWK | Yes | JWKS endpoint for JWT signature verification |
-| FERNET_KEY | Yes | Encryption key for stored SimpleFIN access URL |
-| GROQ_KEY | Yes | API key for chat completion calls |
+Responsibilities:
 
-Notes:
+- Claim setup token to obtain durable access URL.
+- Encrypt and persist connection data.
+- Fetch accounts and transaction payloads from SimpleFIN.
+- Persist account records and queue transaction enrichment/storage.
+- Track last_sync for incremental sync windows.
 
-- FERNET_KEY must be a valid Fernet key.
-- SUPABASE_JWK should point to your Auth JWKS endpoint.
-- Keep .env out of source control.
+### 6.3 Enrichment Boundary
 
-## 7) Installation And Local Run
+File focus:
 
-### Backend setup
+- backend/models/categorization.py
+- backend/models/ner.py
+- backend/utils/embeddings.py
+- backend/models/fraud_detector.py
+- backend/database/db.py
 
-Windows PowerShell:
+Responsibilities:
 
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+- Infer category from merchant strings.
+- Extract city/state context from unstructured description text.
+- Generate semantic embedding vectors.
+- Score transactions for anomaly/fraud risk.
+
+### 6.4 Assistant Boundary
+
+File focus:
+
+- backend/routes/chatbot_routes.py
+- backend/models/chatbot.py
+- backend/database/db.py
+
+Responsibilities:
+
+- Build retrieval query from user question + recent history.
+- Retrieve relevant transactions by vector and fallback paths.
+- Inject budget context and rolling summary memory.
+- Produce constrained assistant response.
+- Update rolling summary after each answer.
+
+### 6.5 SwipeSmart Location Boundary
+
+File focus:
+
+- mobile/src/services/LocationService.ts
+- mobile/src/hooks/useLocationTracking.ts
+- backend/routes/card_routes.py
+- backend/utils/location_evaluator.py
+
+Responsibilities:
+
+- Register location seed background task.
+- Discover nearby merchant POIs and seed geofences.
+- Evaluate best card on geofence entry.
+- Enforce local cooldown and dispatch notification.
+
+## 7. End-To-End Runtime Flows
+
+### 7.1 Authentication Flow
+
+1. User authenticates via Supabase from mobile or web harness.
+2. Client stores session token and sends it in Authorization header.
+3. Backend verifies token against JWKS and builds scoped client.
+4. Route handlers execute with per-request user context.
+
+### 7.2 Setup Token Exchange Flow
+
+1. Client POSTs setup_token to /api/exchange_setup.
+2. Backend decodes token or accepts direct claim URL.
+3. Backend claims setup token via SimpleFIN endpoint.
+4. Returned access URL is encrypted with Fernet and stored in simplefin_conn.
+
+Failure points:
+
+- Malformed token.
+- Invalid/expired claim URL.
+- External network timeout.
+
+### 7.3 Accounts Sync Flow
+
+1. Client calls GET /api/accounts/sync.
+2. Backend loads decrypted access_url + last_sync.
+3. Backend requests SimpleFIN accounts and recent transactions.
+4. Backend upserts account records.
+5. Background task enriches and upserts transactions.
+6. Background task updates last_sync.
+
+Design properties:
+
+- Immediate API response while heavy write runs in background.
+- Upsert keyed by txn_id to prevent duplicate rows on retries.
+
+### 7.4 SwipeSmart Geofence Flow
+
+1. App starts MERCHANT_SEED_TASK when auth is present and toggle enabled.
+2. Seed task runs every ~150m movement and calls backend nearby-merchants endpoint.
+3. Backend queries Overpass and returns up to 18 POIs.
+4. App atomically replaces geofence set.
+5. On geofence entry, app calls /api/location/evaluate.
+6. Backend reverse geocodes location and evaluates best card against saved wallet.
+7. App emits notification if commercial + best card present + cooldown allows.
+
+### 7.5 SwipeChat Flow With Rolling Summary
+
+1. Client sends question + recent chat history to /api/ask.
+2. Backend loads budgets and current rolling summary from chat_summaries.
+3. Backend performs transaction retrieval (vector + fallback).
+4. Backend prompts LLM with budgets, transactions, and rolling summary memory.
+5. Backend returns answer.
+6. Backend updates rolling summary via summarization pass and upsert.
+
+### 7.6 Fraud Detection Flow
+
+Sync path:
+
+1. During transaction upsert pipeline, each transaction is scored.
+2. Risk score + feature breakdown are stored in transactions table.
+
+Training path:
+
+1. /api/train-fraud-model is admin-protected.
+2. Endpoint trains global model from non-fraud-confirmed historical transactions.
+3. Model/scaler/profiles artifacts persisted to disk.
+
+### 7.7 Sequence Diagrams
+
+#### Authentication + User-Scoped Query
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API as FastAPI
+  participant SEC as Security Dependency
+  participant SB as Supabase
+
+  Client->>API: GET /api/accounts (Bearer JWT)
+  API->>SEC: get_user_context(token)
+  SEC->>SEC: Verify JWT via JWKS + extract sub
+  SEC->>SB: create scoped client with Authorization header
+  SEC-->>API: {user_id, supabase}
+  API->>SB: SELECT accounts WHERE user_id = sub
+  SB-->>API: account rows
+  API-->>Client: 200 + data
 ```
 
-Run API:
+#### Setup Token Exchange
 
-```powershell
-cd backend
-python app.py
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API as FastAPI
+  participant SF as SimpleFIN
+  participant DB as Supabase
+
+  Client->>API: POST /api/exchange_setup {setup_token}
+  API->>API: decode_setup_token()
+  API->>SF: POST claim_url
+  SF-->>API: access_url
+  API->>API: encrypt(access_url)
+  API->>DB: INSERT simplefin_conn(user_id, access_url)
+  DB-->>API: success
+  API-->>Client: 200 setup exchange successful
 ```
 
-Server default:
+#### Accounts Sync + Background Enrichment
 
-- http://localhost:8000
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API as FastAPI
+  participant SF as SimpleFIN
+  participant DB as Supabase
+  participant ML as Enrichment Pipeline
 
-### Frontend portal
+  Client->>API: GET /api/accounts/sync
+  API->>DB: SELECT simplefin_conn(access_url,last_sync)
+  API->>SF: GET /accounts?start-date=...
+  SF-->>API: accounts + transactions
+  API->>DB: UPSERT accounts
+  API-->>Client: 200 sync initiated
+  API->>ML: background sync_transactions()
+  ML->>ML: category + NER + fraud + embedding
+  ML->>DB: UPSERT transactions on txn_id
+  API->>DB: UPDATE simplefin_conn.last_sync
+```
 
-- Open index.html in a browser.
-- Sign in with Supabase credentials.
-- Copy token, exchange setup token, sync accounts, and use chat.
+#### SwipeSmart Geofence Recommendation
 
-## 8) Database Design And RLS Guidance
+```mermaid
+sequenceDiagram
+  participant App as Mobile App
+  participant API as FastAPI
+  participant OP as Overpass
+  participant NM as Nominatim
+  participant DB as Supabase
 
-Minimum tables expected by code:
+  App->>API: GET /api/location/nearby-merchants?lat,lon
+  API->>OP: POI query around coordinates
+  OP-->>API: nearby merchants
+  API-->>App: up to 18 geofence regions
+  App->>App: startGeofencingAsync(regions)
 
-### simplefin_conn
+  App->>API: POST /api/location/evaluate {lat,lon}
+  API->>NM: reverse geocode
+  NM-->>API: place category/type
+  API->>DB: SELECT user_cards
+  API->>API: evaluate_best_card(cards, place)
+  API-->>App: best card + multiplier
+  App->>App: local notification with cooldown guard
+```
 
-- id (PK)
-- user_id
-- access_url (encrypted)
-- last_sync (epoch)
+#### SwipeChat Retrieval + Rolling Memory
 
-### accounts
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API as FastAPI
+  participant DB as Supabase
+  participant LLM as Groq LLM
 
-- acc_id (unique/upsert key)
-- user_id
-- sfc_id (foreign reference to simplefin_conn id)
-- provider, acc_type, currency
-- balance, available_balance
+  Client->>API: POST /api/ask {question, history}
+  API->>DB: SELECT budgets
+  API->>DB: SELECT chat_summaries.summary
+  API->>DB: RPC match_transactions(query_embedding,...)
+  DB-->>API: relevant transactions
+  API->>LLM: answer prompt with txns + budgets + rolling summary
+  LLM-->>API: assistant response
+  API->>LLM: summarization prompt (existing summary + latest turn)
+  LLM-->>API: updated rolling summary
+  API->>DB: UPSERT chat_summaries
+  API-->>Client: response
+```
 
-### transactions
+## 8. API Contract Reference
 
-- txn_id (unique/upsert key)
-- user_id
-- acc_id
-- amount
-- merchant
-- description
-- category
-- city
-- state
-- txn_date (epoch timestamp)
-- embedding (vector)
+Base URL:
 
-### Recommended RPC
+- http://localhost:8000 (local default)
 
-The assistant expects a Supabase RPC named match_transactions with arguments:
+Auth rules:
 
-- query_embedding
-- match_threshold
-- match_count
-- p_user_id
+- Public: GET /
+- Protected: all /api/* routes unless explicitly noted.
+- Admin-protected: POST /api/train-fraud-model
 
-It should return semantically relevant user transactions with fields used by chatbot.py.
+### 8.1 GET /
 
-### RLS guidance
+Purpose:
 
-Enable Row Level Security and ensure each table is scoped by user_id = auth.uid().
-All query paths in backend rely on user-scoped JWT auth and should only see caller-owned records.
-
-## 9) API Reference
-
-Base URL: http://localhost:8000
-
-### GET /
-
-Health endpoint.
+- health check.
 
 Response:
 
@@ -265,218 +392,634 @@ Response:
 { "message": "Hello World" }
 ```
 
-### POST /api/exchange_setup
+### 8.2 POST /api/exchange_setup
 
-Exchanges SimpleFIN setup token and stores encrypted access URL.
+Purpose:
 
-Auth: required bearer token.
+- claim setup token and persist encrypted SimpleFIN access URL.
 
-Request body:
+Body:
 
 ```json
 { "setup_token": "..." }
 ```
 
-Success:
+Response:
 
 ```json
 { "message": "Setup exchange successful" }
 ```
 
-### GET /api/sync_accounts
+### 8.3 GET /api/accounts/sync
 
-Fetches accounts from SimpleFIN and queues background tasks to sync transactions and update last_sync.
+Purpose:
 
-Auth: required bearer token.
+- fetch accounts and queue transaction sync background tasks.
 
-Success shape:
+Response:
 
 ```json
-{ "accounts": { "accounts": [ ... ] } }
+{ "success": "Account sync initiated. Transactions will be updated in the background." }
 ```
 
-### POST /api/ask
+### 8.4 GET /api/accounts
 
-Runs the payments assistant with history-aware context.
+Purpose:
 
-Auth: required bearer token.
+- list user-linked accounts.
 
-Request body:
+### 8.5 GET /api/transactions?acc_id=...
+
+Purpose:
+
+- list account transactions for current user.
+
+### 8.6 GET /api/transactions/fraud
+
+Purpose:
+
+- list fraud-flagged transactions for current user.
+
+### 8.7 POST /api/transactions/update-fraud-status
+
+Purpose:
+
+- mark a flagged transaction as confirmed fraud or safe.
+
+Query params:
+
+- txn_id
+- is_confirmed_fraud
+
+### 8.8 Budget Endpoints
+
+- GET /api/transactions/budgets
+- POST /api/transactions/create-budget
+- PUT /api/transactions/budgets/{budget_id}
+- DELETE /api/transactions/budgets/{budget_id}
+
+### 8.9 Card Wallet + Location Endpoints
+
+- GET /api/user/cards
+- POST /api/user/cards
+- GET /api/location/nearby-merchants
+- POST /api/location/evaluate
+
+### 8.10 Chat Endpoint
+
+- POST /api/ask
+
+Body:
 
 ```json
 {
   "question": "How can I cut down on spending?",
   "history": [
-    { "role": "user", "content": "when was the last time i went to tacobell?" },
+    { "role": "user", "content": "..." },
     { "role": "assistant", "content": "..." }
   ]
 }
 ```
 
-Response:
+### 8.11 Fraud Model Endpoints
 
-```json
-{ "response": "...assistant answer..." }
+- POST /api/train-fraud-model (admin only)
+- POST /api/score-transaction (authenticated)
+
+## 9. Data Model And Persistence Contracts
+
+Expected core tables:
+
+- simplefin_conn
+- accounts
+- transactions
+- budgets
+- user_cards
+- chat_summaries
+
+### 9.1 chat_summaries Migration
+
+Use:
+
+- backend/database/chat_summaries.sql
+
+This migration creates table + RLS policies for:
+
+- select own summary
+- insert own summary
+- update own summary
+
+### 9.2 Vector Retrieval RPC
+
+The assistant expects an RPC function named:
+
+- match_transactions
+
+Expected args:
+
+- query_embedding
+- match_threshold
+- match_count
+- p_user_id
+
+Expected behavior:
+
+- returns semantically similar user transactions only.
+
+### 9.3 Idempotency Strategy
+
+- accounts upsert on acc_id.
+- transactions upsert on txn_id.
+- wallet cards replaced by delete+insert scoped to user.
+- rolling summary upsert on user_id.
+
+### 9.4 Complete SQL DDL Templates
+
+These templates are intended for Supabase Postgres and aligned to current application behavior.
+
+```sql
+-- Required extension for vector embeddings
+create extension if not exists vector;
+
+-- 1) simplefin connection
+create table if not exists public.simplefin_conn (
+  id bigserial primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  access_url text not null,
+  last_sync bigint,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists idx_simplefin_conn_user
+on public.simplefin_conn(user_id);
+
+-- 2) accounts
+create table if not exists public.accounts (
+  id bigserial primary key,
+  acc_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  sfc_id bigint references public.simplefin_conn(id) on delete set null,
+  provider text,
+  acc_type text,
+  currency text,
+  balance double precision,
+  available_balance double precision,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint uq_accounts_acc_id unique (acc_id)
+);
+
+create index if not exists idx_accounts_user on public.accounts(user_id);
+
+-- 3) transactions
+create table if not exists public.transactions (
+  id bigserial primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  txn_id text not null,
+  acc_id text not null,
+  amount double precision not null,
+  merchant text,
+  description text,
+  category text,
+  city text,
+  state text,
+  txn_date timestamptz,
+  embedding vector(384),
+  is_flagged_fraud boolean default false,
+  is_confirmed_fraud boolean,
+  risk_score double precision,
+  feature_breakdown jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint uq_transactions_txn_id unique (txn_id)
+);
+
+create index if not exists idx_transactions_user_acc_date
+on public.transactions(user_id, acc_id, txn_date desc);
+
+create index if not exists idx_transactions_user_fraud
+on public.transactions(user_id, is_flagged_fraud);
+
+-- Optional ivfflat index for vector search (requires ANALYZE and adequate row count)
+create index if not exists idx_transactions_embedding_ivfflat
+on public.transactions using ivfflat (embedding vector_cosine_ops)
+with (lists = 100);
+
+-- 4) budgets
+create table if not exists public.budgets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  amount double precision not null check (amount > 0),
+  category text not null,
+  period text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_budgets_user on public.budgets(user_id);
+
+-- 5) user cards
+create table if not exists public.user_cards (
+  id bigserial primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  card_name text not null,
+  issuer text,
+  last_four text,
+  card_network text,
+  logo_url text,
+  reward_multipliers jsonb not null default '{}'::jsonb,
+  reward_type text,
+  annual_fee double precision not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_user_cards_user on public.user_cards(user_id);
+
+-- 6) rolling chat summaries
+create table if not exists public.chat_summaries (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  summary text not null default '',
+  updated_at timestamptz not null default now()
+);
 ```
 
-## 10) Chat Assistant Design
+### 9.5 RLS Policies For All User Tables
 
-Implementation: backend/models/chatbot.py
+```sql
+alter table public.simplefin_conn enable row level security;
+alter table public.accounts enable row level security;
+alter table public.transactions enable row level security;
+alter table public.budgets enable row level security;
+alter table public.user_cards enable row level security;
+alter table public.chat_summaries enable row level security;
 
-Behavior highlights:
+-- simplefin_conn
+drop policy if exists simplefin_conn_select_own on public.simplefin_conn;
+drop policy if exists simplefin_conn_insert_own on public.simplefin_conn;
+drop policy if exists simplefin_conn_update_own on public.simplefin_conn;
+drop policy if exists simplefin_conn_delete_own on public.simplefin_conn;
+create policy simplefin_conn_select_own on public.simplefin_conn for select using (auth.uid() = user_id);
+create policy simplefin_conn_insert_own on public.simplefin_conn for insert with check (auth.uid() = user_id);
+create policy simplefin_conn_update_own on public.simplefin_conn for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy simplefin_conn_delete_own on public.simplefin_conn for delete using (auth.uid() = user_id);
 
-- Builds retrieval query from recent user turns to preserve entity context.
-- Detects spending optimization and general finance intent.
-- Handles short ambiguous follow-ups by inferring intent from recent turns.
-- Uses multiple retrieval passes, then recent-transaction fallback.
-- For specific weekly budget comparison prompts, returns deterministic computed answer.
-- Uses concise response tuning and history-aware prompts.
+-- accounts
+drop policy if exists accounts_select_own on public.accounts;
+drop policy if exists accounts_insert_own on public.accounts;
+drop policy if exists accounts_update_own on public.accounts;
+drop policy if exists accounts_delete_own on public.accounts;
+create policy accounts_select_own on public.accounts for select using (auth.uid() = user_id);
+create policy accounts_insert_own on public.accounts for insert with check (auth.uid() = user_id);
+create policy accounts_update_own on public.accounts for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy accounts_delete_own on public.accounts for delete using (auth.uid() = user_id);
 
-This blended approach reduces hallucination and improves continuity for multi-turn conversations.
+-- transactions
+drop policy if exists transactions_select_own on public.transactions;
+drop policy if exists transactions_insert_own on public.transactions;
+drop policy if exists transactions_update_own on public.transactions;
+drop policy if exists transactions_delete_own on public.transactions;
+create policy transactions_select_own on public.transactions for select using (auth.uid() = user_id);
+create policy transactions_insert_own on public.transactions for insert with check (auth.uid() = user_id);
+create policy transactions_update_own on public.transactions for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy transactions_delete_own on public.transactions for delete using (auth.uid() = user_id);
 
-## 11) ML Components
+-- budgets
+drop policy if exists budgets_select_own on public.budgets;
+drop policy if exists budgets_insert_own on public.budgets;
+drop policy if exists budgets_update_own on public.budgets;
+drop policy if exists budgets_delete_own on public.budgets;
+create policy budgets_select_own on public.budgets for select using (auth.uid() = user_id);
+create policy budgets_insert_own on public.budgets for insert with check (auth.uid() = user_id);
+create policy budgets_update_own on public.budgets for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy budgets_delete_own on public.budgets for delete using (auth.uid() = user_id);
 
-### Transaction categorization
+-- user_cards
+drop policy if exists user_cards_select_own on public.user_cards;
+drop policy if exists user_cards_insert_own on public.user_cards;
+drop policy if exists user_cards_update_own on public.user_cards;
+drop policy if exists user_cards_delete_own on public.user_cards;
+create policy user_cards_select_own on public.user_cards for select using (auth.uid() = user_id);
+create policy user_cards_insert_own on public.user_cards for insert with check (auth.uid() = user_id);
+create policy user_cards_update_own on public.user_cards for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy user_cards_delete_own on public.user_cards for delete using (auth.uid() = user_id);
 
-File: backend/models/categorization.py
+-- chat_summaries
+drop policy if exists chat_summaries_select_own on public.chat_summaries;
+drop policy if exists chat_summaries_insert_own on public.chat_summaries;
+drop policy if exists chat_summaries_update_own on public.chat_summaries;
+create policy chat_summaries_select_own on public.chat_summaries for select using (auth.uid() = user_id);
+create policy chat_summaries_insert_own on public.chat_summaries for insert with check (auth.uid() = user_id);
+create policy chat_summaries_update_own on public.chat_summaries for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
 
-- Model: LogisticRegression on TF-IDF features.
-- Inference path: predict_category(merchant).
-- Confidence floor: returns Uncategorized below threshold.
+### 9.6 Vector Retrieval RPC Template
 
-Artifacts:
+```sql
+create or replace function public.match_transactions(
+  query_embedding vector(384),
+  match_threshold float,
+  match_count int,
+  p_user_id uuid
+)
+returns table (
+  id bigint,
+  user_id uuid,
+  txn_id text,
+  acc_id text,
+  amount double precision,
+  merchant text,
+  description text,
+  category text,
+  city text,
+  state text,
+  txn_date timestamptz,
+  similarity float
+)
+language sql
+stable
+as $$
+  select
+    t.id,
+    t.user_id,
+    t.txn_id,
+    t.acc_id,
+    t.amount,
+    t.merchant,
+    t.description,
+    t.category,
+    t.city,
+    t.state,
+    t.txn_date,
+    1 - (t.embedding <=> query_embedding) as similarity
+  from public.transactions t
+  where
+    t.user_id = p_user_id
+    and t.embedding is not null
+    and 1 - (t.embedding <=> query_embedding) >= match_threshold
+  order by t.embedding <=> query_embedding
+  limit greatest(match_count, 1);
+$$;
+```
 
-- swipe_smart_categorizer_v2.pkl
-- swipe_smart_vectorizer_v2.pkl
+## 10. Security Posture
 
-### Location extraction (NER)
+### 10.1 Authentication Controls
 
-File: backend/models/ner.py
+- Bearer token required for protected routes.
+- Token signature and expiry validated.
+- User context created per request; no global user state.
 
-- Pipeline: transformers NER with local swipesmart_BERT model dir.
-- Extracts city from entity spans and state from regex over two-letter codes.
+### 10.2 Authorization Controls
 
-### Embeddings
+- User-level operations constrained by user_id filters.
+- Admin-only route protection for global fraud training.
+- Additional isolation enforced via database RLS.
 
-File: backend/utils/embeddings.py
+### 10.3 Secrets And Sensitive Data
 
-- Encodes semantic transaction sentence via sentence-transformers.
-- Output stored on transactions for vector retrieval.
+- SimpleFIN access URL encrypted with Fernet before persistence.
+- Env vars required for Supabase and LLM provider keys.
+- Never log access tokens, decrypted URLs, or raw secret values.
 
-### Fraud scoring (optional)
+### 10.4 CORS Strategy
 
-File: backend/models/fraud_dect.py
+- Development mode uses explicit localhost origins only.
+- Non-development mode requires CORS_ORIGINS allowlist.
+- Wildcard origins are intentionally disallowed in production mode.
 
-- Isolation Forest + StandardScaler.
-- Recency-weighted familiarity features for merchant/location behavior.
-- Not currently wired to API endpoint, but available for integration.
+## 11. Reliability, Latency, And Scaling
 
-## 12) Security Model
+### 11.1 Dominant Latency Sources
 
-### Auth verification
+- External APIs (SimpleFIN, Overpass, Nominatim, Groq).
+- Supabase network and query latency.
+- Local model inference and serialization overhead.
 
-- Bearer token is required for all protected routes.
-- JWT verified using ES256 and Supabase JWKS.
-- Expiry validation enabled.
+### 11.2 Scalability Levers
 
-### User scoping
+- Increase Uvicorn worker count for concurrent API handling.
+- Offload sync/enrichment tasks to durable queue workers for larger volumes.
+- Add selective indexes for query-heavy paths:
+  - transactions(user_id, acc_id, txn_date)
+  - transactions(user_id, is_flagged_fraud)
+  - budgets(user_id)
+  - user_cards(user_id)
 
-- Backend creates a user-scoped Supabase client with request auth header.
-- Database access should be further protected with RLS.
+### 11.3 Failure Mode Philosophy
 
-### Sensitive data handling
+- Fail closed on auth/authorization paths.
+- Fail soft on optional rolling summary persistence to keep chat responsive.
+- Return user-safe errors; avoid leaking internals.
 
-- SimpleFIN access URL is encrypted before storage.
-- Fernet key is loaded from environment.
+### 11.4 SLI And SLO Targets
 
-### Operational cautions
+#### Availability And Correctness SLOs
 
-- Avoid logging raw tokens, decrypted access URLs, and sensitive account details.
-- Rotate keys if compromise is suspected.
+| Service Surface | SLI Definition | Target | Window | Error Budget |
+|---|---|---|---|---|
+| Authenticated API requests | 2xx/3xx response ratio for non-client-fault requests | 99.90% | 30 days | 43m 49s |
+| Chat answer success | /api/ask requests returning non-empty response | 99.50% | 30 days | 3h 39m |
+| Sync start acceptance | /api/accounts/sync returns success payload | 99.90% | 30 days | 43m 49s |
+| Fraud status update correctness | update-fraud-status writes matching row count >= 1 | 99.95% | 30 days | 21m 54s |
+| SwipeSmart evaluate success | /api/location/evaluate 2xx ratio | 99.50% | 30 days | 3h 39m |
 
-## 13) Operational Notes
+#### Latency SLOs (P95 Unless Stated)
 
-- Sync endpoint uses background tasks for transaction write + sync timestamp update.
-- If last_sync exists, sync window starts slightly earlier to avoid missing late-posted transactions.
-- Upsert semantics make repeated sync runs safer and mostly idempotent.
+| Endpoint | Latency Objective | Notes |
+|---|---|---|
+| GET /api/accounts | <= 300 ms | warm DB path |
+| GET /api/transactions | <= 700 ms | account-specific page fetch |
+| GET /api/transactions/fraud | <= 500 ms | filtered flagged set |
+| POST /api/ask | <= 3.5 s | includes retrieval + LLM call |
+| POST /api/location/evaluate | <= 2.5 s | includes reverse geocode + card eval |
+| GET /api/accounts/sync | <= 2.0 s | accepts + schedules background work |
 
-## 14) Concurrency, Real-Time, And Scalability Model
+#### Mobile UX SLOs
 
-### Concurrency model (current)
+| Interaction | SLI | Target |
+|---|---|---|
+| Time to first dashboard render | app open to first meaningful paint | <= 1.5 s on reference device |
+| Chat turn completion | send tap to rendered assistant response | <= 4.0 s p95 |
+| Geofence suggestion freshness | entry event to notification fire | <= 15 s p95 |
 
-- FastAPI serves request/response workloads concurrently for I/O-bound operations.
-- POST /api/ask is implemented as an async handler for chat processing.
-- GET /api/sync_accounts schedules background tasks so transaction persistence is decoupled from the immediate response.
+#### Alerting Guidance
 
-### Multithreading status
+- Page on availability SLO burn > 10% in 6 hours or > 25% in 24 hours.
+- Ticket on latency p95 breach for 3 consecutive 5-minute windows.
+- Page immediately if auth failure ratio exceeds 5% for 5 minutes.
 
-- There is no custom application-managed multithreading layer in current business logic.
-- Concurrency is primarily achieved through async I/O plus server runtime worker concurrency.
-- Horizontal/process scaling can be achieved at deploy time by running multiple Uvicorn workers.
+## 12. Mobile Runtime Controls
 
-### Real-time status
+### 12.1 Location Tracking Gate
 
-- The app is near-real-time, not stream-real-time.
-- Users receive immediate responses for auth and chat workflows.
-- Bank data changes are reflected after sync operations; there is no WebSocket or push-stream channel in the current FastAPI API layer.
+Tracking runs only when all are true:
 
-### Throughput and scaling levers
+- user is authenticated.
+- settings loaded.
+- user toggle enabled in Settings.
 
-- Increase API workers for higher concurrent request capacity.
-- Move sync background work to a durable queue/worker system for large datasets.
-- Add DB indexes on user_id, txn_id, acc_id, and txn_date for faster retrieval paths.
-- Add caching for repeated retrieval patterns and derived analytics summaries.
+This is enforced by:
 
-### Reliability notes
+- mobile/App.tsx
+- mobile/src/context/SettingsContext.tsx
+- mobile/src/hooks/useLocationTracking.ts
 
-- Upsert-based writes improve idempotency during repeated sync calls.
-- Auth-scoped clients + RLS reduce cross-tenant data risk in concurrent workloads.
-- External dependency latency (SimpleFIN, LLM, Supabase) is the dominant factor for tail response time.
+### 12.2 Background Task Lifecycle
 
-## 15) Troubleshooting
+On disable/logout:
 
-### 401 Missing or invalid Authorization header
+- location updates task is stopped.
+- geofencing task is stopped.
+- hook state resets to initial default.
 
-- Verify frontend sends Bearer token.
-- Confirm token is active and not expired.
+### 12.3 Notification Behavior
 
-### Invalid or expired token
+- cooldown key prevents repetitive suggestion spam.
+- channel setup is configured for Android.
 
-- Check SUPABASE_JWK is correct.
-- Confirm audience and signing algorithm match expected values.
+## 13. Configuration Reference
 
-### No linked bank connection found
+Create backend/.env and configure:
 
-- Run POST /api/exchange_setup first.
-- Confirm simplefin_conn row exists for the authenticated user.
+| Variable | Required | Purpose |
+|---|---|---|
+| SUPABASE_URL | Yes | Supabase project URL |
+| SUPABASE_KEY | Yes | Supabase anon/public key for request-scoped client |
+| SUPABASE_SERVICE_KEY | Yes (admin tasks) | Service-role client for global operations |
+| SUPABASE_JWK | Yes | JWKS endpoint for JWT verification |
+| FERNET_KEY | Yes | Encryption key for stored access URLs |
+| GROQ_KEY | Yes | LLM completion API key |
+| APP_ENV | No | development/local vs production/staging behavior |
+| CORS_ORIGINS | Required outside development | Comma-separated trusted origins |
 
-### Setup exchange failed
+Notes:
 
-- Validate setup token format.
-- Ensure token can be decoded to a valid HTTP(S) URL.
+- Keep .env out of source control.
+- Rotate keys immediately after suspected leakage.
 
-### NER model loading issues
+## 14. Local Development Workflow
 
-- Ensure backend/models/swipesmart_BERT exists and includes config/tokenizer/model files.
+### 14.1 Backend Setup (PowerShell)
 
-### Assistant says no matching transactions
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python app.py
+```
 
-- Confirm transactions table has rows for current user_id.
-- Verify embeddings are generated and match_transactions RPC is configured.
+### 14.2 Mobile Setup
 
-### Contradictory budgeting responses
+```powershell
+cd mobile
+npm install
+npm run start
+```
 
-- Recent versions include deterministic weekly-budget comparison logic.
-- Restart backend after pulling latest chatbot.py changes.
+### 14.3 Optional Web Harness
 
-## 16) Development Roadmap Ideas
+- Open index.html in browser.
+- Authenticate via Supabase.
+- Exercise exchange/sync/chat endpoints manually.
 
-- Add fraud-scoring endpoint and UI visualization.
-- Add explicit analytics endpoints for category and merchant aggregates.
-- Add structured assistant response schema for UI rendering.
-- Add evaluation tests for multi-turn assistant consistency.
-- Move frontend secrets and config into safer runtime config pattern.
-- Add CI checks for linting, typing, and API smoke tests.
+## 15. Testing And Validation Strategy
+
+### 15.1 Unit-Level Targets
+
+- category prediction fallback behavior.
+- NER extraction edge cases.
+- fraud feature extraction and rules overlays.
+- location evaluator mapping for merchant types.
+- admin claim detection logic.
+
+### 15.2 Integration Targets
+
+- auth token verification to user-scoped DB access.
+- setup token exchange and encrypted persistence.
+- sync flow from SimpleFIN payload to stored transactions.
+- vector retrieval RPC contract and assistant grounding.
+- rolling summary read/update lifecycle.
+
+### 15.3 Regression Guardrails
+
+- endpoint naming consistency between docs and clients.
+- no unauthenticated access to privileged operations.
+- no background tracking when user is logged out or toggle disabled.
+
+## 16. Operational Runbooks
+
+### 16.1 Incident: Frequent 401/403
+
+Checklist:
+
+- verify SUPABASE_JWK value.
+- verify JWT audience/issuer alignment.
+- inspect admin claims for privileged routes.
+
+### 16.2 Incident: Sync Returns Success But Data Missing
+
+Checklist:
+
+- confirm simplefin_conn row exists and decrypts cleanly.
+- inspect SimpleFIN response payloads and status.
+- verify background task execution path and Supabase write permissions.
+
+### 16.3 Incident: Chat Says No Matching Transactions
+
+Checklist:
+
+- verify transactions exist for user.
+- verify embeddings are present on rows.
+- validate match_transactions RPC exists and returns scoped rows.
+
+### 16.4 Incident: SwipeSmart Notifications Not Arriving
+
+Checklist:
+
+- check settings toggle enabled.
+- confirm foreground/background location permissions.
+- verify task registration and geofence seeding responses.
+- verify evaluate endpoint returns is_commercial + best_card_name.
+
+## 17. Known Constraints And Tradeoffs
+
+- Current sync background processing uses FastAPI BackgroundTasks, not a durable queue.
+- Rolling memory summarization introduces additional LLM calls on chat responses.
+- Local model artifacts are loaded from repo paths and require consistent deployment packaging.
+- SimpleFIN and geolocation providers are external dependencies with variable latency.
+
+## 18. Recommended Next Engineering Steps
+
+- Introduce structured logging + correlation IDs across request boundaries.
+- Add OpenTelemetry tracing for external calls and DB operations.
+- Move heavy sync/enrichment into a queue-backed worker architecture.
+- Add explicit API schemas/examples for all endpoints in OpenAPI docs.
+- Add CI gates for linting, type checks, unit tests, and smoke integration tests.
+- Add migration/versioning discipline for all schema changes beyond chat_summaries.
+
+## 19. Source Pointers
+
+Key backend files:
+
+- backend/app.py
+- backend/config/security.py
+- backend/database/db.py
+- backend/routes/bank_routes.py
+- backend/routes/model_routes.py
+- backend/models/chatbot.py
+- backend/utils/location_evaluator.py
+
+Key mobile files:
+
+- mobile/App.tsx
+- mobile/src/context/SettingsContext.tsx
+- mobile/src/hooks/useLocationTracking.ts
+- mobile/src/services/LocationService.ts
+- mobile/src/screens/SettingsScreen.tsx
 
 ## License
 
