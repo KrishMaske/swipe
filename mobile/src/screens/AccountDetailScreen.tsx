@@ -59,7 +59,7 @@ export default function AccountDetailScreen({ route, navigation }: any) {
   const { accId, accType, provider } = route.params;
   const { transactionsCache, transactionsLoading, fetchTransactions } = useData();
 
-  const transactions = transactionsCache[accId]?.data || [];
+  const transactions = transactionsCache[accId] || [];
   const loading = transactionsLoading[accId] && transactions.length === 0;
 
   useEffect(() => {

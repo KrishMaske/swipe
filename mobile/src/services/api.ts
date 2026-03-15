@@ -154,15 +154,12 @@ export interface LocationEvaluationResponse {
   longitude?: number;
 }
 
-const USER_CARDS_CACHE_TTL_MS = 60_000;
-let userCardsCache: { data: WalletCard[]; timestamp: number } | null = null;
+let userCardsCache: WalletCard[] | null = null;
 let userCardsInFlight: Promise<WalletCard[]> | null = null;
 
 async function getUserCardsCached(forceRefresh = false): Promise<WalletCard[]> {
-  const now = Date.now();
-
-  if (!forceRefresh && userCardsCache && now - userCardsCache.timestamp < USER_CARDS_CACHE_TTL_MS) {
-    return userCardsCache.data;
+  if (!forceRefresh && userCardsCache) {
+    return userCardsCache;
   }
 
   if (!forceRefresh && userCardsInFlight) {
@@ -172,7 +169,7 @@ async function getUserCardsCached(forceRefresh = false): Promise<WalletCard[]> {
   const fetchPromise = apiGet<WalletCard[]>('/api/user/cards')
     .then((cards) => {
       const normalized = cards || [];
-      userCardsCache = { data: normalized, timestamp: Date.now() };
+      userCardsCache = normalized;
       return normalized;
     })
     .finally(() => {
@@ -201,6 +198,10 @@ export const api = {
   /** Trigger bank account sync */
   syncAccounts: () =>
     apiGet<{ success: string }>('/api/accounts/sync'),
+
+  /** Get latest recorded bank sync timestamp for current user */
+  getAccountSyncStatus: () =>
+    apiGet<{ last_sync: number | null }>('/api/accounts/sync-status'),
 
   /** Get all linked accounts */
   getAccounts: () => apiGet<Account[]>('/api/accounts'),
@@ -246,7 +247,7 @@ export const api = {
   /** Save a user's selected wallet cards */
   saveUserCards: async (cards: WalletCard[]) => {
     const response = await apiPost<{ status?: string; success?: boolean; count?: number; cards?: WalletCard[] }>('/api/user/cards', { cards });
-    userCardsCache = { data: response.cards || cards, timestamp: Date.now() };
+    userCardsCache = response.cards || cards;
     return response;
   },
 

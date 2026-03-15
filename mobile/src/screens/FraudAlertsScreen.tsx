@@ -70,7 +70,7 @@ export default function FraudAlertsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const transactions = fraudAlertsCache?.data || [];
+  const transactions = fraudAlertsCache || [];
   const loading = fraudAlertsLoading && transactions.length === 0;
 
   const pulse = useSharedValue(0.9);

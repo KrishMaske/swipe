@@ -94,6 +94,7 @@ export default function DashboardScreen({ navigation }: any) {
     invalidateAccounts,
     budgetsCache,
     fetchBudgets,
+    fetchFraudAlerts,
     spendingByBudget,
     budgetTransactions,
     fetchTransactions,
@@ -155,6 +156,9 @@ export default function DashboardScreen({ navigation }: any) {
       setTimeout(async () => {
         invalidateAccounts();
         await fetchAccounts(true);
+        await fetchBudgets(true);
+        await fetchFraudAlerts(true);
+        await Promise.all((accounts || []).map((acc) => fetchTransactions(acc.acc_id, true)));
       }, 3000);
     } catch (err: any) {
       Alert.alert('Sync Failed', err.message || 'Could not sync accounts');
@@ -244,7 +248,7 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const linkedAccountLabel = `${accounts.length} linked account${accounts.length !== 1 ? 's' : ''}`;
-  const budgets = budgetsCache?.data || [];
+  const budgets = budgetsCache || [];
 
   const accountLogos = useMemo(
     () => ['business-outline', 'card-outline', 'wallet-outline', 'albums-outline'] as const,

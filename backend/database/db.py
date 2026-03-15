@@ -177,6 +177,26 @@ def get_accounts(context):
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve accounts: {str(e)}")
+
+
+def get_last_sync(context):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+
+    try:
+        response = (
+            sb.table("simplefin_conn")
+            .select("last_sync")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = response.data or []
+        if not rows:
+            return {"last_sync": None}
+        return {"last_sync": rows[0].get("last_sync")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve last sync: {str(e)}")
     
 def get_transactions(context, acc_id):
     sb = context["supabase"]

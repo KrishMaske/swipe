@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from utils.simplefin_service import retrieve_accounts
 from typing import Optional
-from database.db import create_budget, update_budget, delete_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_transactions, get_fraudulent_transactions, update_fraud_status
+from database.db import create_budget, update_budget, delete_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_last_sync, get_transactions, get_fraudulent_transactions, update_fraud_status
 from config.security import get_user_context
 from utils.date_service import ninety_days, epoch_to_date
 
@@ -47,6 +47,11 @@ def sync_accounts_endpoint(background_tasks: BackgroundTasks, context: dict = De
 @router.get("/api/accounts")
 def get_accounts_endpoint(context: dict = Depends(get_user_context)):
     return get_accounts(context)
+
+
+@router.get("/api/accounts/sync-status")
+def get_sync_status_endpoint(context: dict = Depends(get_user_context)):
+    return get_last_sync(context)
 
 @router.get("/api/transactions")
 def get_transactions_endpoint(acc_id, context: dict = Depends(get_user_context)):

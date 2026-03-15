@@ -1,14 +1,26 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
+from contextlib import asynccontextmanager
 from routes.token_exchange import router as token_exchange
 from routes.bank_routes import router as bank_routes
 from routes.card_routes import router as card_routes
 from routes.chatbot_routes import router as chatbot_routes
 from routes.model_routes import router as model_routes
 from routes.account_routes import router as account_routes
+from scheduler import start_scheduler, stop_scheduler
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app_env = os.getenv("APP_ENV", "development").lower()
 

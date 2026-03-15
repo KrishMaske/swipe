@@ -18,14 +18,14 @@ interface DataContextType {
   accountsLoading: boolean;
   fetchAccounts: (forceRefresh?: boolean) => Promise<void>;
   invalidateAccounts: () => void;
-  transactionsCache: Record<string, { data: Transaction[]; timestamp: number }>;
+  transactionsCache: Record<string, Transaction[]>;
   transactionsLoading: Record<string, boolean>;
   fetchTransactions: (accId: string, forceRefresh?: boolean) => Promise<void>;
-  fraudAlertsCache: { data: FraudTransaction[]; timestamp: number } | null;
+  fraudAlertsCache: FraudTransaction[] | null;
   fraudAlertsLoading: boolean;
   fetchFraudAlerts: (forceRefresh?: boolean) => Promise<void>;
   optimisticallyRemoveFraudAlert: (txnId: string) => void;
-  budgetsCache: { data: Budget[]; timestamp: number } | null;
+  budgetsCache: Budget[] | null;
   budgetsLoading: boolean;
   fetchBudgets: (forceRefresh?: boolean) => Promise<void>;
   spendingByBudget: Record<string, number>; // budgetId -> total spent
@@ -53,28 +53,73 @@ const DataContext = createContext<DataContextType>({
 
 export const useData = () => useContext(DataContext);
 
-const CACHE_TTL_MS = 60_000; // 1 minute
-
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(true);
-  const lastFetchTime = useRef<number>(0);
+  const accountsLoaded = useRef(false);
   const fetchInFlight = useRef<Promise<void> | null>(null);
 
-  const [transactionsCache, setTransactionsCache] = useState<Record<string, { data: Transaction[]; timestamp: number }>>({});
+  const [transactionsCache, setTransactionsCache] = useState<Record<string, Transaction[]>>({});
   const [transactionsLoading, setTransactionsLoading] = useState<Record<string, boolean>>({});
   const txFetchInFlight = useRef<Record<string, Promise<void> | undefined>>({});
 
-  const [fraudAlertsCache, setFraudAlertsCache] = useState<{ data: FraudTransaction[]; timestamp: number } | null>(null);
+  const [fraudAlertsCache, setFraudAlertsCache] = useState<FraudTransaction[] | null>(null);
   const [fraudAlertsLoading, setFraudAlertsLoading] = useState(true);
   const fraudFetchInFlight = useRef<Promise<void> | null>(null);
 
-  const [budgetsCache, setBudgetsCache] = useState<{ data: Budget[]; timestamp: number } | null>(null);
+  const [budgetsCache, setBudgetsCache] = useState<Budget[] | null>(null);
   const [budgetsLoading, setBudgetsLoading] = useState(true);
   const budgetsFetchInFlight = useRef<Promise<void> | null>(null);
+
+  const lastKnownSync = useRef<number | null>(null);
+  const syncCheckInFlight = useRef<Promise<boolean> | null>(null);
   
   const [spendingByBudget, setSpendingByBudget] = useState<Record<string, number>>({});
   const [budgetTransactions, setBudgetTransactions] = useState<Record<string, Transaction[]>>({});
+
+  const clearDataCaches = useCallback(() => {
+    accountsLoaded.current = false;
+    setTransactionsCache({});
+    setFraudAlertsCache(null);
+    setBudgetsCache(null);
+  }, []);
+
+  const checkForScheduledSync = useCallback(async (): Promise<boolean> => {
+    if (syncCheckInFlight.current) {
+      return syncCheckInFlight.current;
+    }
+
+    const checkPromise = (async () => {
+      try {
+        const status = await api.getAccountSyncStatus();
+        const remoteSync = status?.last_sync ?? null;
+
+        if (remoteSync == null) {
+          return false;
+        }
+
+        if (lastKnownSync.current == null) {
+          lastKnownSync.current = remoteSync;
+          return false;
+        }
+
+        if (remoteSync > lastKnownSync.current) {
+          lastKnownSync.current = remoteSync;
+          clearDataCaches();
+          return true;
+        }
+
+        return false;
+      } catch {
+        return false;
+      } finally {
+        syncCheckInFlight.current = null;
+      }
+    })();
+
+    syncCheckInFlight.current = checkPromise;
+    return checkPromise;
+  }, [clearDataCaches]);
 
   // Push Notification Helpers
   const notifyFraud = async (txn: FraudTransaction) => {
@@ -217,18 +262,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Update spending whenever transactions or budgets change
   React.useEffect(() => {
-    const allTxns = Object.values(transactionsCache).flatMap(c => c.data);
-    console.log(`[BudgetCalc] Trigger Tracker => Budgets Loaded: ${!!budgetsCache?.data}, TxnCount: ${allTxns.length}`);
-    if (budgetsCache?.data) {
-      calculateBudgetSpending(budgetsCache.data, allTxns);
+    const allTxns = Object.values(transactionsCache).flatMap((c) => c);
+    console.log(`[BudgetCalc] Trigger Tracker => Budgets Loaded: ${!!budgetsCache}, TxnCount: ${allTxns.length}`);
+    if (budgetsCache) {
+      calculateBudgetSpending(budgetsCache, allTxns);
     }
   }, [transactionsCache, budgetsCache, calculateBudgetSpending]);
 
   const fetchAccounts = useCallback(async (forceRefresh = false) => {
-    const now = Date.now();
+    const detectedSync = await checkForScheduledSync();
 
-    // Return cached data if still fresh and not forced
-    if (!forceRefresh && lastFetchTime.current > 0 && now - lastFetchTime.current < CACHE_TTL_MS) {
+    if (!forceRefresh && !detectedSync && accountsLoaded.current) {
       setAccountsLoading(false);
       return;
     }
@@ -244,7 +288,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAccountsLoading(true);
         const data = await api.getAccounts();
         setAccounts(data || []);
-        lastFetchTime.current = Date.now();
+        accountsLoaded.current = true;
       } catch (err: any) {
         // Silently handle — user may not have linked bank yet
       } finally {
@@ -255,20 +299,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     fetchInFlight.current = doFetch();
     await fetchInFlight.current;
-  }, []);
+  }, [checkForScheduledSync]);
 
   const invalidateAccounts = useCallback(() => {
-    lastFetchTime.current = 0;
-    setTransactionsCache({}); // also clear transaction cache on full cache invalidation
-    setFraudAlertsCache(null);
-    setBudgetsCache(null);
-  }, []);
+    clearDataCaches();
+  }, [clearDataCaches]);
 
   const fetchTransactions = useCallback(async (accId: string, forceRefresh = false) => {
-    const now = Date.now();
+    const detectedSync = await checkForScheduledSync();
     const cached = transactionsCache[accId];
 
-    if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL_MS) {
+    if (!forceRefresh && !detectedSync && cached) {
       return;
     }
 
@@ -294,7 +335,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
         setTransactionsCache((prev) => ({
           ...prev,
-          [accId]: { data: sorted, timestamp: Date.now() },
+          [accId]: sorted,
         }));
         console.log(`[BudgetCalc] Fetched and cached ${sorted.length} transactions for account ${accId}`);
       } catch (err) {
@@ -307,12 +348,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     txFetchInFlight.current[accId] = doFetch();
     await txFetchInFlight.current[accId];
-  }, [transactionsCache]);
+  }, [checkForScheduledSync, transactionsCache]);
 
   const fetchFraudAlerts = useCallback(async (forceRefresh = false) => {
-    const now = Date.now();
+    const detectedSync = await checkForScheduledSync();
 
-    if (!forceRefresh && fraudAlertsCache && now - fraudAlertsCache.timestamp < CACHE_TTL_MS) {
+    if (!forceRefresh && !detectedSync && fraudAlertsCache) {
       setFraudAlertsLoading(false);
       return;
     }
@@ -328,7 +369,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const data = await api.getFraudulentTransactions();
         // pre-filter to unresolved alerts
         const unresolved = data.filter((t: FraudTransaction) => t.is_confirmed_fraud === null);
-        setFraudAlertsCache({ data: unresolved, timestamp: Date.now() });
+        setFraudAlertsCache(unresolved);
 
         // Trigger notifications for new fraud
         unresolved.forEach(notifyFraud);
@@ -342,12 +383,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     fraudFetchInFlight.current = doFetch();
     await fraudFetchInFlight.current;
-  }, [fraudAlertsCache]);
+  }, [checkForScheduledSync, fraudAlertsCache]);
 
   const fetchBudgets = useCallback(async (forceRefresh = false) => {
-    const now = Date.now();
+    const detectedSync = await checkForScheduledSync();
 
-    if (!forceRefresh && budgetsCache && now - budgetsCache.timestamp < CACHE_TTL_MS) {
+    if (!forceRefresh && !detectedSync && budgetsCache) {
       setBudgetsLoading(false);
       return;
     }
@@ -361,7 +402,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       try {
         setBudgetsLoading(true);
         const data = await api.getBudgets();
-        setBudgetsCache({ data: data || [], timestamp: Date.now() });
+        setBudgetsCache(data || []);
       } catch (err) {
         // Silently handle
       } finally {
@@ -372,15 +413,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     budgetsFetchInFlight.current = doFetch();
     await budgetsFetchInFlight.current;
-  }, [budgetsCache]);
+  }, [budgetsCache, checkForScheduledSync]);
 
   const optimisticallyRemoveFraudAlert = useCallback((txnId: string) => {
     setFraudAlertsCache((prev) => {
       if (!prev) return prev;
-      return {
-        ...prev,
-        data: prev.data.filter((t) => t.txn_id !== txnId)
-      };
+      return prev.filter((t) => t.txn_id !== txnId);
     });
   }, []);
 
