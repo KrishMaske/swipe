@@ -198,47 +198,6 @@ def create_budget(context, budget):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create budget: {str(e)}")
 
-def update_budget(context, budget_id: str, budget):
-    sb = context["supabase"]
-    user_id = context["user_id"]
-    
-    update_data = {}
-    if budget.name is not None: update_data["name"] = budget.name
-    if budget.amount is not None: update_data["amount"] = budget.amount
-    if budget.category is not None: update_data["category"] = budget.category
-    if budget.period is not None: update_data["period"] = budget.period
-    
-    if not update_data:
-        return {"status": "success", "message": "No fields to update."}
-        
-    try:
-        response = (
-            sb.table("budgets")
-            .update(update_data)
-            .eq("id", budget_id)
-            .eq("user_id", user_id)
-            .execute()
-        )
-        return response.data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update budget: {str(e)}")
-
-def delete_budget(context, budget_id: str):
-    sb = context["supabase"]
-    user_id = context["user_id"]
-    
-    try:
-        response = (
-            sb.table("budgets")
-            .delete()
-            .eq("id", budget_id)
-            .eq("user_id", user_id)
-            .execute()
-        )
-        return response.data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete budget: {str(e)}")
-
 def get_active_budgets(context):
     sb = context["supabase"]
     user_id = context["user_id"]
@@ -254,16 +213,6 @@ def get_active_budgets(context):
     except Exception as e:
         print(f"Failed to retrieve budgets: {str(e)}")
         return []
-
-def delete_budget(context, budget_id: str):
-    sb = context["supabase"]
-    user_id = context["user_id"]
-    
-    try:
-        sb.table("budgets").delete().eq("id", budget_id).eq("user_id", user_id).execute()
-        return {"status": "success"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete budget: {str(e)}")
 
 def update_budget(context, budget_id: str, budget_data):
     sb = context["supabase"]
@@ -284,6 +233,55 @@ def update_budget(context, budget_id: str, budget_data):
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update budget: {str(e)}")
+
+
+def delete_budget(context, budget_id: str):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+
+    try:
+        sb.table("budgets").delete().eq("id", budget_id).eq("user_id", user_id).execute()
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete budget: {str(e)}")
+
+
+def get_chat_summary(context) -> str:
+    sb = context["supabase"]
+    user_id = context["user_id"]
+
+    try:
+        response = (
+            sb.table("chat_summaries")
+            .select("summary")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = response.data or []
+        if not rows:
+            return ""
+        return str(rows[0].get("summary") or "")
+    except Exception:
+        return ""
+
+
+def upsert_chat_summary(context, summary: str):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+
+    try:
+        response = (
+            sb.table("chat_summaries")
+            .upsert({
+                "user_id": user_id,
+                "summary": summary,
+            }, on_conflict="user_id")
+            .execute()
+        )
+        return response.data
+    except Exception:
+        return []
 
 def get_all_non_fraudulent_transactions():
     
