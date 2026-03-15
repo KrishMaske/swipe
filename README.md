@@ -259,7 +259,37 @@ Training path:
 2. Endpoint trains global model from non-fraud-confirmed historical transactions.
 3. Model/scaler/profiles artifacts persisted to disk.
 
-### 7.7 Sequence Diagrams
+### 7.7 Scheduler + Lifecycle Notification Flow
+
+Scheduler path:
+
+- backend/scheduler.py
+
+Runtime behavior:
+
+- FastAPI starts/stops the scheduler through lifespan hooks in backend/app.py.
+- APScheduler uses AsyncIOScheduler and executes coroutine jobs natively.
+- Job defaults include coalescing and single-instance execution per job id.
+
+Registered jobs:
+
+- account_sync_job: daily at 00:00, 06:00, 12:00, 15:00, 18:00, 21:00.
+- fraud_retraining_job: monthly on day 1 at 00:00.
+
+Lifecycle notifications:
+
+- Start email when each job begins.
+- Success email when each job completes, with summary stats.
+- Error email when exceptions are caught, with traceback HTML.
+
+Fraud retraining evaluation step:
+
+- After successful train_global_fraud_detector, scheduler evaluates backend/models/fraud_rows.csv.
+- Each row is scored via score_transaction.
+- HTML report includes per-transaction status (red anomaly / green normal), risk score, and feature table.
+- Evaluation report is embedded in the fraud retraining success email.
+
+### 7.8 Sequence Diagrams
 
 #### Authentication + User-Scoped Query
 
@@ -428,19 +458,31 @@ Purpose:
 
 - list user-linked accounts.
 
-### 8.5 GET /api/transactions?acc_id=...
+### 8.5 GET /api/accounts/sync-status
+
+Purpose:
+
+- return last_sync timestamp for the authenticated user.
+
+Response:
+
+```json
+{ "last_sync": 1731024000 }
+```
+
+### 8.6 GET /api/transactions?acc_id=...
 
 Purpose:
 
 - list account transactions for current user.
 
-### 8.6 GET /api/transactions/fraud
+### 8.7 GET /api/transactions/fraud
 
 Purpose:
 
 - list fraud-flagged transactions for current user.
 
-### 8.7 POST /api/transactions/update-fraud-status
+### 8.8 POST /api/transactions/update-fraud-status
 
 Purpose:
 
@@ -892,6 +934,11 @@ Create backend/.env and configure:
 | SUPABASE_JWK | Yes | JWKS endpoint for JWT verification |
 | FERNET_KEY | Yes | Encryption key for stored access URLs |
 | GROQ_KEY | Yes | LLM completion API key |
+| SMTP_EMAIL | Yes (scheduler email notifications) | Sender mailbox username/address |
+| SMTP_PASSWORD | Yes (scheduler email notifications) | Sender mailbox password/app password |
+| SMTP_HOST | No | SMTP host (default: smtp.gmail.com) |
+| SMTP_PORT | No | SMTP port (default: 587) |
+| SCHEDULER_TIMEZONE | No | APScheduler timezone (default: UTC) |
 | APP_ENV | No | development/local vs production/staging behavior |
 | CORS_ORIGINS | Required outside development | Comma-separated trusted origins |
 
@@ -988,6 +1035,7 @@ Checklist:
 ## 17. Known Constraints And Tradeoffs
 
 - Current sync background processing uses FastAPI BackgroundTasks, not a durable queue.
+- Scheduler runs in-process with the API server (single-process semantics; multi-replica deployments require coordination).
 - Rolling memory summarization introduces additional LLM calls on chat responses.
 - Local model artifacts are loaded from repo paths and require consistent deployment packaging.
 - SimpleFIN and geolocation providers are external dependencies with variable latency.
