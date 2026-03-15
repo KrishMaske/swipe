@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { api } from '../services/api';
@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [simplefinLinked, setSimplefinLinked] = useState(false);
   const [simplefinStatusLoading, setSimplefinStatusLoading] = useState(true);
+  const simplefinStatusInFlight = useRef<Promise<void> | null>(null);
 
   const refreshSimplefinStatus = async (activeSession: Session | null = session) => {
     if (!activeSession) {
@@ -54,15 +55,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setSimplefinStatusLoading(true);
-    try {
-      const data = await api.getSimplefinStatus();
-      setSimplefinLinked(Boolean(data.linked));
-    } catch {
-      setSimplefinLinked(false);
-    } finally {
-      setSimplefinStatusLoading(false);
+    if (simplefinStatusInFlight.current) {
+      await simplefinStatusInFlight.current;
+      return;
     }
+
+    const run = (async () => {
+      setSimplefinStatusLoading(true);
+      try {
+        const data = await api.getSimplefinStatus();
+        setSimplefinLinked(Boolean(data.linked));
+      } catch {
+        setSimplefinLinked(false);
+      } finally {
+        setSimplefinStatusLoading(false);
+        simplefinStatusInFlight.current = null;
+      }
+    })();
+
+    simplefinStatusInFlight.current = run;
+    await run;
   };
 
   useEffect(() => {

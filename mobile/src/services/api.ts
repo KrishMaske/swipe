@@ -29,7 +29,14 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
+function debugApiLog(message: string): void {
+  if (__DEV__) {
+    console.log(`[api-debug] ${message}`);
+  }
+}
+
 async function apiGet<T = any>(endpoint: string): Promise<T> {
+  debugApiLog(`network GET ${endpoint}`);
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'GET',
@@ -43,6 +50,7 @@ async function apiGet<T = any>(endpoint: string): Promise<T> {
 }
 
 async function apiPost<T = any>(endpoint: string, body: any): Promise<T> {
+  debugApiLog(`network POST ${endpoint}`);
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
@@ -57,6 +65,7 @@ async function apiPost<T = any>(endpoint: string, body: any): Promise<T> {
 }
 
 async function apiPut<T = any>(endpoint: string, body: any): Promise<T> {
+  debugApiLog(`network PUT ${endpoint}`);
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'PUT',
@@ -71,6 +80,7 @@ async function apiPut<T = any>(endpoint: string, body: any): Promise<T> {
 }
 
 async function apiDelete<T = any>(endpoint: string): Promise<T> {
+  debugApiLog(`network DELETE ${endpoint}`);
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'DELETE',
@@ -158,13 +168,19 @@ let userCardsCache: WalletCard[] | null = null;
 let userCardsInFlight: Promise<WalletCard[]> | null = null;
 
 async function getUserCardsCached(forceRefresh = false): Promise<WalletCard[]> {
+  debugApiLog(`cards request forceRefresh=${String(forceRefresh)}`);
+
   if (!forceRefresh && userCardsCache) {
+    debugApiLog(`cards cache-hit size=${userCardsCache.length}`);
     return userCardsCache;
   }
 
   if (!forceRefresh && userCardsInFlight) {
+    debugApiLog('cards in-flight reuse');
     return userCardsInFlight;
   }
+
+  debugApiLog('cards cache-miss, fetching');
 
   const fetchPromise = apiGet<WalletCard[]>('/api/user/cards')
     .then((cards) => {
