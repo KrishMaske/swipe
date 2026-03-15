@@ -1,59 +1,60 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional
-from database.db import create_card, get_cards, update_card, delete_card
+from database.db import get_saved_user_cards, replace_user_cards
 from config.security import get_user_context
+from utils.location_evaluator import evaluate_best_card, resolve_place_details, get_nearby_merchants
 
-class CardCreateRequest(BaseModel):
+
+class WalletCardRequest(BaseModel):
+    id: str
     card_name: str
     issuer: str
-    last_four: str
-    card_network: str
-    logo_url: str
-    reward_multiplier: dict
+    card_image_url: str
     reward_type: str
     annual_fee: float
+    reward_multipliers: dict
 
-class CardUpdateRequest(BaseModel):
-    card_name: Optional[str] = None
-    issuer: Optional[str] = None
-    last_four: Optional[str] = None
-    card_network: Optional[str] = None
-    logo_url: Optional[str] = None
-    reward_multiplier: Optional[dict] = None
-    reward_type: Optional[str] = None
-    annual_fee: Optional[float] = None
-    
+
+class SaveWalletCardsRequest(BaseModel):
+    cards: list[WalletCardRequest]
+
+
+class LocationEvaluateRequest(BaseModel):
+    latitude: float
+    longitude: float
+
+
 router = APIRouter()
 
-@router.post("/api/cards/create")
-def create_card_endpoint(request: CardCreateRequest, context: dict = Depends(get_user_context)):
-    try:
-        card_id = create_card(context, request)
-        return {"success": f"Card created with ID {card_id}"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/api/cards")
-def get_cards_endpoint(context: dict = Depends(get_user_context)):
-    try:
-        cards = get_cards(context)
-        return cards
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/api/user/cards")
+def get_user_cards_endpoint(context: dict = Depends(get_user_context)):
+    return get_saved_user_cards(context)
 
-@router.put("/api/cards/update")
-def update_card_endpoint(card_id: str, request: CardUpdateRequest, context: dict = Depends(get_user_context)):
-    try:
-        update_card(context, card_id, request)
-        return {"success": f"Card with ID {card_id} updated successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/api/cards/delete")
-def delete_card_endpoint(card_id: str, context: dict = Depends(get_user_context)):
-    try:
-        delete_card(context, card_id)
-        return {"success": f"Card with ID {card_id} deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/api/user/cards")
+def save_user_cards_endpoint(request: SaveWalletCardsRequest, context: dict = Depends(get_user_context)):
+    cards = [card.model_dump() for card in request.cards]
+    saved_cards = replace_user_cards(context, cards)
+    return {
+        "status": "success",
+        "count": len(saved_cards),
+        "cards": saved_cards,
+    }
+
+
+@router.get("/api/location/nearby-merchants")
+def nearby_merchants_endpoint(lat: float, lon: float, context: dict = Depends(get_user_context)):
+    return get_nearby_merchants(lat, lon)
+
+
+@router.post("/api/location/evaluate")
+def evaluate_location_endpoint(request: LocationEvaluateRequest, context: dict = Depends(get_user_context)):
+    saved_cards = get_saved_user_cards(context)
+    place = resolve_place_details(request.latitude, request.longitude)
+    evaluation = evaluate_best_card(saved_cards, place)
+    return {
+        **evaluation,
+        "latitude": request.latitude,
+        "longitude": request.longitude,
+    }
