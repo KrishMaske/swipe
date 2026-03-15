@@ -14,14 +14,14 @@ import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'Food & Dining': '#F59E0B',
-  Transportation: '#3B82F6',
-  Shopping: '#EC4899',
-  Entertainment: '#8B5CF6',
+  'Food & Dining': '#EF4444',
+  Transportation: '#B91C1C',
+  Shopping: '#F43F5E',
+  Entertainment: '#E11D48',
   Bills: '#EF4444',
-  Healthcare: '#14B8A6',
-  Travel: '#06B6D4',
-  Income: '#10B981',
+  Healthcare: '#DC2626',
+  Travel: '#F87171',
+  Income: '#FB7185',
   Uncategorized: '#6B7280',
 };
 

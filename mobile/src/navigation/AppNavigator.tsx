@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View, StyleSheet, Dimensions, Platform, TouchableOpacity, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
@@ -26,14 +26,14 @@ const { width } = Dimensions.get('window');
 const TAB_BAR_WIDTH = width - 32;
 const TAB_BAR_HEIGHT = 62;
 
-const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
-  Dashboard:   { icon: 'grid',         label: 'Home' },
-  SwipeSmart:  { icon: 'card',         label: 'SwipeSmart' },
-  FraudAlerts: { icon: 'shield',       label: 'SwipeGuard' },
-  Chat:        { icon: 'chatbubbles',  label: 'SwipeChat' },
+const TAB_CONFIG: Record<string, { activeIcon: string; inactiveIcon: string; label: string }> = {
+  Dashboard: { activeIcon: 'grid', inactiveIcon: 'grid-outline', label: 'Home' },
+  SwipeSmart: { activeIcon: 'card', inactiveIcon: 'card-outline', label: 'SwipeSmart' },
+  FraudAlerts: { activeIcon: 'shield', inactiveIcon: 'shield-outline', label: 'SwipeGuard' },
+  Chat: { activeIcon: 'chatbubbles', inactiveIcon: 'chatbubbles-outline', label: 'SwipeChat' },
 };
 
-export function LiquidGlassTabBar({ state, navigation }: any) {
+export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarProps>) {
   const routes = state.routes;
   const tabWidth = TAB_BAR_WIDTH / routes.length;
   const activeIndex = state.index;
@@ -59,11 +59,13 @@ export function LiquidGlassTabBar({ state, navigation }: any) {
   return (
     <View style={tabStyles.wrapper}>
       <View style={tabStyles.container}>
-        <BlurView
-          intensity={80}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
+        {Platform.OS === 'ios' ? (
+          <BlurView
+            intensity={85}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
         <View
           style={[
             tabStyles.glassOverlay,
@@ -84,7 +86,8 @@ export function LiquidGlassTabBar({ state, navigation }: any) {
         <View style={tabStyles.tabRow}>
           {routes.map((route: any, index: number) => {
             const config = TAB_CONFIG[route.name] || {
-              icon: 'help-circle',
+              activeIcon: 'help-circle',
+              inactiveIcon: 'help-circle-outline',
               label: route.name,
             };
             const isFocused = state.index === index;
@@ -109,9 +112,9 @@ export function LiquidGlassTabBar({ state, navigation }: any) {
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name={config.icon as any}
+                  name={(isFocused ? config.activeIcon : config.inactiveIcon) as any}
                   size={isFocused ? 22 : 19}
-                  color={isFocused ? '#4f7cff' : 'rgba(255,255,255,0.4)'}
+                  color={isFocused ? '#dc2626' : 'rgba(255,255,255,0.45)'}
                 />
                 {config.label ? (
                   <Text style={[tabStyles.label, isFocused && tabStyles.labelActive]}>
@@ -280,9 +283,9 @@ const tabStyles = StyleSheet.create({
   },
   pill: {
     borderRadius: 21,
-    backgroundColor: 'rgba(79, 124, 255, 0.12)',
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(79, 124, 255, 0.2)',
+    borderColor: 'rgba(220, 38, 38, 0.2)',
   },
 
   // Tabs
@@ -305,7 +308,7 @@ const tabStyles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
   },
   labelActive: {
-    color: '#4f7cff',
+    color: '#dc2626',
     fontWeight: '700',
   },
 });

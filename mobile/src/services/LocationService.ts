@@ -30,7 +30,7 @@ export async function ensureLocationNotificationChannelAsync() {
     name: 'Smart Card Suggestions',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 200, 250],
-    lightColor: '#2EE6A6',
+    lightColor: '#EF4444',
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
 }

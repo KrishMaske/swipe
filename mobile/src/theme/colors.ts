@@ -10,19 +10,19 @@ export const Colors = {
   gradientStart: '#000000',
   gradientMid: '#000000',
   gradientEnd: '#000000',
-  gradientAccentStart: '#4F7CFF',
-  gradientAccentEnd: '#2EE6A6',
-  gradientGreenStart: '#1ECF9A',
-  gradientGreenEnd: '#7AF7CC',
+  gradientAccentStart: '#B91C1C',
+  gradientAccentEnd: '#EF4444',
+  gradientGreenStart: '#991B1B',
+  gradientGreenEnd: '#F87171',
 
   // Accents - polished fintech tones
-  accentBlue: '#4F7CFF',
-  accentBlueBright: '#82A6FF',
-  accentCyan: '#43D4FF',
-  accentEmerald: '#2EE6A6',
+  accentBlue: '#DC2626',
+  accentBlueBright: '#F87171',
+  accentCyan: '#FB7185',
+  accentEmerald: '#EF4444',
   accentAmber: '#FFB347',
-  accentCoral: '#FF6B6B',
-  accentPink: '#FF7AC8',
+  accentCoral: '#F87171',
+  accentPink: '#FB7185',
 
   // Text
   textPrimary: '#F5F7FA',
@@ -31,15 +31,15 @@ export const Colors = {
   textInverse: '#0D1016',
 
   // Status
-  success: '#2EE6A6',
+  success: '#EF4444',
   warning: '#FFB347',
-  error: '#FF6B6B',
-  info: '#4F7CFF',
+  error: '#F87171',
+  info: '#DC2626',
 
   // Borders - subtle translucent layering
   border: 'rgba(255, 255, 255, 0.06)',
   borderLight: 'rgba(255, 255, 255, 0.1)',
-  borderAccent: 'rgba(79, 124, 255, 0.5)',
+  borderAccent: 'rgba(220, 38, 38, 0.5)',
 
   // Glassmorphism
   glassWhite: 'rgba(255, 255, 255, 0.04)',
@@ -47,8 +47,8 @@ export const Colors = {
   glassOverlay: 'rgba(9, 12, 18, 0.65)',
 
   // Specific
-  positive: '#2EE6A6',
-  negative: '#FF6B6B',
+  positive: '#EF4444',
+  negative: '#F87171',
   tabBar: '#000000',
   tabBarBorder: 'rgba(255, 255, 255, 0.06)',
 };
