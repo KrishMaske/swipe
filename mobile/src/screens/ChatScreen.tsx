@@ -229,10 +229,6 @@ export default function ChatScreen() {
           <Text style={styles.headerTitle}>Osho</Text>
         </View>
         <View style={styles.headerRight}>
-          <View style={styles.livePill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>Online</Text>
-          </View>
           <TouchableOpacity onPress={handleClearChat} style={styles.clearBtn} activeOpacity={0.7}>
             <Ionicons name="trash-outline" size={20} color={Colors.textMuted} />
           </TouchableOpacity>

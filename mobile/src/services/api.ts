@@ -13,7 +13,11 @@ if (__DEV__ && !process.env.EXPO_PUBLIC_API_URL) {
   }
 }
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
+export function getApiBaseUrl(): string {
+  return API_BASE_URL;
+}
+
+export async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) {
@@ -129,6 +133,27 @@ export interface Budget {
   updated_at?: string;
 }
 
+export interface WalletCard {
+  id: string;
+  card_name: string;
+  issuer: string;
+  card_image_url: string;
+  reward_type: string;
+  annual_fee: number;
+  reward_multipliers: Record<string, number>;
+}
+
+export interface LocationEvaluationResponse {
+  is_commercial: boolean;
+  place_name?: string;
+  category?: string;
+  best_card_name?: string;
+  multiplier?: number;
+  matched_key?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export const api = {
   /** Exchange a SimpleFIN setup token */
   exchangeSetupToken: (setupToken: string) =>
@@ -180,4 +205,16 @@ export const api = {
   /** Delete a budget */
   deleteBudget: (budgetId: string) =>
     apiDelete<{ status: string }>(`/api/transactions/budgets/${budgetId}`),
+
+  /** Save a user's selected wallet cards */
+  saveUserCards: (cards: WalletCard[]) =>
+    apiPost<{ status?: string; success?: boolean; count?: number; cards?: WalletCard[] }>('/api/user/cards', { cards }),
+
+  /** Get the user's saved wallet cards */
+  getUserCards: () =>
+    apiGet<WalletCard[]>('/api/user/cards'),
+
+  /** Evaluate a location for the best card recommendation */
+  evaluateLocation: (payload: { latitude: number; longitude: number }) =>
+    apiPost<LocationEvaluationResponse>('/api/location/evaluate', payload),
 };

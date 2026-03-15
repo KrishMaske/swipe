@@ -18,6 +18,7 @@ import AccountDetailScreen from '../screens/AccountDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import FraudAlertsScreen from '../screens/FraudAlertsScreen';
+import SwipeSmartScreen from '../screens/SwipeSmartScreen';
 
 const { width } = Dimensions.get('window');
 const TAB_BAR_WIDTH = width - 32;
@@ -25,6 +26,7 @@ const TAB_BAR_HEIGHT = 62;
 
 const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
   Dashboard:   { icon: 'grid',         label: 'Home' },
+  SwipeSmart:  { icon: 'card',         label: 'SwipeSmart' },
   FraudAlerts: { icon: 'shield',       label: 'SwipeGuard' },
   Chat:        { icon: 'chatbubbles',  label: 'SwipeChat' },
 };
@@ -181,6 +183,11 @@ function TabNavigator() {
         name="Dashboard"
         component={DashboardStack}
         options={{ tabBarLabel: 'Home' }}
+      />
+      <Tab.Screen
+        name="SwipeSmart"
+        component={SwipeSmartScreen}
+        options={{ tabBarLabel: 'SwipeSmart' }}
       />
       <Tab.Screen
         name="FraudAlerts"

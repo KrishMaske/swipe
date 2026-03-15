@@ -107,6 +107,30 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Smart Suggestions</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardDesc}>
+            Choose the cards in your wallet so SwipeSmart can recommend the best one when you
+            arrive at restaurants, stores, and travel spots.
+          </Text>
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('SwipeSmart')}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+              style={styles.primaryButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="card-outline" size={17} color="#fff" />
+              <Text style={styles.primaryButtonText}>Open SwipeSmart</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionLabel}>Link Bank Account</Text>
         </View>
         <View style={styles.card}>
