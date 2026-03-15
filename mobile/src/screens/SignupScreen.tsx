@@ -9,9 +9,12 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -21,10 +24,13 @@ type Props = {
 };
 
 export default function SignupScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -74,12 +80,15 @@ export default function SignupScreen({ navigation }: Props) {
 
   return (
     <LinearGradient
-      colors={[Colors.gradientStart, Colors.gradientMid, Colors.gradientEnd]}
+      colors={['#000000', '#000000']}
       style={styles.container}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+        style={[
+          styles.keyboardView,
+          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 20 },
+        ]}
       >
         <Animated.View
           style={[
@@ -90,12 +99,33 @@ export default function SignupScreen({ navigation }: Props) {
             },
           ]}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Start tracking your finances with AI</Text>
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AuthLanding')}
+              style={styles.backButton}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.card}>
+          <View style={styles.centerContent}>
+            <ScrollView
+              contentContainerStyle={styles.formScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.topTextWrap}>
+                <Text style={styles.pageEyebrow}>Swipe</Text>
+                <Text style={styles.pageTitle}>Create Account</Text>
+              </View>
+
+              <View style={styles.header}>
+                <Text style={styles.subtitle}>Set up your account to start your finance onboarding.</Text>
+              </View>
+
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Account Details</Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Email</Text>
               <TextInput
@@ -112,26 +142,52 @@ export default function SignupScreen({ navigation }: Props) {
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Min. 6 characters"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={styles.passwordInputWrap}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Min. 6 characters"
+                  placeholderTextColor={Colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!passwordVisible}
+                />
+                <TouchableOpacity
+                  onPress={() => setPasswordVisible((prev) => !prev)}
+                  style={styles.eyeButton}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={Colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Confirm Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Re-enter password"
-                placeholderTextColor={Colors.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
+              <View style={styles.passwordInputWrap}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Re-enter password"
+                  placeholderTextColor={Colors.textMuted}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!confirmPasswordVisible}
+                />
+                <TouchableOpacity
+                  onPress={() => setConfirmPasswordVisible((prev) => !prev)}
+                  style={styles.eyeButton}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={Colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -143,7 +199,7 @@ export default function SignupScreen({ navigation }: Props) {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={[Colors.gradientGreenStart, Colors.gradientGreenEnd]}
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                 style={styles.button}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -156,15 +212,16 @@ export default function SignupScreen({ navigation }: Props) {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.switchButton}
-            >
-              <Text style={styles.switchText}>
-                Already have an account?{' '}
-                <Text style={styles.switchHighlight}>Sign In</Text>
-              </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Login')}
+                  style={styles.switchButton}
+                >
+                  <Text style={styles.switchText}>
+                    Already registered? <Text style={styles.switchHighlight}>Sign in</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -176,31 +233,63 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   keyboardView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
   },
   content: {
     width: '100%',
     maxWidth: 400,
+    flex: 1,
+    alignSelf: 'center',
+  },
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
+  },
+  centerContent: {
+    flex: 1,
+  },
+  formScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topTextWrap: {
+    alignItems: 'center',
+  },
+  pageEyebrow: {
+    ...Typography.caption1,
+    color: Colors.accentBlueBright,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  pageTitle: {
+    ...Typography.largeTitle,
+    color: Colors.textPrimary,
   },
   header: {
+    marginTop: 14,
+    marginBottom: 14,
     alignItems: 'center',
-    marginBottom: 32,
-  },
-  title: {
-    ...Typography.title1,
-    color: Colors.textPrimary,
-    marginBottom: 8,
   },
   subtitle: {
-    ...Typography.subhead,
+    ...Typography.footnote,
     color: Colors.textSecondary,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   card: {
     width: '100%',
-    backgroundColor: Colors.bgCard,
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 24,
     padding: 28,
     borderWidth: 1,
@@ -210,6 +299,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 16,
+  },
+  cardTitle: {
+    ...Typography.title2,
+    color: Colors.textPrimary,
+    marginBottom: 20,
   },
   inputContainer: { marginBottom: 18 },
   inputLabel: {
@@ -228,6 +322,28 @@ const styles = StyleSheet.create({
     ...Typography.body,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  passwordInputWrap: {
+    backgroundColor: Colors.bgInput,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 56,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    color: Colors.textPrimary,
+    ...Typography.body,
+  },
+  eyeButton: {
+    paddingHorizontal: 14,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorText: {
     ...Typography.footnote,
@@ -266,7 +382,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   switchHighlight: {
-    color: Colors.accentEmerald,
+    color: Colors.accentBlueBright,
     fontWeight: '600',
   },
 });

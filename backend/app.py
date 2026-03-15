@@ -6,6 +6,7 @@ from routes.bank_routes import router as bank_routes
 from routes.card_routes import router as card_routes
 from routes.chatbot_routes import router as chatbot_routes
 from routes.model_routes import router as model_routes
+from routes.account_routes import router as account_routes
 
 app = FastAPI()
 
@@ -32,6 +33,7 @@ app.include_router(bank_routes)
 app.include_router(card_routes)
 app.include_router(chatbot_routes)
 app.include_router(model_routes)
+app.include_router(account_routes)
 
 @app.get("/")
 def read_root():

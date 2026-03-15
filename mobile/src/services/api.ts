@@ -184,11 +184,19 @@ async function getUserCardsCached(forceRefresh = false): Promise<WalletCard[]> {
 }
 
 export const api = {
+  /** Check if the current user has linked SimpleFIN */
+  getSimplefinStatus: () =>
+    apiGet<{ linked: boolean }>('/api/simplefin/status'),
+
   /** Exchange a SimpleFIN setup token */
   exchangeSetupToken: (setupToken: string) =>
     apiPost<{ message: string }>('/api/exchange_setup', {
       setup_token: setupToken,
     }),
+
+  /** Delete current authenticated account and app data */
+  deleteAccount: () =>
+    apiDelete<{ status: string }>('/api/account'),
 
   /** Trigger bank account sync */
   syncAccounts: () =>

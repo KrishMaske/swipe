@@ -7,9 +7,9 @@ import { useLocationTracking } from './src/hooks/useLocationTracking';
 import './src/services/LocationService';
 
 function LocationTrackingController() {
-  const { session } = useAuth();
+  const { session, simplefinLinked } = useAuth();
   const { locationTrackingEnabled, loadingSettings } = useSettings();
-  useLocationTracking(Boolean(session) && !loadingSettings && locationTrackingEnabled);
+  useLocationTracking(Boolean(session && simplefinLinked) && !loadingSettings && locationTrackingEnabled);
   return null;
 }
 

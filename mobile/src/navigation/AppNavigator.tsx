@@ -13,12 +13,14 @@ import { Colors } from '../theme/colors';
 // Screens
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
+import AuthLandingScreen from '../screens/AuthLandingScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import AccountDetailScreen from '../screens/AccountDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import FraudAlertsScreen from '../screens/FraudAlertsScreen';
 import SwipeSmartScreen from '../screens/SwipeSmartScreen';
+import SimplefinOnboardingScreen from '../screens/SimplefinOnboardingScreen';
 
 const { width } = Dimensions.get('window');
 const TAB_BAR_WIDTH = width - 32;
@@ -127,11 +129,13 @@ export function LiquidGlassTabBar({ state, navigation }: any) {
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
+const OnboardingStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="AuthLanding" component={AuthLandingScreen} />
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Signup" component={SignupScreen} />
     </AuthStack.Navigator>
@@ -170,6 +174,14 @@ function DashboardStack() {
   );
 }
 
+function OnboardingNavigator() {
+  return (
+    <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+      <OnboardingStack.Screen name="SimplefinOnboarding" component={SimplefinOnboardingScreen} />
+    </OnboardingStack.Navigator>
+  );
+}
+
 function TabNavigator() {
   return (
     <Tab.Navigator
@@ -204,9 +216,9 @@ function TabNavigator() {
 }
 
 export default function AppNavigator() {
-  const { session, loading } = useAuth();
+  const { session, loading, simplefinLinked, simplefinStatusLoading } = useAuth();
 
-  if (loading) {
+  if (loading || (session && simplefinStatusLoading)) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={Colors.accentBlue} />
@@ -216,7 +228,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      {session ? <TabNavigator /> : <AuthNavigator />}
+      {!session ? <AuthNavigator /> : simplefinLinked ? <TabNavigator /> : <OnboardingNavigator />}
     </NavigationContainer>
   );
 }

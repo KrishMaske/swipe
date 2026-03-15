@@ -10,7 +10,7 @@ interface SettingsContextType {
 }
 
 const SettingsContext = createContext<SettingsContextType>({
-  locationTrackingEnabled: false,
+  locationTrackingEnabled: true,
   loadingSettings: true,
   setLocationTrackingEnabled: async () => {},
 });
@@ -18,7 +18,7 @@ const SettingsContext = createContext<SettingsContextType>({
 export const useSettings = () => useContext(SettingsContext);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [locationTrackingEnabled, setLocationTrackingEnabledState] = useState(false);
+  const [locationTrackingEnabled, setLocationTrackingEnabledState] = useState(true);
   const [loadingSettings, setLoadingSettings] = useState(true);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       try {
         const raw = await SecureStore.getItemAsync(LOCATION_TRACKING_KEY);
         if (!mounted) return;
-        setLocationTrackingEnabledState(raw === 'true');
+        setLocationTrackingEnabledState(raw === null ? true : raw === 'true');
       } finally {
         if (mounted) {
           setLoadingSettings(false);

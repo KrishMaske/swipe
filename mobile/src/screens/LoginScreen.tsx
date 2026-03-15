@@ -9,10 +9,12 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
-  Dimensions,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -22,10 +24,13 @@ type Props = {
 };
 
 export default function LoginScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { signIn, requestPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [error, setError] = useState('');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -58,14 +63,37 @@ export default function LoginScreen({ navigation }: Props) {
     if (authError) setError(authError);
   };
 
+  const handleForgotPassword = async () => {
+    const emailValue = email.trim();
+    if (!emailValue) {
+      setError('Enter your email, then tap Forgot password.');
+      return;
+    }
+
+    setResettingPassword(true);
+    setError('');
+    const { error: resetError } = await requestPasswordReset(emailValue);
+    setResettingPassword(false);
+
+    if (resetError) {
+      setError(resetError);
+      return;
+    }
+
+    setError('Password reset email sent. Check your inbox.');
+  };
+
   return (
     <LinearGradient
-      colors={[Colors.gradientStart, Colors.gradientMid, Colors.gradientEnd]}
+      colors={['#000000', '#000000']}
       style={styles.container}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+        style={[
+          styles.keyboardView,
+          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 20 },
+        ]}
       >
         <Animated.View
           style={[
@@ -76,23 +104,33 @@ export default function LoginScreen({ navigation }: Props) {
             },
           ]}
         >
-          {/* Logo Area */}
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.logoCircle}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AuthLanding')}
+              style={styles.backButton}
+              activeOpacity={0.8}
             >
-              <Text style={styles.logoText}>S</Text>
-            </LinearGradient>
-            <Text style={styles.appName}>Swipe</Text>
-            <Text style={styles.tagline}>Your AI-powered financial companion</Text>
+              <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+            </TouchableOpacity>
           </View>
 
-          {/* Form Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Welcome Back</Text>
+          <View style={styles.centerContent}>
+            <ScrollView
+              contentContainerStyle={styles.formScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.topTextWrap}>
+                <Text style={styles.pageEyebrow}>Swipe</Text>
+                <Text style={styles.pageTitle}>Sign In</Text>
+              </View>
+
+              <View style={styles.headerBlock}>
+                <Text style={styles.tagline}>Welcome back. Continue to your financial dashboard.</Text>
+              </View>
+
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Account Access</Text>
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Email</Text>
@@ -110,15 +148,41 @@ export default function LoginScreen({ navigation }: Props) {
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="••••••••"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={styles.passwordInputWrap}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="••••••••"
+                  placeholderTextColor={Colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!passwordVisible}
+                />
+                <TouchableOpacity
+                  onPress={() => setPasswordVisible((prev) => !prev)}
+                  style={styles.eyeButton}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={Colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
+
+            <TouchableOpacity
+              onPress={handleForgotPassword}
+              disabled={resettingPassword}
+              style={styles.forgotButton}
+              activeOpacity={0.75}
+            >
+              {resettingPassword ? (
+                <ActivityIndicator size="small" color={Colors.accentBlueBright} />
+              ) : (
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              )}
+            </TouchableOpacity>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -141,15 +205,16 @@ export default function LoginScreen({ navigation }: Props) {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Signup')}
-              style={styles.switchButton}
-            >
-              <Text style={styles.switchText}>
-                Don't have an account?{' '}
-                <Text style={styles.switchHighlight}>Sign Up</Text>
-              </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Signup')}
+                  style={styles.switchButton}
+                >
+                  <Text style={styles.switchText}>
+                    Need an account? <Text style={styles.switchHighlight}>Create one</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -157,57 +222,69 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
-const { width } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   keyboardView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
   },
   content: {
     width: '100%',
     maxWidth: 400,
-    alignItems: 'center',
+    flex: 1,
+    alignSelf: 'center',
   },
-  logoContainer: {
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 36,
+    marginTop: 2,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+  centerContent: {
+    flex: 1,
+  },
+  formScrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
     alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: Colors.accentBlue,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
+    justifyContent: 'center',
   },
-  logoText: {
+  topTextWrap: {
+    alignItems: 'center',
+  },
+  pageEyebrow: {
+    ...Typography.caption1,
+    color: Colors.accentBlueBright,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  pageTitle: {
     ...Typography.largeTitle,
-    color: '#FFF',
-    fontSize: 32,
-  },
-  appName: {
-    ...Typography.title1,
     color: Colors.textPrimary,
-    marginBottom: 6,
+  },
+  headerBlock: {
+    marginTop: 14,
+    marginBottom: 14,
+    alignItems: 'center',
   },
   tagline: {
-    ...Typography.subhead,
+    ...Typography.footnote,
     color: Colors.textSecondary,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   card: {
     width: '100%',
-    backgroundColor: Colors.bgCard,
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 24,
     padding: 28,
     borderWidth: 1,
@@ -219,10 +296,9 @@ const styles = StyleSheet.create({
     elevation: 16,
   },
   cardTitle: {
-    ...Typography.title3,
+    ...Typography.title2,
     color: Colors.textPrimary,
-    marginBottom: 24,
-    textAlign: 'center',
+    marginBottom: 20,
   },
   inputContainer: {
     marginBottom: 18,
@@ -244,11 +320,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  passwordInputWrap: {
+    backgroundColor: Colors.bgInput,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 56,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    color: Colors.textPrimary,
+    ...Typography.body,
+  },
+  eyeButton: {
+    paddingHorizontal: 14,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   errorText: {
     ...Typography.footnote,
     color: Colors.error,
     textAlign: 'center',
     marginBottom: 12,
+  },
+  forgotButton: {
+    alignSelf: 'flex-end',
+    marginTop: -4,
+    marginBottom: 10,
+  },
+  forgotText: {
+    ...Typography.footnote,
+    color: Colors.accentBlueBright,
+    fontWeight: '600',
   },
   button: {
     borderRadius: 14,

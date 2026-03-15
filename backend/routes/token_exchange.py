@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from utils.simplefin_service import exchange_setup
-from database.db import create_simplefin_connection
+from database.db import create_simplefin_connection, has_simplefin_connection
 from config.security import get_user_context
 
 router = APIRouter()
@@ -22,3 +22,7 @@ def exchange_setup_endpoint(payload: SimplefinPayload, context: dict = Depends(g
         raise HTTPException(status_code=400, detail=result["error"])
     
     return {"message": "Setup exchange successful"}
+
+@router.get("/api/simplefin/status")
+def simplefin_status_endpoint(context: dict = Depends(get_user_context)):
+    return {"linked": has_simplefin_connection(context)}

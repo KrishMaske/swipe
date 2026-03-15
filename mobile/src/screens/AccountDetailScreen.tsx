@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: Colors.glassBorder,
-    backgroundColor: Colors.bgCardElevated,
+    backgroundColor: 'rgba(255,255,255,0.03)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   txnCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgCardElevated,
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 20,
     borderRadius: 20,
     marginBottom: 12,

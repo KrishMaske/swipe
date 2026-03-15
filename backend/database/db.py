@@ -25,6 +25,22 @@ def create_simplefin_connection(context, access_url):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create connection: {str(e)}")
 
+def has_simplefin_connection(context) -> bool:
+    sb = context["supabase"]
+    user_id = context["user_id"]
+
+    try:
+        response = (
+            sb.table("simplefin_conn")
+            .select("id")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        return bool(response.data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check SimpleFIN connection: {str(e)}")
+
 def get_access_url(context) -> dict:
     sb = context["supabase"]
     user_id = context["user_id"]
@@ -400,3 +416,26 @@ def get_saved_user_cards(context):
         return cards
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve saved wallet cards: {str(e)}")
+
+
+def delete_user_account(context):
+    user_id = context["user_id"]
+
+    try:
+        # Remove dependent data first to avoid FK constraint issues.
+        admin.table("transactions").delete().eq("user_id", user_id).execute()
+        admin.table("budgets").delete().eq("user_id", user_id).execute()
+        admin.table("chat_summaries").delete().eq("user_id", user_id).execute()
+        admin.table("user_cards").delete().eq("user_id", user_id).execute()
+        admin.table("accounts").delete().eq("user_id", user_id).execute()
+        admin.table("simplefin_conn").delete().eq("user_id", user_id).execute()
+
+        # Delete the auth user from Supabase Auth.
+        try:
+            admin.auth.admin.delete_user(user_id, should_soft_delete=False)
+        except TypeError:
+            admin.auth.admin.delete_user(user_id)
+
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete account: {str(e)}")
