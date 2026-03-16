@@ -83,15 +83,15 @@ function formatAmount(amount: number): string {
 function riskLabel(score: number): { text: string; color: string } {
   if (score >= 0.75) return { text: 'Critical', color: '#FF4D4F' };
   if (score >= 0.5) return { text: 'Critical', color: Colors.negative };
-  if (score >= 0.25) return { text: 'Medium', color: '#FFB347' };
-  return { text: 'Low', color: Colors.accentEmerald };
+  if (score >= 0.35) return { text: 'Medium', color: '#FFB347' };
+  return { text: 'No Risk', color: Colors.accentEmerald };
 }
 
 function scanStatus(txn: Transaction): { text: string; color: string; flagged: boolean } {
   const risk = txn.risk_score ?? 0;
-  const flagged = Boolean(txn.is_flagged_fraud) || risk >= 0.25;
+  const flagged = Boolean(txn.is_flagged_fraud) || risk >= 0.35;
   if (!flagged) {
-    return { text: 'Verified', color: Colors.accentEmerald, flagged: false };
+    return { text: 'No Risk', color: Colors.accentEmerald, flagged: false };
   }
   if (risk >= 0.75) {
     return { text: 'Critical', color: '#FF4D4F', flagged: true };
@@ -158,7 +158,7 @@ export default function FraudAlertsScreen() {
   );
 
   const flaggedCount = useMemo(
-    () => queueTransactions.filter((t) => Boolean(t.is_flagged_fraud) || (t.risk_score ?? 0) >= 0.25).length,
+    () => queueTransactions.filter((t) => Boolean(t.is_flagged_fraud) || (t.risk_score ?? 0) >= 0.35).length,
     [queueTransactions]
   );
 
@@ -229,15 +229,14 @@ export default function FraudAlertsScreen() {
 
     try {
       await api.updateFraudStatus(txnId, isConfirmedFraud);
-      await Promise.all([
+      setSelectedScanTxn(null);
+      Promise.all([
         fetchFraudAlerts(true),
         refreshAllTransactions(),
-      ]);
-      setSelectedScanTxn(null);
+      ]).finally(() => setUpdating(null));
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to update status');
-    } finally {
       setUpdating(null);
+      Alert.alert('Error', err?.message || 'Failed to update status');
     }
   };
 
@@ -334,7 +333,7 @@ export default function FraudAlertsScreen() {
                       </View>
                     </View>
 
-                    <Text style={styles.queueMeta}>{formatAmount(item.amount)} · {formatDate(item.txn_date)}</Text>
+                    <Text style={[styles.queueMeta, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>{formatAmount(item.amount)}<Text style={styles.queueMeta}> · {formatDate(item.txn_date)}</Text></Text>
 
                     <View style={styles.actionRow}>
                       <TouchableOpacity
@@ -454,7 +453,7 @@ export default function FraudAlertsScreen() {
                             <Text style={styles.recentTxnDate}>{formatDate(item.txn_date)}</Text>
                           </View>
                           <View style={styles.recentTxnRight}>
-                            <Text style={styles.recentTxnAmount}>{formatAmount(item.amount)}</Text>
+                            <Text style={[styles.recentTxnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>{formatAmount(item.amount)}</Text>
                             <View style={[styles.recentTxnBadge, { backgroundColor: `${status.color}20` }]}>
                               <Text style={[styles.recentTxnBadgeText, { color: status.color }]}>{status.text}</Text>
                             </View>

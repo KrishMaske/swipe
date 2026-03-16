@@ -245,7 +245,7 @@ export default function AccountDetailScreen({ route, navigation }: any) {
     return (
       <TouchableOpacity activeOpacity={0.9} onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1200}>
         <BlurView intensity={38} tint="dark" style={styles.txnCard}>
-          <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
+          <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive }]} />
           <View style={styles.txnInfo}>
             <Text style={styles.txnMerchant} numberOfLines={1}>
               {item.merchant || 'Unknown'}

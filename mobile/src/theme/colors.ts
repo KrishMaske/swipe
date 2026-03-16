@@ -19,7 +19,7 @@ export const Colors = {
   accentBlue: '#DC2626',
   accentBlueBright: '#F87171',
   accentCyan: '#FB7185',
-  accentEmerald: '#EF4444',
+  accentEmerald: '#34D399',
   accentAmber: '#FFB347',
   accentCoral: '#F87171',
   accentPink: '#FB7185',
@@ -47,7 +47,7 @@ export const Colors = {
   glassOverlay: 'rgba(9, 12, 18, 0.65)',
 
   // Specific
-  positive: '#EF4444',
+  positive: '#34D399',
   negative: '#F87171',
   tabBar: '#000000',
   tabBarBorder: 'rgba(255, 255, 255, 0.06)',

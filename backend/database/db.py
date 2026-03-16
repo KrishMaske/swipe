@@ -168,6 +168,8 @@ def sync_transactions(context, transactions):
             fraud_detected = score_transaction(txn_dict, user_id)
             txn_dict["is_flagged_fraud"] = fraud_detected["is_anomaly"]
             txn_dict["risk_score"] = fraud_detected["risk_score"]
+            if txn_dict["is_flagged_fraud"] == False:
+                txn_dict["is_confirmed_fraud"] = False
             txn_dict["feature_breakdown"] = fraud_detected["features"]
             txn_dict["embedding"] = create_embedding(txn_dict)
             insert_list.append(txn_dict)
