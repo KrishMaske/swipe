@@ -272,7 +272,9 @@ async def ask_financial_assistant(context, request: ChatRequest):
             budget_text = "No active budgets set."
 
         search_query = _build_search_query(request.question, request.history)
-        query_vector = embedding_model.encode(search_query).tolist()
+        query_instruction = "Represent this sentence for searching relevant passages: "
+        
+        query_vector = embedding_model.encode(query_instruction + search_query).tolist()
 
         direct_general = _is_general_finance_question(request.question)
         direct_spending = _is_spending_optimization_question(request.question)

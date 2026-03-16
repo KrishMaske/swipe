@@ -7,7 +7,7 @@ from utils.embeddings import create_embedding
 from datetime import datetime as dt, timezone
 from utils.date_service import curr_time, epoch_to_date
 from models.categorization import predict_category
-from models.ner import extract_location
+from utils.location_cache import get_cached_location, update_cached_location
 from models.fraud_detector import score_transaction
 
 
@@ -150,7 +150,7 @@ def sync_transactions(context, transactions):
             merchant = txn["payee"]
             description = txn.get("description", "")
             category = predict_category(merchant)
-            city, state = extract_location(description)
+            city, state = get_cached_location(description)
             if not city and not state:
                 city, state = "REMOTE", "REMOTE"
             txn_dict = {
@@ -226,7 +226,7 @@ def get_transactions(context, acc_id):
     try:
         response = (
             sb.table("transactions")
-            .select("id, user_id, txn_id, acc_id, amount, merchant, description, category, city, state, txn_date")
+            .select("id, user_id, txn_id, acc_id, amount, merchant, description, category, city, state, txn_date, is_flagged_fraud, is_confirmed_fraud, risk_score")
             .eq("user_id", user_id)
             .eq("acc_id", acc_id)
             .execute()
@@ -244,6 +244,30 @@ def update_transaction(context, txn_id: str, transaction_data):
     if not update_fields:
         return {"status": "success"}
 
+    # If the user is correcting city/state we must refresh the disk cache so
+    # future transactions with the same description use the verified values.
+    location_corrected = "city" in update_fields or "state" in update_fields
+    description = None
+    existing_city = None
+    existing_state = None
+
+    if location_corrected:
+        try:
+            row = (
+                sb.table("transactions")
+                .select("description, city, state")
+                .eq("user_id", user_id)
+                .eq("txn_id", txn_id)
+                .single()
+                .execute()
+            )
+            row_data = row.data or {}
+            description = row_data.get("description")
+            existing_city = row_data.get("city")
+            existing_state = row_data.get("state")
+        except Exception:
+            pass  # cache update is best-effort; DB write still proceeds
+
     try:
         response = (
             sb.table("transactions")
@@ -252,6 +276,14 @@ def update_transaction(context, txn_id: str, transaction_data):
             .eq("txn_id", txn_id)
             .execute()
         )
+
+        # Keep the disk cache in sync with the user's manual correction.
+        # Fall back to the existing DB value for whichever field wasn't changed.
+        if location_corrected and description:
+            final_city = update_fields.get("city") or existing_city or "REMOTE"
+            final_state = update_fields.get("state") or existing_state or "REMOTE"
+            update_cached_location(description, final_city, final_state)
+
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update transaction: {str(e)}")

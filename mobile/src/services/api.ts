@@ -118,7 +118,10 @@ export interface Transaction {
   category: string;
   city: string;
   state: string;
-  txn_date: number; // epoch
+  txn_date: number | string;
+  is_flagged_fraud?: boolean;
+  is_confirmed_fraud?: boolean | null;
+  risk_score?: number;
 }
 
 export interface TransactionUpdate {

@@ -19,4 +19,4 @@ fernet = Fernet(FERNET_KEY)
 
 groq_client = Groq(api_key=os.environ.get("GROQ_KEY"))
 
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+embedding_model = SentenceTransformer('BAAI/bge-base-en-v1.5')

@@ -371,8 +371,9 @@ export default function DashboardScreen({ navigation }: any) {
               return (
                 <Animated.View key={budget.id} entering={FadeInDown.delay(index * 70).springify()}>
                   <ScalePressable
+                    onPress={() => setSelectedBudgetId(budget.id!)}
                     onLongPress={() => setContextMenuBudget(budget)}
-                    delayLongPress={500}
+                    delayLongPress={1200}
                     style={styles.budgetCard}
                   >
                   <View style={styles.budgetHeadRow}>
@@ -517,17 +518,6 @@ export default function DashboardScreen({ navigation }: any) {
         <View style={styles.centeredCardOverlay}>
           <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setContextMenuBudget(null)} />
           <BlurView intensity={65} tint="dark" style={styles.contextMenu}>
-            <TouchableOpacity
-              style={styles.contextMenuItem}
-              onPress={() => {
-                setSelectedBudgetId(contextMenuBudget.id!);
-                setContextMenuBudget(null);
-              }}
-            >
-              <Ionicons name="list" size={20} color={Colors.textPrimary} />
-              <Text style={styles.contextMenuText}>Show Transactions</Text>
-            </TouchableOpacity>
-            <View style={styles.contextMenuDivider} />
             <TouchableOpacity
               style={styles.contextMenuItem}
               onPress={() => {
