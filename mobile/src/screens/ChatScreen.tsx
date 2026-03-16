@@ -276,7 +276,7 @@ export default function ChatScreen() {
                 value={input}
                 onChangeText={setInput}
                 style={styles.input}
-                placeholder="Ask Osho about your finances..."
+                placeholder="Ask Osho about your payments..."
                 placeholderTextColor={Colors.textMuted}
                 keyboardAppearance="dark"
                 multiline

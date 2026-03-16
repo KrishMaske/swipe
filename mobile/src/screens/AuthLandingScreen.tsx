@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,17 +25,14 @@ export default function AuthLandingScreen({ navigation }: Props) {
 
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 26 }]}> 
         <View style={styles.hero}>
-          <LinearGradient
-            colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-            style={styles.logoCircle}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Ionicons name="analytics" size={32} color="#fff" />
-          </LinearGradient>
+          <Image
+            source={require('../../images/AppIcons/swipelogo_transparent.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
 
-          <Text style={styles.title}>Swipe</Text>
-          <Text style={styles.subtitle}>Smart finance insights. One secure connection.</Text>
+          <Text style={styles.title}>SWIPE</Text>
+          <Text style={styles.subtitle}>A smart payments system. One secure connection.</Text>
         </View>
 
         <View style={styles.card}>
@@ -45,7 +42,7 @@ export default function AuthLandingScreen({ navigation }: Props) {
           </Text>
 
           <TouchableOpacity
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => navigation.replace('Login')}
             activeOpacity={0.86}
             style={styles.actionButtonWrap}
           >
@@ -60,7 +57,7 @@ export default function AuthLandingScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => navigation.navigate('Signup')}
+            onPress={() => navigation.replace('Signup')}
             activeOpacity={0.86}
             style={styles.secondaryButton}
           >
@@ -84,26 +81,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   hero: {
-    marginTop: 44,
+    marginTop: 72,
     alignItems: 'center',
   },
-  logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: Colors.accentBlue,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.36,
-    shadowRadius: 18,
-    elevation: 10,
+  logoImage: {
+    width: 176,
+    height: 176,
+    marginBottom: -30,
+    alignSelf: 'center',
   },
   title: {
     ...Typography.largeTitle,
-    color: Colors.textPrimary,
+    color: '#bd1e3b',
     marginBottom: 6,
+    textAlign: 'center',
   },
   subtitle: {
     ...Typography.subhead,

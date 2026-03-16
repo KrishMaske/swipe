@@ -250,7 +250,7 @@ export const api = {
       {},
     ),
 
-  /** Ask the financial assistant */
+  /** Ask the payments assistant */
   ask: (question: string, history?: ChatMessage[]) =>
     apiPost<{ response: string }>('/api/ask', {
       question,

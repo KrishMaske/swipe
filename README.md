@@ -1,6 +1,6 @@
 # Swipe Engineering Brief
 
-Swipe is an AI-first personal finance platform with a FastAPI backend, Expo mobile client, Supabase persistence/auth, and an ML-assisted transaction pipeline.
+Swipe is an AI-first smart payments system with a FastAPI backend, Expo mobile client, Supabase persistence/auth, and an ML-assisted transaction pipeline.
 
 This document is intentionally concise and operationally focused.
 
@@ -9,7 +9,7 @@ This document is intentionally concise and operationally focused.
 Product pillars:
 - SwipeSmart: location-aware card recommendations.
 - SwipeGuard: transaction anomaly detection and fraud triage.
-- SwipeChat: retrieval-grounded assistant over user transaction history.
+- SwipeChat: retrieval-grounded payments assistant over user transaction history.
 - Live Sync: SimpleFIN ingestion with enrichment and idempotent persistence.
 
 Primary backend objectives:

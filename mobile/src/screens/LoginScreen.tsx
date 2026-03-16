@@ -106,7 +106,7 @@ export default function LoginScreen({ navigation }: Props) {
         >
           <View style={styles.topBar}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('AuthLanding')}
+              onPress={() => navigation.replace('AuthLanding')}
               style={styles.backButton}
               activeOpacity={0.8}
             >
@@ -126,7 +126,7 @@ export default function LoginScreen({ navigation }: Props) {
               </View>
 
               <View style={styles.headerBlock}>
-                <Text style={styles.tagline}>Welcome back. Continue to your financial dashboard.</Text>
+                <Text style={styles.tagline}>Welcome back. Continue to your payments dashboard.</Text>
               </View>
 
               <View style={styles.card}>
@@ -206,7 +206,7 @@ export default function LoginScreen({ navigation }: Props) {
             </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('Signup')}
+                  onPress={() => navigation.replace('Signup')}
                   style={styles.switchButton}
                 >
                   <Text style={styles.switchText}>

@@ -101,7 +101,7 @@ export default function SignupScreen({ navigation }: Props) {
         >
           <View style={styles.topBar}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('AuthLanding')}
+              onPress={() => navigation.replace('AuthLanding')}
               style={styles.backButton}
               activeOpacity={0.8}
             >
@@ -121,7 +121,7 @@ export default function SignupScreen({ navigation }: Props) {
               </View>
 
               <View style={styles.header}>
-                <Text style={styles.subtitle}>Set up your account to start your finance onboarding.</Text>
+                <Text style={styles.subtitle}>Set up your account to start your smart payments system onboarding.</Text>
               </View>
 
               <View style={styles.card}>
@@ -213,7 +213,7 @@ export default function SignupScreen({ navigation }: Props) {
             </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('Login')}
+                  onPress={() => navigation.replace('Login')}
                   style={styles.switchButton}
                 >
                   <Text style={styles.switchText}>

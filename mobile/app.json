@@ -4,7 +4,7 @@
     "slug": "swipe",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./images/AppIcons/playstore.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -12,6 +12,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "icon": "./images/AppIcons/appstore.png",
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
@@ -26,9 +27,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./images/AppIcons/playstore.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -42,7 +41,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./images/AppIcons/playstore.png"
     },
     "plugins": [
       "expo-asset",
