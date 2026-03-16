@@ -257,7 +257,6 @@ export default function DashboardScreen({ navigation }: any) {
     ]);
   };
 
-  const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
   const hasAvailableBalance = accounts.some((a) => a.available_balance !== null);
   const totalAvailableBalance = accounts.reduce((sum, a) => sum + (a.available_balance || 0), 0);
 
@@ -313,11 +312,8 @@ export default function DashboardScreen({ navigation }: any) {
         </View>
 
         <View style={styles.heroSection}> 
-          <Text style={styles.heroLabel}>Total Balance</Text>
-          <Text style={styles.heroBalance}>{loading ? '...' : formatCurrency(totalBalance)}</Text>
-          <Text style={styles.heroAvailableBalance}>
-            Available balance: {loading ? '...' : hasAvailableBalance ? formatCurrency(totalAvailableBalance) : 'N/A'}
-          </Text>
+          <Text style={styles.heroLabel}>Total Available Balance</Text>
+          <Text style={styles.heroBalance}>{loading ? '...' : hasAvailableBalance ? formatCurrency(totalAvailableBalance) : 'N/A'}</Text>
           <Text style={styles.heroMeta}>{linkedAccountLabel}</Text>
 
           <TouchableOpacity
@@ -494,13 +490,17 @@ export default function DashboardScreen({ navigation }: any) {
                 <Text
                   style={[
                     styles.accountBalance,
-                    { color: account.balance >= 0 ? Colors.textPrimary : Colors.negative },
+                    {
+                      color:
+                        account.available_balance === null
+                          ? Colors.textMuted
+                          : account.available_balance >= 0
+                            ? Colors.textPrimary
+                            : Colors.negative,
+                    },
                   ]}
                 >
-                  {formatCurrency(account.balance)}
-                </Text>
-                <Text style={styles.accountAvailableBalance}>
-                  Available balance: {account.available_balance !== null ? formatCurrency(account.available_balance) : 'N/A'}
+                  {account.available_balance !== null ? formatCurrency(account.available_balance) : 'N/A'}
                 </Text>
                 <Text style={styles.accountCurrency}>{account.currency}</Text>
               </View>

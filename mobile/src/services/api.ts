@@ -120,6 +120,15 @@ export interface Transaction {
   state: string;
   txn_date: number; // epoch
 }
+
+export interface TransactionUpdate {
+  merchant?: string;
+  description?: string;
+  category?: string;
+  city?: string;
+  state?: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -225,6 +234,10 @@ export const api = {
   /** Get transactions for a specific account */
   getTransactions: (accId: string) =>
     apiGet<Transaction[]>(`/api/transactions?acc_id=${encodeURIComponent(accId)}`),
+
+  /** Update editable transaction fields */
+  updateTransaction: (txnId: string, transaction: TransactionUpdate) =>
+    apiPut<any>(`/api/transactions/${encodeURIComponent(txnId)}`, transaction),
 
   /** Get all fraud-flagged transactions */
   getFraudulentTransactions: () =>

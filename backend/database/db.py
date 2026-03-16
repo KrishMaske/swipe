@@ -235,6 +235,27 @@ def get_transactions(context, acc_id):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve transactions: {str(e)}")
 
+
+def update_transaction(context, txn_id: str, transaction_data):
+    sb = context["supabase"]
+    user_id = context["user_id"]
+
+    update_fields = {k: v for k, v in transaction_data.dict().items() if v is not None}
+    if not update_fields:
+        return {"status": "success"}
+
+    try:
+        response = (
+            sb.table("transactions")
+            .update(update_fields)
+            .eq("user_id", user_id)
+            .eq("txn_id", txn_id)
+            .execute()
+        )
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update transaction: {str(e)}")
+
 def create_budget(context, budget):
     sb = context["supabase"]
     user_id = context["user_id"]

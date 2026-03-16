@@ -1,17 +1,25 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import {
+  Alert,
+  Dimensions,
+  Keyboard,
   View,
   Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
+  TextInput,
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { api, Transaction } from '../services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -80,10 +88,24 @@ function formatAmount(amount: number): string {
   return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const TRANSACTION_MENU_WIDTH = 240;
+
 export default function AccountDetailScreen({ route, navigation }: any) {
+  const insets = useSafeAreaInsets();
   const { accId, accType, provider } = route.params;
   const { transactionsCache, transactionsLoading, fetchTransactions } = useData();
   const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
+  const [transactionMenuTarget, setTransactionMenuTarget] = useState<Transaction | null>(null);
+  const [transactionMenuPosition, setTransactionMenuPosition] = useState({ x: 0, y: 0 });
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editMerchant, setEditMerchant] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editState, setEditState] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   const transactions = transactionsCache[accId] || [];
   const loading = transactionsLoading[accId] && transactions.length === 0;
@@ -119,39 +141,137 @@ export default function AccountDetailScreen({ route, navigation }: any) {
     fetchTransactions(accId);
   }, []);
 
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardOpen(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardOpen(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const closeTransactionMenu = () => {
+    setTransactionMenuTarget(null);
+  };
+
+  const openTransactionMenu = (transaction: Transaction, event: any) => {
+    const pageX = event?.nativeEvent?.pageX ?? SCREEN_WIDTH / 2;
+    const pageY = event?.nativeEvent?.pageY ?? SCREEN_HEIGHT / 2;
+    const left = Math.min(
+      Math.max(pageX - TRANSACTION_MENU_WIDTH / 2, 16),
+      SCREEN_WIDTH - TRANSACTION_MENU_WIDTH - 16,
+    );
+    const top = Math.min(
+      Math.max(pageY - 28, insets.top + 12),
+      SCREEN_HEIGHT - 120,
+    );
+
+    setTransactionMenuPosition({ x: left, y: top });
+    setTransactionMenuTarget(transaction);
+  };
+
+  const openEditModal = (transaction: Transaction) => {
+    setTransactionMenuTarget(null);
+    setEditingTransaction(transaction);
+    setEditMerchant(transaction.merchant || '');
+    setEditDescription(transaction.description || '');
+    setEditCategory(transaction.category || '');
+    setEditCity(transaction.city === 'REMOTE' ? '' : transaction.city || '');
+    setEditState(transaction.state === 'REMOTE' ? '' : transaction.state || '');
+  };
+
+  const closeEditModal = () => {
+    if (savingEdit) {
+      return;
+    }
+    setEditingTransaction(null);
+    setEditMerchant('');
+    setEditDescription('');
+    setEditCategory('');
+    setEditCity('');
+    setEditState('');
+  };
+
+  const saveTransactionEdit = async () => {
+    if (!editingTransaction) {
+      return;
+    }
+
+    const merchant = editMerchant.trim();
+    const description = editDescription.trim();
+    const category = editCategory.trim();
+    const city = editCity.trim();
+    const state = editState.trim();
+
+    if (!merchant) {
+      Alert.alert('Missing Merchant', 'Merchant name is required.');
+      return;
+    }
+
+    if (!category) {
+      Alert.alert('Missing Category', 'Category is required.');
+      return;
+    }
+
+    const payload: TransactionUpdate = {
+      merchant,
+      description,
+      category,
+      city: city || 'REMOTE',
+      state: state || 'REMOTE',
+    };
+
+    setSavingEdit(true);
+    try {
+      await api.updateTransaction(editingTransaction.txn_id, payload);
+      await fetchTransactions(accId, true);
+      closeEditModal();
+    } catch (err: any) {
+      Alert.alert('Update Failed', err?.message || 'Could not update this transaction.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const renderTransaction = ({ item }: { item: Transaction }) => {
     const catColor = getCategoryColor(item.category);
     const isNegative = item.amount < 0;
 
     return (
-      <BlurView intensity={38} tint="dark" style={styles.txnCard}>
-        <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
-        <View style={styles.txnInfo}>
-          <Text style={styles.txnMerchant} numberOfLines={1}>
-            {item.merchant || 'Unknown'}
-          </Text>
-          <View style={styles.txnMeta}>
-            <Text style={styles.txnCategory}>{item.category}</Text>
-            {item.city && item.city !== 'REMOTE' && (
-              <>
-                <Text style={styles.txnDot}>·</Text>
-                <Text style={styles.txnLocation}>
-                  {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-                </Text>
-              </>
-            )}
+      <TouchableOpacity activeOpacity={0.9} onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1200}>
+        <BlurView intensity={38} tint="dark" style={styles.txnCard}>
+          <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
+          <View style={styles.txnInfo}>
+            <Text style={styles.txnMerchant} numberOfLines={1}>
+              {item.merchant || 'Unknown'}
+            </Text>
+            <View style={styles.txnMeta}>
+              <Text style={styles.txnCategory}>{item.category}</Text>
+              {item.city && item.city !== 'REMOTE' && (
+                <>
+                  <Text style={styles.txnDot}>·</Text>
+                  <Text style={styles.txnLocation}>
+                    {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
+                  </Text>
+                </>
+              )}
+            </View>
+            <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
           </View>
-          <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
-        </View>
-        <Text
-          style={[
-            styles.txnAmount,
-            { color: isNegative ? Colors.negative : Colors.positive },
-          ]}
-        >
-          {formatAmount(item.amount)}
-        </Text>
-      </BlurView>
+          <Text
+            style={[
+              styles.txnAmount,
+              { color: isNegative ? Colors.negative : Colors.positive },
+            ]}
+          >
+            {formatAmount(item.amount)}
+          </Text>
+        </BlurView>
+      </TouchableOpacity>
     );
   };
 
@@ -171,6 +291,113 @@ export default function AccountDetailScreen({ route, navigation }: any) {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+
+      <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>
+        <View style={styles.menuOverlay}>
+          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeTransactionMenu} />
+          <BlurView intensity={65} tint="dark" style={[styles.contextMenu, { left: transactionMenuPosition.x, top: transactionMenuPosition.y }]}>
+            <TouchableOpacity
+              style={styles.contextMenuItem}
+              onPress={() => transactionMenuTarget && openEditModal(transactionMenuTarget)}
+            >
+              <Ionicons name="create-outline" size={20} color={Colors.textPrimary} />
+              <Text style={styles.contextMenuText}>Edit Transaction</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </View>
+      </Modal>
+
+      <Modal visible={editingTransaction !== null} transparent animationType="fade" onRequestClose={closeEditModal}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+          style={[styles.centeredCardOverlay, keyboardOpen && styles.keyboardOpenOverlay]}
+        >
+          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeEditModal} />
+          <BlurView intensity={65} tint="dark" style={styles.editModalCard}>
+            <ScrollView
+              contentContainerStyle={[styles.editModalScrollContent, { paddingBottom: insets.bottom + 6 }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>Edit Transaction</Text>
+                <View style={styles.modalActionsRow}>
+                  <TouchableOpacity onPress={closeEditModal} disabled={savingEdit}>
+                    <Ionicons name="close" size={26} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <Text style={styles.modalHelperText}>Long-press any transaction card for about 1 second to edit it.</Text>
+
+              <Text style={styles.inputLabel}>Merchant</Text>
+              <TextInput
+                style={styles.sheetInput}
+                value={editMerchant}
+                onChangeText={setEditMerchant}
+                placeholder="Merchant"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={styles.inputLabel}>Category</Text>
+              <TextInput
+                style={styles.sheetInput}
+                value={editCategory}
+                onChangeText={setEditCategory}
+                placeholder="Category"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={styles.inputLabel}>Description</Text>
+              <TextInput
+                style={[styles.sheetInput, styles.sheetInputMultiline]}
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder="Description"
+                placeholderTextColor={Colors.textMuted}
+                multiline
+              />
+
+              <View style={styles.editLocationRow}>
+                <View style={styles.editLocationField}>
+                  <Text style={styles.inputLabel}>City</Text>
+                  <TextInput
+                    style={styles.sheetInput}
+                    value={editCity}
+                    onChangeText={setEditCity}
+                    placeholder="City"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+                <View style={styles.editLocationField}>
+                  <Text style={styles.inputLabel}>State</Text>
+                  <TextInput
+                    style={styles.sheetInput}
+                    value={editState}
+                    onChangeText={setEditState}
+                    placeholder="State"
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="characters"
+                    maxLength={2}
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity onPress={saveTransactionEdit} disabled={savingEdit} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                  style={styles.saveButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {savingEdit ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
+          </BlurView>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Account Header */}
       <BlurView intensity={38} tint="dark" style={styles.header}>
@@ -382,6 +609,112 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+  },
+  centeredCardOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyboardOpenOverlay: {
+    justifyContent: 'flex-end',
+  },
+  menuOverlay: {
+    flex: 1,
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.glassOverlay,
+  },
+  contextMenu: {
+    position: 'absolute',
+    width: TRANSACTION_MENU_WIDTH,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(30,30,30,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  contextMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  contextMenuText: {
+    ...Typography.body,
+    color: '#FFF',
+    fontSize: 16,
+  },
+  editModalCard: {
+    width: '85%',
+    maxWidth: 400,
+    maxHeight: '76%',
+    backgroundColor: 'rgba(30,30,30,0.85)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+  },
+  editModalScrollContent: {
+    padding: 24,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sheetTitle: {
+    ...Typography.title3,
+    color: Colors.textPrimary,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  modalHelperText: {
+    ...Typography.footnote,
+    color: Colors.textMuted,
+    marginBottom: 14,
+    lineHeight: 20,
+  },
+  inputLabel: {
+    ...Typography.caption1,
+    color: Colors.textMuted,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  sheetInput: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  sheetInputMultiline: {
+    minHeight: 88,
+    textAlignVertical: 'top',
+  },
+  editLocationRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  editLocationField: {
+    flex: 1,
+  },
+  saveButton: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    ...Typography.headline,
+    color: '#fff',
+    fontSize: 15,
   },
   emptyText: {
     ...Typography.headline,
