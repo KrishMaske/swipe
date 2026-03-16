@@ -10,6 +10,26 @@ from models.categorization import predict_category
 from models.ner import extract_location
 from models.fraud_detector import score_transaction
 
+
+def get_latest_transaction_epoch(all_acc_transactions):
+    latest_epoch = None
+
+    for account_data in all_acc_transactions or []:
+        for txn in account_data.get("txn", []) or []:
+            raw_ts = txn.get("transacted_at")
+            if raw_ts is None:
+                continue
+
+            try:
+                txn_epoch = int(float(raw_ts))
+            except (TypeError, ValueError):
+                continue
+
+            if latest_epoch is None or txn_epoch > latest_epoch:
+                latest_epoch = txn_epoch
+
+    return latest_epoch
+
 def create_simplefin_connection(context, access_url):
     sb = context["supabase"]
     user_id = context["user_id"]
@@ -100,14 +120,15 @@ def sync_accounts(context, sfc_id, raw_simplefin_data):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database upsert failed: {str(e)}")
 
-def update_sync_time(context, sfc_id):
+def update_sync_time(context, sfc_id, last_sync_epoch=None):
     sb = context["supabase"]
     user_id = context["user_id"]
+    sync_value = last_sync_epoch if last_sync_epoch is not None else curr_time()
     
     try:
         response = (
             sb.table("simplefin_conn")
-            .update({"last_sync": curr_time()})
+            .update({"last_sync": sync_value})
             .eq("id", sfc_id)
             .eq("user_id", user_id)
             .execute()

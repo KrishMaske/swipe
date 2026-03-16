@@ -13,6 +13,7 @@ from config.settings import admin
 from database.db import (
     get_access_url,
     get_all_non_fraudulent_transactions,
+    get_latest_transaction_epoch,
     sync_accounts,
     sync_transactions,
     update_sync_time,
@@ -163,8 +164,12 @@ async def sync_all_accounts_job() -> None:
 
             accounts = retrieve_accounts(access_data["access_url"], start_date)
             all_acc_transactions = sync_accounts(context, access_data["id"], accounts)
-            sync_transactions(context, all_acc_transactions)
-            update_sync_time(context, access_data["id"])
+
+            latest_txn_epoch = get_latest_transaction_epoch(all_acc_transactions)
+            if latest_txn_epoch is not None:
+                sync_transactions(context, all_acc_transactions)
+                update_sync_time(context, access_data["id"], latest_txn_epoch)
+
             users_synced += 1
             total_accounts_synced += len(all_acc_transactions or [])
         except Exception:

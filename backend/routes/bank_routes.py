@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from utils.simplefin_service import retrieve_accounts
 from typing import Optional
-from database.db import create_budget, update_budget, delete_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_last_sync, get_transactions, get_fraudulent_transactions, update_fraud_status
+from database.db import create_budget, update_budget, delete_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_last_sync, get_transactions, get_fraudulent_transactions, update_fraud_status, get_latest_transaction_epoch
 from config.security import get_user_context
 from utils.date_service import ninety_days, epoch_to_date
 
@@ -34,10 +34,14 @@ def sync_accounts_endpoint(background_tasks: BackgroundTasks, context: dict = De
             
         accounts = retrieve_accounts(access_url, start_date)
         all_acc_transactions = sync_accounts(context, data["id"], accounts)
-        
-        background_tasks.add_task(sync_transactions, context, all_acc_transactions)
-        background_tasks.add_task(update_sync_time, context, data["id"])
-        return {"success": "Account sync initiated. Transactions will be updated in the background."}
+
+        latest_txn_epoch = get_latest_transaction_epoch(all_acc_transactions)
+        if latest_txn_epoch is not None:
+            background_tasks.add_task(sync_transactions, context, all_acc_transactions)
+            background_tasks.add_task(update_sync_time, context, data["id"], latest_txn_epoch)
+
+        return{"success": accounts}
+        #return {"success": "Account sync initiated. Transactions will be updated in the background."}
     
     except HTTPException:
         raise
