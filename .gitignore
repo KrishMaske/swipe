@@ -9,6 +9,7 @@ leaks-report.json*
 Thumbs.db
 index.html
 cached-endpoints.json
+backend/bert_location_cache/
 
 # React Native / Expo
 mobile/node_modules/
