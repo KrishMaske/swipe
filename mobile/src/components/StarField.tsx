@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 
 const { width: W, height: H } = Dimensions.get('window');
-const STAR_COUNT = 150;
+const STAR_COUNT = 90;
 
 interface StarData {
   id: number;
