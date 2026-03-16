@@ -20,3 +20,8 @@ fernet = Fernet(FERNET_KEY)
 groq_client = Groq(api_key=os.environ.get("GROQ_KEY"))
 
 embedding_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+
+SIMPLEFIN_CONNECT_TIMEOUT_SECONDS = int(os.getenv("SIMPLEFIN_CONNECT_TIMEOUT_SECONDS", "10"))
+SIMPLEFIN_READ_TIMEOUT_SECONDS = int(os.getenv("SIMPLEFIN_READ_TIMEOUT_SECONDS", "60"))
+SIMPLEFIN_RETRY_ATTEMPTS = int(os.getenv("SIMPLEFIN_RETRY_ATTEMPTS", "2"))
+SIMPLEFIN_RETRY_BACKOFF_SECONDS = float(os.getenv("SIMPLEFIN_RETRY_BACKOFF_SECONDS", "5"))
