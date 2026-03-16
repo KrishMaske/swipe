@@ -11,10 +11,10 @@ import {
   Platform,
   TextInput,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -184,12 +184,18 @@ export default function SettingsScreen() {
   };
 
   const openSimplefinBridge = async () => {
-    const supported = await Linking.canOpenURL(SIMPLEFIN_BRIDGE_URL);
-    if (!supported) {
-      Alert.alert('Unable to Open Link', 'Could not open SimpleFIN Bridge on this device.');
-      return;
+    try {
+      await WebBrowser.openBrowserAsync(SIMPLEFIN_BRIDGE_URL, {
+        controlsColor: Colors.accentBlueBright,
+        toolbarColor: Colors.bgPrimary,
+        secondaryToolbarColor: Colors.bgPrimary,
+        showTitle: true,
+        enableBarCollapsing: true,
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+      });
+    } catch {
+      Alert.alert('SimpleFIN Bridge', 'Failed to open SimpleFIN Bridge. Please try again.');
     }
-    await Linking.openURL(SIMPLEFIN_BRIDGE_URL);
   };
 
   const confirmDeleteAccount = () => {

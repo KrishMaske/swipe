@@ -24,6 +24,7 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgUri } from 'react-native-svg';
 import { api } from '../services/api';
@@ -31,6 +32,8 @@ import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { getProviderLogoUrl, normalizeProviderKey } from '../utils/providerLogos';
+
+const SIMPLEFIN_ACCOUNT_URL = 'https://beta-bridge.simplefin.org/my-account';
 
 const CATEGORIES = [
   'Food & Dining',
@@ -145,7 +148,7 @@ export default function DashboardScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
-  const handleSync = async () => {
+  const runBackendSync = async () => {
     setSyncing(true);
     try {
       const result = await api.syncAccounts();
@@ -165,6 +168,24 @@ export default function DashboardScreen({ navigation }: any) {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleSync = async () => {
+    try {
+      await WebBrowser.openBrowserAsync(SIMPLEFIN_ACCOUNT_URL, {
+        controlsColor: Colors.accentBlueBright,
+        toolbarColor: Colors.bgPrimary,
+        secondaryToolbarColor: Colors.bgPrimary,
+        showTitle: true,
+        enableBarCollapsing: true,
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+      });
+    } catch {
+      Alert.alert('SimpleFIN', 'Could not open SimpleFIN account page.');
+      return;
+    }
+
+    await runBackendSync();
   };
 
   const handleCreateBudget = async () => {
@@ -237,6 +258,8 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+  const hasAvailableBalance = accounts.some((a) => a.available_balance !== null);
+  const totalAvailableBalance = accounts.reduce((sum, a) => sum + (a.available_balance || 0), 0);
 
   const formatCurrency = (amount: number) => {
     const abs = Math.abs(amount);
@@ -292,6 +315,9 @@ export default function DashboardScreen({ navigation }: any) {
         <View style={styles.heroSection}> 
           <Text style={styles.heroLabel}>Total Balance</Text>
           <Text style={styles.heroBalance}>{loading ? '...' : formatCurrency(totalBalance)}</Text>
+          <Text style={styles.heroAvailableBalance}>
+            Available balance: {loading ? '...' : hasAvailableBalance ? formatCurrency(totalAvailableBalance) : 'N/A'}
+          </Text>
           <Text style={styles.heroMeta}>{linkedAccountLabel}</Text>
 
           <TouchableOpacity
@@ -472,6 +498,9 @@ export default function DashboardScreen({ navigation }: any) {
                   ]}
                 >
                   {formatCurrency(account.balance)}
+                </Text>
+                <Text style={styles.accountAvailableBalance}>
+                  Available balance: {account.available_balance !== null ? formatCurrency(account.available_balance) : 'N/A'}
                 </Text>
                 <Text style={styles.accountCurrency}>{account.currency}</Text>
               </View>
@@ -756,6 +785,11 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 6,
   },
+  heroAvailableBalance: {
+    ...Typography.footnote,
+    color: Colors.textSecondary,
+    marginTop: 6,
+  },
   syncPillWrap: {
     marginTop: 18,
     alignSelf: 'flex-start',
@@ -943,6 +977,11 @@ const styles = StyleSheet.create({
     ...Typography.headline,
     fontSize: 18,
     letterSpacing: -0.3,
+  },
+  accountAvailableBalance: {
+    ...Typography.caption1,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   accountCurrency: {
     ...Typography.caption2,

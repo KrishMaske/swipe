@@ -4,7 +4,6 @@ import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -51,12 +51,19 @@ export default function SimplefinOnboardingScreen() {
   }, [tokenFocused, tokenInputY]);
 
   const openSimplefinBridge = async () => {
-    const supported = await Linking.canOpenURL(SIMPLEFIN_CREATE_URL);
-    if (!supported) {
-      setError('Could not open SimpleFIN link on this device.');
-      return;
+    setError('');
+    try {
+      await WebBrowser.openBrowserAsync(SIMPLEFIN_CREATE_URL, {
+        controlsColor: Colors.accentBlueBright,
+        toolbarColor: Colors.bgPrimary,
+        secondaryToolbarColor: Colors.bgPrimary,
+        showTitle: true,
+        enableBarCollapsing: true,
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+      });
+    } catch {
+      setError('SimpleFIN Bridge failed to open. Please try again.');
     }
-    await Linking.openURL(SIMPLEFIN_CREATE_URL);
   };
 
   const handleConnect = async () => {

@@ -254,10 +254,10 @@ def start_scheduler() -> None:
     if scheduler.running:
         return
 
-    # Every day at: 12:00 AM, 6:00 AM, 12:00 PM, 3:00 PM, 6:00 PM, 9:00 PM.
+    # Every day at 3:00 AM.
     scheduler.add_job(
         sync_all_accounts_job,
-        CronTrigger(hour="0,6,12,15,18,21", minute=0),
+        CronTrigger(hour="3", minute=0),
         id="account_sync_job",
         replace_existing=True,
     )
