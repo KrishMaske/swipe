@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import StarField from '../components/StarField';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -22,6 +23,7 @@ export default function AuthLandingScreen({ navigation }: Props) {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <StarField />
 
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 26 }]}> 
         <View style={styles.hero}>

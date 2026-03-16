@@ -15,9 +15,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ChatMessage } from '../services/api';
+import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 
@@ -222,6 +224,7 @@ export default function ChatScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <StarField />
 
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
         <View style={styles.headerTitleWrap}>
@@ -270,8 +273,19 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.composerWrap]}> 
+        <View style={styles.composerWrap}>
             <View style={styles.composerInner}>
+              {Platform.OS === 'ios' ? (
+                <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFill} />
+              ) : null}
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  Platform.OS === 'android'
+                    ? styles.composerAndroidOverlay
+                    : styles.composerGlassOverlay,
+                ]}
+              />
               <TextInput
                 value={input}
                 onChangeText={setInput}
@@ -282,25 +296,25 @@ export default function ChatScreen() {
                 multiline
                 editable={!sending}
                 maxLength={700}
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-            />
-            <TouchableOpacity
-              onPress={handleSend}
-              disabled={!canSend}
-              activeOpacity={0.85}
-              style={styles.sendTapTarget}
-            >
-              <View
-                style={[
-                  styles.sendButton,
-                  { backgroundColor: canSend ? Colors.accentBlueBright : '#2A3040' }
-                ]}
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+              />
+              <TouchableOpacity
+                onPress={handleSend}
+                disabled={!canSend}
+                activeOpacity={0.85}
+                style={styles.sendTapTarget}
               >
-                <Ionicons name="arrow-up" size={20} color={canSend ? '#FFF' : Colors.textMuted} />
-              </View>
-            </TouchableOpacity>
-          </View>
+                <View
+                  style={[
+                    styles.sendButton,
+                    { backgroundColor: canSend ? Colors.accentBlueBright : 'rgba(255,255,255,0.06)' },
+                  ]}
+                >
+                  <Ionicons name="arrow-up" size={20} color={canSend ? '#FFF' : Colors.textMuted} />
+                </View>
+              </TouchableOpacity>
+            </View>
         </View>
         <View style={{ height: keyboardVisible ? 0 : 100 }} />
       </KeyboardAvoidingView>
@@ -489,19 +503,25 @@ const styles = StyleSheet.create({
   composerInner: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    borderRadius: 22,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(38,42,50,0.92)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
     paddingLeft: 13,
     paddingRight: 8,
     paddingVertical: 7,
     gap: 8,
     shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 16,
+  },
+  composerGlassOverlay: {
+    backgroundColor: 'rgba(10, 10, 12, 0.35)',
+  },
+  composerAndroidOverlay: {
+    backgroundColor: 'rgba(8, 8, 10, 0.92)',
   },
   input: {
     flex: 1,

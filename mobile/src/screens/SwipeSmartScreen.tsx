@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import StarField from '../components/StarField';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -162,6 +163,7 @@ export default function SwipeSmartScreen({ navigation }: any) {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <StarField />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}

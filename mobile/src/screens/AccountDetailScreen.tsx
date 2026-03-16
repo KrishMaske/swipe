@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import StarField from '../components/StarField';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
@@ -291,6 +292,7 @@ export default function AccountDetailScreen({ route, navigation }: any) {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <StarField />
 
       <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>
         <View style={styles.menuOverlay}>

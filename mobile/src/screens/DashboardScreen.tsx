@@ -32,6 +32,7 @@ import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { getProviderLogoUrl, normalizeProviderKey } from '../utils/providerLogos';
+import StarField from '../components/StarField';
 
 const SIMPLEFIN_ACCOUNT_URL = 'https://beta-bridge.simplefin.org/my-account';
 
@@ -285,6 +286,7 @@ export default function DashboardScreen({ navigation }: any) {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <StarField />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
