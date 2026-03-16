@@ -74,6 +74,13 @@ function getTopReward(card: WalletCard) {
   };
 }
 
+function formatFee(amount: number) {
+  if (!amount) {
+    return '$0';
+  }
+  return `$${amount.toLocaleString('en-US')}`;
+}
+
 export default function SwipeSmartScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
 
@@ -86,10 +93,12 @@ export default function SwipeSmartScreen({ navigation }: any) {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [pendingIds, setPendingIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState<string>('All');
   const [saving, setSaving] = useState(false);
 
   // Long-press context menu
   const [contextMenuCard, setContextMenuCard] = useState<WalletCard | null>(null);
+  const [detailsCard, setDetailsCard] = useState<WalletCard | null>(null);
 
   const loadSavedCards = useCallback(async (forceRefresh = false) => {
     try {
@@ -118,16 +127,24 @@ export default function SwipeSmartScreen({ navigation }: any) {
   const openAddModal = () => {
     setPendingIds(savedCards.map((c) => c.id));
     setSearchQuery('');
+    setSelectedProvider('All');
     setAddModalVisible(true);
   };
 
+  const providerOptions = useMemo(() => {
+    const issuers = Array.from(new Set(ALL_CARDS.map((c) => c.issuer))).sort((a, b) => a.localeCompare(b));
+    return ['All', ...issuers];
+  }, []);
+
   const filteredModalCards = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return ALL_CARDS;
-    return ALL_CARDS.filter((c) =>
-      `${c.card_name} ${c.issuer} ${c.reward_type}`.toLowerCase().includes(q),
-    );
-  }, [searchQuery]);
+    return ALL_CARDS.filter((c) => {
+      const matchesProvider = selectedProvider === 'All' || c.issuer === selectedProvider;
+      const matchesSearch =
+        !q || `${c.card_name} ${c.issuer} ${c.reward_type}`.toLowerCase().includes(q);
+      return matchesProvider && matchesSearch;
+    });
+  }, [searchQuery, selectedProvider]);
 
   const handleSaveWallet = async () => {
     const selectedCards = ALL_CARDS.filter((c) => pendingIds.includes(c.id));
@@ -225,6 +242,7 @@ export default function SwipeSmartScreen({ navigation }: any) {
               return (
                 <Animated.View key={card.id} entering={FadeInDown.delay(index * 60).springify()}>
                   <ScalePressable
+                    onPress={() => setDetailsCard(card)}
                     onLongPress={() => setContextMenuCard(card)}
                     delayLongPress={600}
                     style={styles.walletCard}
@@ -323,6 +341,29 @@ export default function SwipeSmartScreen({ navigation }: any) {
               />
             </View>
 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+              contentContainerStyle={styles.filterRow}
+            >
+              {providerOptions.map((provider) => {
+                const active = provider === selectedProvider;
+                return (
+                  <TouchableOpacity
+                    key={provider}
+                    style={[styles.filterChip, active && styles.filterChipActive]}
+                    onPress={() => setSelectedProvider(provider)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                      {provider}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
             <Text style={styles.selectedCountText}>
               {pendingIds.length} card{pendingIds.length !== 1 ? 's' : ''} selected
             </Text>
@@ -366,6 +407,61 @@ export default function SwipeSmartScreen({ navigation }: any) {
             />
           </BlurView>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Card details modal */}
+      <Modal visible={detailsCard !== null} transparent animationType="fade">
+        <View style={styles.centeredOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setDetailsCard(null)}
+          />
+          {detailsCard && (
+            <BlurView intensity={65} tint="dark" style={styles.detailsModalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Card Details</Text>
+                <TouchableOpacity onPress={() => setDetailsCard(null)}>
+                  <Ionicons name="close" size={24} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Image
+                  source={{ uri: detailsCard.card_image_url }}
+                  style={styles.detailsCardArt}
+                  resizeMode="contain"
+                />
+
+                <Text style={styles.detailsCardName}>{detailsCard.card_name}</Text>
+                <Text style={styles.detailsCardIssuer}>{detailsCard.issuer}</Text>
+
+                <View style={styles.detailsMetaGrid}>
+                  <View style={styles.detailsMetaItem}>
+                    <Text style={styles.detailsMetaLabel}>Type</Text>
+                    <Text style={styles.detailsMetaValue}>{detailsCard.reward_type}</Text>
+                  </View>
+                  <View style={styles.detailsMetaItem}>
+                    <Text style={styles.detailsMetaLabel}>Annual Fee</Text>
+                    <Text style={styles.detailsMetaValue}>{formatFee(detailsCard.annual_fee)}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.detailsSectionTitle}>Reward Multipliers</Text>
+                {Object.entries(detailsCard.reward_multipliers || {})
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([category, multiplier]) => (
+                    <View key={category} style={styles.multiplierRow}>
+                      <Text style={styles.multiplierCategory}>
+                        {category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </Text>
+                      <Text style={styles.multiplierValue}>{multiplier}x</Text>
+                    </View>
+                  ))}
+              </ScrollView>
+            </BlurView>
+          )}
+        </View>
       </Modal>
     </View>
   );
@@ -540,6 +636,86 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 12,
   },
+  detailsModalCard: {
+    width: '88%',
+    maxHeight: '78%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+  },
+  detailsCardArt: {
+    width: '100%',
+    height: 120,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 12,
+  },
+  detailsCardName: {
+    ...Typography.title3,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  detailsCardIssuer: {
+    ...Typography.footnote,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  detailsMetaGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  detailsMetaItem: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  detailsMetaLabel: {
+    ...Typography.caption2,
+    color: Colors.textMuted,
+    marginBottom: 2,
+  },
+  detailsMetaValue: {
+    ...Typography.subhead,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  detailsSectionTitle: {
+    ...Typography.footnote,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  multiplierRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.glassBorder,
+    paddingVertical: 10,
+  },
+  multiplierCategory: {
+    ...Typography.subhead,
+    color: Colors.textSecondary,
+    flex: 1,
+    paddingRight: 10,
+  },
+  multiplierValue: {
+    ...Typography.subhead,
+    color: Colors.accentBlueBright,
+    fontWeight: '700',
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -561,7 +737,38 @@ const styles = StyleSheet.create({
     borderColor: Colors.glassBorder,
   },
   modalSearchInput: { flex: 1, ...Typography.subhead, color: Colors.textPrimary },
-  selectedCountText: { ...Typography.caption1, color: Colors.textMuted, marginBottom: 10 },
+  filterScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  filterRow: {
+    gap: 8,
+    paddingTop: 8,
+    paddingBottom: 2,
+    alignItems: 'center',
+  },
+  filterChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  filterChipActive: {
+    backgroundColor: 'rgba(248,113,113,0.22)',
+    borderColor: 'rgba(248,113,113,0.62)',
+  },
+  filterChipText: {
+    ...Typography.caption1,
+    color: Colors.textSecondary,
+    fontWeight: '700',
+  },
+  filterChipTextActive: {
+    color: Colors.textPrimary,
+  },
+  selectedCountText: { ...Typography.caption1, color: Colors.textMuted, marginBottom: 2 },
   modalList: { flex: 1 },
   modalCardRow: {
     flexDirection: 'row',

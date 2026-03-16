@@ -361,6 +361,20 @@
     }
   },
   {
+    "id": "chase-debit-card",
+    "card_name": "Chase Debit Card",
+    "issuer": "Chase",
+    "card_image_url": "https://www.chase.com/content/dam/chase-ux/tile/secondary/personal/checking/chase-debit-visa-card.png",
+    "reward_type": "None",
+    "annual_fee": 0,
+    "reward_multipliers": {
+      "everything_else": 0.0,
+      "travel": 0.0,
+      "dining": 0.0,
+      "grocery": 0.0
+    }
+  },
+  {
     "id": "american-express-rewards-checking-debit-card",
     "card_name": "American Express Rewards Checking Debit Card",
     "issuer": "American Express",
