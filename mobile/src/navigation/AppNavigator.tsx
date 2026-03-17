@@ -16,10 +16,13 @@ import SignupScreen from '../screens/SignupScreen';
 import AuthLandingScreen from '../screens/AuthLandingScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import AccountDetailScreen from '../screens/AccountDetailScreen';
+import BudgetTransactionsScreen from '../screens/BudgetTransactionsScreen';
 import ChatScreen from '../screens/ChatScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import FraudAlertsScreen from '../screens/FraudAlertsScreen';
+import RecentScansScreen from '../screens/RecentScansScreen';
 import SwipeSmartScreen from '../screens/SwipeSmartScreen';
+import CardDetailsScreen from '../screens/CardDetailsScreen';
 import SimplefinOnboardingScreen from '../screens/SimplefinOnboardingScreen';
 
 const { width } = Dimensions.get('window');
@@ -132,6 +135,8 @@ export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarPr
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
+const FraudStack = createNativeStackNavigator();
+const SwipeStack = createNativeStackNavigator();
 const OnboardingStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -166,6 +171,9 @@ function DashboardStack() {
         options={({ route }: any) => ({
           title: route.params?.accType || 'Account',
           headerBackTitle: 'Back',
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: true,
         })}
       />
       <MainStack.Screen
@@ -173,7 +181,46 @@ function DashboardStack() {
         component={SettingsScreen}
         options={{ headerShown: false, presentation: 'modal' }}
       />
+      <MainStack.Screen
+        name="BudgetTransactions"
+        component={BudgetTransactionsScreen}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: true,
+        }}
+      />
     </MainStack.Navigator>
+  );
+}
+
+function SwipeSmartStack() {
+  return (
+    <SwipeStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: Colors.bgPrimary },
+        headerTintColor: Colors.textPrimary,
+        headerTitleStyle: { fontWeight: '600' },
+        headerShadowVisible: false,
+      }}
+    >
+      <SwipeStack.Screen
+        name="SwipeSmartHome"
+        component={SwipeSmartScreen}
+        options={{ headerShown: false }}
+      />
+      <SwipeStack.Screen
+        name="CardDetails"
+        component={CardDetailsScreen}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: true,
+        }}
+      />
+    </SwipeStack.Navigator>
   );
 }
 
@@ -182,6 +229,35 @@ function OnboardingNavigator() {
     <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
       <OnboardingStack.Screen name="SimplefinOnboarding" component={SimplefinOnboardingScreen} />
     </OnboardingStack.Navigator>
+  );
+}
+
+function FraudAlertsStack() {
+  return (
+    <FraudStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: Colors.bgPrimary },
+        headerTintColor: Colors.textPrimary,
+        headerTitleStyle: { fontWeight: '600' },
+        headerShadowVisible: false,
+      }}
+    >
+      <FraudStack.Screen
+        name="FraudAlertsHome"
+        component={FraudAlertsScreen}
+        options={{ headerShown: false }}
+      />
+      <FraudStack.Screen
+        name="RecentScans"
+        component={RecentScansScreen}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: true,
+        }}
+      />
+    </FraudStack.Navigator>
   );
 }
 
@@ -201,12 +277,12 @@ function TabNavigator() {
       />
       <Tab.Screen
         name="SwipeSmart"
-        component={SwipeSmartScreen}
+        component={SwipeSmartStack}
         options={{ tabBarLabel: 'SwipeSmart' }}
       />
       <Tab.Screen
         name="FraudAlerts"
-        component={FraudAlertsScreen}
+        component={FraudAlertsStack}
         options={{ tabBarLabel: 'SwipeGuard' }}
       />
       <Tab.Screen

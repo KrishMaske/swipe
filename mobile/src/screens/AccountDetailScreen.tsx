@@ -243,7 +243,7 @@ export default function AccountDetailScreen({ route, navigation }: any) {
     const isNegative = item.amount < 0;
 
     return (
-      <TouchableOpacity activeOpacity={0.9} onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1200}>
+      <TouchableOpacity activeOpacity={0.9} onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1000}>
         <BlurView intensity={38} tint="dark" style={styles.txnCard}>
           <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive }]} />
           <View style={styles.txnInfo}>
@@ -552,12 +552,12 @@ const styles = StyleSheet.create({
   txnCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(10,10,12,0.38)',
+    backgroundColor: Colors.navGlassBackground,
     padding: 16,
     borderRadius: 24,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: Colors.navGlassBorder,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.4,
@@ -632,9 +632,9 @@ const styles = StyleSheet.create({
     width: TRANSACTION_MENU_WIDTH,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(30,30,30,0.85)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: Colors.navGlassBorder,
   },
   contextMenuItem: {
     flexDirection: 'row',
@@ -651,10 +651,10 @@ const styles = StyleSheet.create({
     width: '85%',
     maxWidth: 400,
     maxHeight: '76%',
-    backgroundColor: 'rgba(30,30,30,0.85)',
+    backgroundColor: Colors.navGlassBackground,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: Colors.navGlassBorder,
     overflow: 'hidden',
   },
   editModalScrollContent: {

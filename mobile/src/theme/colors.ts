@@ -51,4 +51,9 @@ export const Colors = {
   negative: '#F87171',
   tabBar: '#000000',
   tabBarBorder: 'rgba(255, 255, 255, 0.06)',
+
+  // Shared nav-glass surface
+  navGlassBackground: 'rgba(10, 10, 12, 0.35)',
+  navGlassBackgroundAndroid: 'rgba(8, 8, 10, 0.92)',
+  navGlassBorder: 'rgba(255, 255, 255, 0.1)',
 };

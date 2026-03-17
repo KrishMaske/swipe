@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,11 @@ type Props = {
 
 export default function AuthLandingScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const compact = width < 370 || height < 760;
+  const logoSize = compact ? 148 : 176;
+  const heroTop = compact ? 42 : 72;
+  const subtitleMaxWidth = Math.min(width - 64, 320);
 
   return (
     <View style={styles.container}>
@@ -26,15 +31,15 @@ export default function AuthLandingScreen({ navigation }: Props) {
       <StarField />
 
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 26 }]}> 
-        <View style={styles.hero}>
+        <View style={[styles.hero, { marginTop: heroTop }]}> 
           <Image
             source={require('../../images/AppIcons/swipelogo_transparent.png')}
-            style={styles.logoImage}
+            style={[styles.logoImage, { width: logoSize, height: logoSize }]}
             resizeMode="contain"
           />
 
           <Text style={styles.title}>SWIPE</Text>
-          <Text style={styles.subtitle}>A smart payments system. One secure connection.</Text>
+          <Text style={[styles.subtitle, { maxWidth: subtitleMaxWidth }]}>A smart payments system. One secure connection.</Text>
         </View>
 
         <View style={styles.card}>
@@ -105,12 +110,17 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: Colors.navGlassBackground,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
     padding: 22,
     marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.42,
+    shadowRadius: 18,
+    elevation: 8,
   },
   cardTitle: {
     ...Typography.title3,
@@ -139,8 +149,8 @@ const styles = StyleSheet.create({
   secondaryButton: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',

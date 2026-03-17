@@ -358,43 +358,6 @@ def delete_budget(context, budget_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete budget: {str(e)}")
 
 
-def get_chat_summary(context) -> str:
-    sb = context["supabase"]
-    user_id = context["user_id"]
-
-    try:
-        response = (
-            sb.table("chat_summaries")
-            .select("summary")
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-        )
-        rows = response.data or []
-        if not rows:
-            return ""
-        return str(rows[0].get("summary") or "")
-    except Exception:
-        return ""
-
-
-def upsert_chat_summary(context, summary: str):
-    sb = context["supabase"]
-    user_id = context["user_id"]
-
-    try:
-        response = (
-            sb.table("chat_summaries")
-            .upsert({
-                "user_id": user_id,
-                "summary": summary,
-            }, on_conflict="user_id")
-            .execute()
-        )
-        return response.data
-    except Exception:
-        return []
-
 def get_all_non_fraudulent_transactions():
     
     try:
@@ -521,7 +484,6 @@ def delete_user_account(context):
         # Remove dependent data first to avoid FK constraint issues.
         admin.table("transactions").delete().eq("user_id", user_id).execute()
         admin.table("budgets").delete().eq("user_id", user_id).execute()
-        admin.table("chat_summaries").delete().eq("user_id", user_id).execute()
         admin.table("user_cards").delete().eq("user_id", user_id).execute()
         admin.table("accounts").delete().eq("user_id", user_id).execute()
         admin.table("simplefin_conn").delete().eq("user_id", user_id).execute()

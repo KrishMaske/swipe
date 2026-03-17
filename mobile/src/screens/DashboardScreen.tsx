@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -91,6 +92,8 @@ function ScalePressable({
 
 export default function DashboardScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const budgetCardWidth = Math.min(Math.max(width - 96, 240), 320);
   const {
     accounts,
     accountsLoading: loading,
@@ -100,7 +103,6 @@ export default function DashboardScreen({ navigation }: any) {
     fetchBudgets,
     fetchFraudAlerts,
     spendingByBudget,
-    budgetTransactions,
     fetchTransactions,
   } = useData();
 
@@ -117,7 +119,6 @@ export default function DashboardScreen({ navigation }: any) {
   const [creatingBudget, setCreatingBudget] = useState(false);
   const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
 
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [contextMenuBudget, setContextMenuBudget] = useState<any>(null);
   const [failedLogoProviders, setFailedLogoProviders] = useState<Record<string, boolean>>({});
@@ -395,10 +396,15 @@ export default function DashboardScreen({ navigation }: any) {
               return (
                 <Animated.View key={budget.id} entering={FadeInDown.delay(index * 70).springify()}>
                   <ScalePressable
-                    onPress={() => setSelectedBudgetId(budget.id!)}
+                    onPress={() =>
+                      navigation.navigate('BudgetTransactions', {
+                        budgetId: budget.id,
+                        budgetName: budget.name,
+                      })
+                    }
                     onLongPress={() => setContextMenuBudget(budget)}
                     delayLongPress={1200}
-                    style={styles.budgetCard}
+                    style={[styles.budgetCard, { width: budgetCardWidth }]}
                   >
                   <View style={styles.budgetHeadRow}>
                     <Text style={styles.budgetName}>{budget.name}</Text>
@@ -696,50 +702,6 @@ export default function DashboardScreen({ navigation }: any) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={selectedBudgetId !== null} transparent animationType="slide">
-        <View style={styles.sheetOverlay}>
-          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setSelectedBudgetId(null)} />
-          <BlurView intensity={35} tint="dark" style={[styles.sheetContent, styles.transactionsSheet]}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {selectedBudgetId !== null && budgets.find((b) => b.id === selectedBudgetId)?.name} Transactions
-              </Text>
-              <View style={styles.modalActionsRow}>
-                <TouchableOpacity onPress={() => setSelectedBudgetId(null)}>
-                  <Ionicons name="close" size={26} color={Colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.transactionsList} showsVerticalScrollIndicator={false}>
-              {selectedBudgetId !== null && budgetTransactions[selectedBudgetId]?.length > 0 ? (
-                budgetTransactions[selectedBudgetId].map((txn) => (
-                  <View key={txn.id} style={styles.transactionRow}>
-                    <View style={styles.transactionIcon}>
-                      <Ionicons name="receipt-outline" size={16} color={Colors.accentBlueBright} />
-                    </View>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionMerchant}>{txn.merchant}</Text>
-                      <Text style={styles.transactionDate}>
-                        {new Date(
-                          typeof txn.txn_date === 'string' ? txn.txn_date : txn.txn_date * 1000
-                        ).toLocaleDateString()}
-                      </Text>
-                    </View>
-                    <Text style={styles.transactionAmount}>-${Math.abs(txn.amount).toFixed(2)}</Text>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.emptyTransactions}>
-                  <Ionicons name="search-outline" size={36} color={Colors.textMuted} />
-                  <Text style={styles.emptyTransactionsText}>No transactions found for this period.</Text>
-                </View>
-              )}
-            </ScrollView>
-          </BlurView>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -807,7 +769,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   syncPillWrap: {
-    marginTop: 18,
     alignSelf: 'flex-start',
     borderRadius: 999,
     overflow: 'hidden',
@@ -815,6 +776,7 @@ const styles = StyleSheet.create({
   syncButtonsContainer: {
     marginTop: 18,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     alignItems: 'center',
   },
@@ -850,9 +812,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 22,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
   },
   budgetList: {
     gap: 12,
@@ -860,13 +822,17 @@ const styles = StyleSheet.create({
     paddingRight: 28,
   },
   budgetCard: {
-    width: 280,
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+    elevation: 7,
   },
   budgetHeadRow: {
     flexDirection: 'row',
@@ -946,14 +912,19 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 10,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
     paddingVertical: 14,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 6,
   },
   accountLeft: {
     flexDirection: 'row',
@@ -1014,9 +985,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 10,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
     paddingVertical: 14,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -1043,11 +1014,6 @@ const styles = StyleSheet.create({
     width: '35%' as any,
     opacity: 0.6,
   },
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'transparent',
-  },
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: Colors.glassOverlay,
@@ -1061,9 +1027,9 @@ const styles = StyleSheet.create({
     width: 250,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(30,30,30,0.85)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: Colors.navGlassBorder,
   },
   contextMenuItem: {
     flexDirection: 'row',
@@ -1084,37 +1050,12 @@ const styles = StyleSheet.create({
   staticSquareCard: {
     width: '85%',
     maxWidth: 400,
-    backgroundColor: 'rgba(30,30,30,0.85)',
+    backgroundColor: Colors.navGlassBackground,
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: Colors.navGlassBorder,
     overflow: 'hidden',
-  },
-  sheetContent: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    paddingHorizontal: 18,
-    paddingBottom: 30,
-    paddingTop: 8,
-    overflow: 'hidden',
-    borderTopWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(23,28,36,0.82)',
-  },
-  budgetFormSheet: {
-    maxHeight: '76%',
-  },
-  transactionsSheet: {
-    height: '72%',
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 42,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    marginVertical: 8,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -1242,55 +1183,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-  },
-  transactionsList: {
-    paddingBottom: 22,
-  },
-  transactionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  transactionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(130,166,255,0.12)',
-    marginRight: 10,
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionMerchant: {
-    ...Typography.subhead,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  transactionDate: {
-    ...Typography.caption1,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  transactionAmount: {
-    ...Typography.subhead,
-    color: Colors.negative,
-    fontWeight: '700',
-  },
-  emptyTransactions: {
-    alignItems: 'center',
-    paddingVertical: 34,
-  },
-  emptyTransactionsText: {
-    ...Typography.footnote,
-    color: Colors.textMuted,
-    marginTop: 10,
   },
 });

@@ -33,7 +33,7 @@ const CHAT_HISTORY_LIMIT = 20;
 
 const QUICK_PROMPTS = [
   'Show my biggest categories this month in a table.',
-  'Give me a concise weekly spending summary.',
+  'Give me a concise weekly spending breakdown.',
   'Find unusual transactions I should verify.',
 ];
 
@@ -277,7 +277,7 @@ export default function ChatScreen() {
             <Image source={require('../../images/osho_chat.png')} style={styles.emptyHeroImage} />
             <Text style={styles.emptyTitle}>Talk to Osho</Text>
             <Text style={styles.emptySubtitle}>
-              SwipeChat delivers intelligent money insights with rich summaries, markdown tables, and concise recommendations.
+              SwipeChat delivers intelligent money insights with markdown tables and concise recommendations.
             </Text>
 
             <View style={styles.promptWrap}>
@@ -379,11 +379,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: Colors.navGlassBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.42,
+    shadowRadius: 18,
+    elevation: 8,
   },
   livePill: {
     flexDirection: 'row',
@@ -449,9 +454,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
     paddingHorizontal: 12,
     paddingVertical: 11,
   },

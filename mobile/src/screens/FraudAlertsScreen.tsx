@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -24,21 +23,10 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { api, FraudTransaction, Transaction } from '../services/api';
+import { api, FraudTransaction } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-
-type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
-
-const DATE_RANGE_OPTIONS: Array<{ label: string; value: DateRangeOption }> = [
-  { label: '7D', value: 7 },
-  { label: '14D', value: 14 },
-  { label: '30D', value: 30 },
-  { label: '60D', value: 60 },
-  { label: '90D', value: 90 },
-  { label: 'All', value: 'all' },
-];
 
 function formatDate(txnDate: any): string {
   try {
@@ -54,21 +42,6 @@ function formatDate(txnDate: any): string {
   } catch {
     return 'Unknown';
   }
-}
-
-function parseTxnDate(txnDate: unknown): Date | null {
-  if (txnDate === null || txnDate === undefined) {
-    return null;
-  }
-
-  if (typeof txnDate === 'number') {
-    const millis = txnDate < 1_000_000_000_000 ? txnDate * 1000 : txnDate;
-    const parsed = new Date(millis);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  const parsed = new Date(String(txnDate));
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function formatAmount(amount: number): string {
@@ -87,22 +60,7 @@ function riskLabel(score: number): { text: string; color: string } {
   return { text: 'No Risk', color: Colors.accentEmerald };
 }
 
-function scanStatus(txn: Transaction): { text: string; color: string; flagged: boolean } {
-  const risk = txn.risk_score ?? 0;
-  const flagged = Boolean(txn.is_flagged_fraud) || risk >= 0.35;
-  if (!flagged) {
-    return { text: 'No Risk', color: Colors.accentEmerald, flagged: false };
-  }
-  if (risk >= 0.75) {
-    return { text: 'Critical', color: '#FF4D4F', flagged: true };
-  }
-  if (risk >= 0.5) {
-    return { text: 'Critical', color: Colors.negative, flagged: true };
-  }
-  return { text: 'Medium', color: '#FFB347', flagged: true };
-}
-
-export default function FraudAlertsScreen() {
+export default function FraudAlertsScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const {
     accounts,
@@ -117,23 +75,13 @@ export default function FraudAlertsScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [showRecentScans, setShowRecentScans] = useState(false);
-  const [selectedScanTxn, setSelectedScanTxn] = useState<Transaction | null>(null);
-  const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
-
   const queueTransactions = fraudAlertsCache || [];
+  const scannedCount = useMemo(
+    () => Object.values(transactionsCache).flat().length,
+    [transactionsCache]
+  );
 
-  const allTransactions = useMemo(() => {
-    return Object.values(transactionsCache)
-      .flat()
-      .sort((a, b) => {
-        const left = parseTxnDate(a.txn_date)?.getTime() || 0;
-        const right = parseTxnDate(b.txn_date)?.getTime() || 0;
-        return right - left;
-      });
-  }, [transactionsCache]);
-
-  const loading = fraudAlertsLoading && queueTransactions.length === 0 && allTransactions.length === 0;
+  const loading = fraudAlertsLoading && queueTransactions.length === 0 && scannedCount === 0;
 
   const pulse = useSharedValue(0.9);
   React.useEffect(() => {
@@ -162,30 +110,6 @@ export default function FraudAlertsScreen() {
     [queueTransactions]
   );
 
-  const scannedCount = allTransactions.length;
-
-  const recentScans = useMemo(() => {
-    if (selectedRange === 'all') {
-      return allTransactions;
-    }
-
-    const now = Date.now();
-    const cutoff = now - selectedRange * 24 * 60 * 60 * 1000;
-    return allTransactions.filter((txn) => {
-      const ts = parseTxnDate(txn.txn_date)?.getTime();
-      return typeof ts === 'number' && ts >= cutoff;
-    });
-  }, [allTransactions, selectedRange]);
-
-  const closeRecentScansModal = () => {
-    setShowRecentScans(false);
-    setSelectedScanTxn(null);
-  };
-
-  const openScanActionModal = (txn: Transaction) => {
-    setSelectedScanTxn(txn);
-  };
-
   const refreshAllTransactions = useCallback(async (forceRefresh = false) => {
     const loadedAccounts = accounts || [];
     await Promise.all(loadedAccounts.map((acc) => fetchTransactions(acc.acc_id, forceRefresh)));
@@ -210,7 +134,7 @@ export default function FraudAlertsScreen() {
         if (!mounted) {
           return;
         }
-        await refreshAllTransactions(true);
+        await refreshAllTransactions();
         await fetchFraudAlerts();
       };
 
@@ -229,7 +153,6 @@ export default function FraudAlertsScreen() {
 
     try {
       await api.updateFraudStatus(txnId, isConfirmedFraud);
-      setSelectedScanTxn(null);
       Promise.all([
         fetchFraudAlerts(true),
         refreshAllTransactions(),
@@ -310,7 +233,7 @@ export default function FraudAlertsScreen() {
         <Text style={styles.sectionTitle}>Recent Scans</Text>
         <TouchableOpacity
           style={styles.viewScansButton}
-          onPress={() => setShowRecentScans(true)}
+          onPress={() => navigation.navigate('RecentScans')}
           activeOpacity={0.85}
         >
           <Ionicons name="list-outline" size={16} color={Colors.textPrimary} />
@@ -377,139 +300,6 @@ export default function FraudAlertsScreen() {
 
       </ScrollView>
 
-      <Modal visible={showRecentScans} transparent animationType="slide" onRequestClose={closeRecentScansModal}>
-        <View style={styles.recentScansModalOverlay}>
-          <View style={styles.recentScansModalFullScreen}>
-            <BlurView intensity={38} tint="dark" style={styles.recentScansHeader}>
-              <View style={styles.recentScansHeaderTopRow}>
-                <View style={styles.recentScansHeaderTitleWrap}>
-                  <Text style={styles.recentScansHeaderTitle}>Transactions</Text>
-                  <Text style={styles.recentScansHeaderProvider}>Recent Scans</Text>
-                </View>
-                <View style={styles.recentScansHeaderActions}>
-                  <View style={styles.recentScansHeaderCountPill}>
-                    <Text style={styles.recentScansHeaderCount}>
-                      {recentScans.length} transaction{recentScans.length !== 1 ? 's' : ''}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={closeRecentScansModal}>
-                    <Ionicons name="close" size={24} color={Colors.textMuted} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.recentScansFilterRow}
-              >
-                {DATE_RANGE_OPTIONS.map((option) => {
-                  const active = selectedRange === option.value;
-                  return (
-                    <TouchableOpacity
-                      key={String(option.value)}
-                      style={[styles.recentScansFilterChip, active && styles.recentScansFilterChipActive]}
-                      onPress={() => setSelectedRange(option.value)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={[styles.recentScansFilterChipText, active && styles.recentScansFilterChipTextActive]}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </BlurView>
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.recentScansList}>
-              {recentScans.length === 0 ? (
-                <View style={styles.recentScansEmptyState}>
-                  <Ionicons name="shield-checkmark" size={44} color={Colors.accentEmerald} />
-                  <Text style={styles.recentScansEmptyText}>No transactions found</Text>
-                  <Text style={styles.recentScansEmptySubtext}>Try a different date range or sync your account for newer activity.</Text>
-                </View>
-              ) : (
-                recentScans.map((item, index) => {
-                  const status = scanStatus(item);
-                  return (
-                    <TouchableOpacity
-                      key={item.txn_id}
-                      activeOpacity={0.9}
-                      onLongPress={() => openScanActionModal(item)}
-                      delayLongPress={1000}
-                    >
-                      <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
-                        <BlurView intensity={38} tint="dark" style={styles.recentTxnCard}>
-                          <View style={[styles.recentCategoryDot, { backgroundColor: status.color }]} />
-                          <View style={styles.recentTxnInfo}>
-                            <Text style={styles.recentTxnMerchant} numberOfLines={1}>
-                              {item.merchant || 'Unknown'}
-                            </Text>
-                            <View style={styles.recentTxnMeta}>
-                              <Text style={styles.recentTxnCategory}>{status.text}</Text>
-                              <Text style={styles.recentTxnDot}>·</Text>
-                              <Text style={styles.recentTxnLocation}>score {(item.risk_score ?? 0).toFixed(2)}</Text>
-                            </View>
-                            <Text style={styles.recentTxnDate}>{formatDate(item.txn_date)}</Text>
-                          </View>
-                          <View style={styles.recentTxnRight}>
-                            <Text style={[styles.recentTxnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>{formatAmount(item.amount)}</Text>
-                            <View style={[styles.recentTxnBadge, { backgroundColor: `${status.color}20` }]}>
-                              <Text style={[styles.recentTxnBadgeText, { color: status.color }]}>{status.text}</Text>
-                            </View>
-                          </View>
-                        </BlurView>
-                      </Animated.View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            {selectedScanTxn && (
-              <View style={styles.inlineActionOverlay}>
-                <TouchableOpacity
-                  style={StyleSheet.absoluteFillObject}
-                  activeOpacity={1}
-                  onPress={() => setSelectedScanTxn(null)}
-                />
-
-                <View style={styles.scanActionCard}>
-                  <Text style={styles.scanActionTitle} numberOfLines={2}>{selectedScanTxn.merchant || 'Unknown Merchant'}</Text>
-                  <Text style={styles.scanActionMeta}>
-                    Update this transaction's fraud status.
-                  </Text>
-
-                  <TouchableOpacity
-                    style={[styles.scanActionButton, styles.safeButton]}
-                    onPress={() => handleAction(selectedScanTxn.txn_id, false)}
-                    disabled={updating === selectedScanTxn.txn_id}
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={18} color={Colors.textPrimary} />
-                    <Text style={[styles.actionText, { color: Colors.textPrimary }]}>Set as Safe</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.scanActionButton, styles.fraudButton]}
-                    onPress={() => handleAction(selectedScanTxn.txn_id, true)}
-                    disabled={updating === selectedScanTxn.txn_id}
-                  >
-                    <Ionicons name="alert-circle-outline" size={18} color={Colors.negative} />
-                    <Text style={[styles.actionText, { color: Colors.negative }]}>Set as Fraud</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.scanActionCancel}
-                    onPress={() => setSelectedScanTxn(null)}
-                  >
-                    <Text style={styles.scanActionCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -574,9 +364,9 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 18,
     marginBottom: 14,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
     overflow: 'hidden',
   },
   pulseRing: {
@@ -622,9 +412,9 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: Colors.navGlassBackground,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
@@ -647,8 +437,8 @@ const styles = StyleSheet.create({
   scanList: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
     padding: 10,
     gap: 8,
   },
@@ -707,8 +497,8 @@ const styles = StyleSheet.create({
   queueCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
@@ -769,8 +559,8 @@ const styles = StyleSheet.create({
   viewScansButton: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -787,17 +577,20 @@ const styles = StyleSheet.create({
   inlineActionOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 22,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   scanActionCard: {
-    width: '100%',
-    borderRadius: 18,
+    width: '85%',
+    maxWidth: 400,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(18,20,26,0.95)',
-    padding: 14,
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
+    padding: 24,
     gap: 8,
+    overflow: 'hidden',
   },
   scanActionTitle: {
     ...Typography.subhead,
@@ -826,187 +619,5 @@ const styles = StyleSheet.create({
     ...Typography.footnote,
     color: Colors.textMuted,
     fontWeight: '600',
-  },
-  recentScansModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
-  },
-  recentScansModalFullScreen: {
-    flex: 1,
-    paddingBottom: 16,
-  },
-  recentScansHeader: {
-    marginHorizontal: 16,
-    marginTop: 52,
-    marginBottom: 6,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(10,10,12,0.38)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.42,
-    shadowRadius: 20,
-    elevation: 8,
-    zIndex: 10,
-    overflow: 'hidden',
-  },
-  recentScansHeaderTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  recentScansHeaderTitleWrap: {
-    flex: 1,
-  },
-  recentScansHeaderTitle: {
-    ...Typography.title3,
-    color: Colors.textPrimary,
-    fontWeight: '700',
-  },
-  recentScansHeaderProvider: {
-    ...Typography.caption1,
-    color: Colors.textSecondary,
-    marginTop: 3,
-  },
-  recentScansHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  recentScansHeaderCountPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  recentScansHeaderCount: {
-    ...Typography.caption2,
-    color: Colors.textPrimary,
-    fontWeight: '700',
-  },
-  recentScansFilterRow: {
-    gap: 8,
-    paddingTop: 12,
-    paddingBottom: 2,
-  },
-  recentScansFilterChip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-  recentScansFilterChipActive: {
-    backgroundColor: 'rgba(248,113,113,0.22)',
-    borderColor: 'rgba(248,113,113,0.62)',
-  },
-  recentScansFilterChipText: {
-    ...Typography.caption1,
-    color: Colors.textSecondary,
-    fontWeight: '700',
-  },
-  recentScansFilterChipTextActive: {
-    color: Colors.textPrimary,
-  },
-  recentScansList: {
-    padding: 16,
-    paddingTop: 8,
-    paddingBottom: 100,
-  },
-  recentTxnCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(10,10,12,0.38)',
-    padding: 16,
-    borderRadius: 24,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 7,
-    overflow: 'hidden',
-  },
-  recentCategoryDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 14,
-  },
-  recentTxnInfo: {
-    flex: 1,
-  },
-  recentTxnMerchant: {
-    ...Typography.subhead,
-    color: Colors.textPrimary,
-    fontWeight: '700',
-  },
-  recentTxnMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-  },
-  recentTxnCategory: {
-    ...Typography.caption1,
-    color: Colors.textSecondary,
-  },
-  recentTxnDot: {
-    color: Colors.textMuted,
-    marginHorizontal: 5,
-  },
-  recentTxnLocation: {
-    ...Typography.caption1,
-    color: Colors.textMuted,
-  },
-  recentTxnDate: {
-    ...Typography.caption2,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-  recentTxnRight: {
-    alignItems: 'flex-end',
-    marginLeft: 8,
-    gap: 8,
-  },
-  recentTxnAmount: {
-    ...Typography.headline,
-    fontSize: 15,
-    color: Colors.textPrimary,
-  },
-  recentTxnBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  recentTxnBadgeText: {
-    ...Typography.caption2,
-    fontWeight: '700',
-  },
-  recentScansEmptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 80,
-  },
-  recentScansEmptyText: {
-    ...Typography.headline,
-    color: Colors.textSecondary,
-    marginTop: 16,
-  },
-  recentScansEmptySubtext: {
-    ...Typography.footnote,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    marginTop: 8,
   },
 });

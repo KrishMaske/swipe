@@ -74,13 +74,6 @@ function getTopReward(card: WalletCard) {
   };
 }
 
-function formatFee(amount: number) {
-  if (!amount) {
-    return '$0';
-  }
-  return `$${amount.toLocaleString('en-US')}`;
-}
-
 export default function SwipeSmartScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
 
@@ -98,7 +91,6 @@ export default function SwipeSmartScreen({ navigation }: any) {
 
   // Long-press context menu
   const [contextMenuCard, setContextMenuCard] = useState<WalletCard | null>(null);
-  const [detailsCard, setDetailsCard] = useState<WalletCard | null>(null);
 
   const loadSavedCards = useCallback(async (forceRefresh = false) => {
     try {
@@ -242,9 +234,9 @@ export default function SwipeSmartScreen({ navigation }: any) {
               return (
                 <Animated.View key={card.id} entering={FadeInDown.delay(index * 60).springify()}>
                   <ScalePressable
-                    onPress={() => setDetailsCard(card)}
+                    onPress={() => navigation.navigate('CardDetails', { card })}
                     onLongPress={() => setContextMenuCard(card)}
-                    delayLongPress={600}
+                    delayLongPress={1200}
                     style={styles.walletCard}
                   >
                     <Image
@@ -409,60 +401,6 @@ export default function SwipeSmartScreen({ navigation }: any) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Card details modal */}
-      <Modal visible={detailsCard !== null} transparent animationType="fade">
-        <View style={styles.centeredOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
-            onPress={() => setDetailsCard(null)}
-          />
-          {detailsCard && (
-            <BlurView intensity={65} tint="dark" style={styles.detailsModalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Card Details</Text>
-                <TouchableOpacity onPress={() => setDetailsCard(null)}>
-                  <Ionicons name="close" size={24} color={Colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Image
-                  source={{ uri: detailsCard.card_image_url }}
-                  style={styles.detailsCardArt}
-                  resizeMode="contain"
-                />
-
-                <Text style={styles.detailsCardName}>{detailsCard.card_name}</Text>
-                <Text style={styles.detailsCardIssuer}>{detailsCard.issuer}</Text>
-
-                <View style={styles.detailsMetaGrid}>
-                  <View style={styles.detailsMetaItem}>
-                    <Text style={styles.detailsMetaLabel}>Type</Text>
-                    <Text style={styles.detailsMetaValue}>{detailsCard.reward_type}</Text>
-                  </View>
-                  <View style={styles.detailsMetaItem}>
-                    <Text style={styles.detailsMetaLabel}>Annual Fee</Text>
-                    <Text style={styles.detailsMetaValue}>{formatFee(detailsCard.annual_fee)}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.detailsSectionTitle}>Reward Multipliers</Text>
-                {Object.entries(detailsCard.reward_multipliers || {})
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([category, multiplier]) => (
-                    <View key={category} style={styles.multiplierRow}>
-                      <Text style={styles.multiplierCategory}>
-                        {category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </Text>
-                      <Text style={styles.multiplierValue}>{multiplier}x</Text>
-                    </View>
-                  ))}
-              </ScrollView>
-            </BlurView>
-          )}
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -603,7 +541,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 6,
   },
   contextCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   contextCardArt: {
@@ -631,90 +575,11 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
-  },
-  detailsModalCard: {
-    width: '88%',
-    maxHeight: '78%',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 14,
-  },
-  detailsCardArt: {
-    width: '100%',
-    height: 120,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 12,
-  },
-  detailsCardName: {
-    ...Typography.title3,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  detailsCardIssuer: {
-    ...Typography.footnote,
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  detailsMetaGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  detailsMetaItem: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  detailsMetaLabel: {
-    ...Typography.caption2,
-    color: Colors.textMuted,
-    marginBottom: 2,
-  },
-  detailsMetaValue: {
-    ...Typography.subhead,
-    color: Colors.textPrimary,
-    fontWeight: '700',
-  },
-  detailsSectionTitle: {
-    ...Typography.footnote,
-    color: Colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  multiplierRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.glassBorder,
-    paddingVertical: 10,
-  },
-  multiplierCategory: {
-    ...Typography.subhead,
-    color: Colors.textSecondary,
-    flex: 1,
-    paddingRight: 10,
-  },
-  multiplierValue: {
-    ...Typography.subhead,
-    color: Colors.accentBlueBright,
-    fontWeight: '700',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -728,13 +593,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.bgInput,
+    backgroundColor: Colors.navGlassBackground,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: Colors.navGlassBorder,
   },
   modalSearchInput: { flex: 1, ...Typography.subhead, color: Colors.textPrimary },
   filterScroll: {
