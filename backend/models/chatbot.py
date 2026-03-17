@@ -1,10 +1,11 @@
+import os
 from datetime import datetime
 from dateutil import parser as dateutil_parser
 import re
 from typing import List, Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
-from config.settings import embedding_model, groq_client
+from config.settings import embedder, groq_client
 from database.db import get_chat_summary, upsert_chat_summary
 
 class Message(BaseModel):
@@ -41,6 +42,8 @@ def _is_ambiguous_follow_up(question: str) -> bool:
         "sure",
         "yes",
         "yeah",
+        "how about",
+        "what about"
     }
     return q in phrases or len(q.split()) <= 5
 
@@ -48,14 +51,8 @@ def _is_ambiguous_follow_up(question: str) -> bool:
 def _is_spending_optimization_question(question: str) -> bool:
     q = question.lower()
     keywords = [
-        "cut down",
-        "reduce",
-        "spending",
-        "spend less",
-        "save money",
-        "where can i cut",
-        "overspending",
-        "expenses",
+        "cut down", "reduce", "spending", "spend less", 
+        "save money", "where can i cut", "overspending", "expenses"
     ]
     return any(k in q for k in keywords)
 
@@ -63,48 +60,31 @@ def _is_spending_optimization_question(question: str) -> bool:
 def _is_general_finance_question(question: str) -> bool:
     q = question.lower()
     keywords = [
-        "budget",
-        "budgeting",
-        "save",
-        "saving",
-        "savings",
-        "invest",
-        "investing",
-        "debt",
-        "emergency fund",
-        "financial plan",
-        "financial planning",
-        "50/30/20",
+        "budget", "budgeting", "save", "saving", "savings", 
+        "invest", "investing", "debt", "emergency fund", 
+        "financial plan", "financial planning", "50/30/20"
     ]
     return any(k in q for k in keywords)
 
 
 def _build_search_query(question: str, history: Optional[List[Message]]) -> str:
-    """Build a retrieval query that preserves entities across follow-up turns."""
-    if not history:
-        return question
+    """Build a retrieval query that avoids embedding useless conversational filler."""
+    if _is_ambiguous_follow_up(question) and history:
+        last_real_q = _recent_user_text(history, turns=1)
+        return f"{last_real_q} {question}"[:300]
+    return question.strip()[:300]
 
-    user_turns = [m.content.strip() for m in history if m.role == "user" and m.content]
-    recent_user_turns = user_turns[-3:]
-
-    parts = [p for p in recent_user_turns + [question.strip()] if p]
-    query = " ".join(parts)
-
-    # Keep embeddings stable and avoid very long retrieval prompts.
-    return query[:600]
 
 def _parse_txn_date(raw) -> datetime | None:
     """Parse txn_date whether it's an epoch number or a timestamp string."""
     if raw is None:
         return None
-    # Try epoch float first
     try:
         ts = float(raw)
         if ts > 1e9:  # looks like a Unix epoch
             return datetime.fromtimestamp(ts)
     except (TypeError, ValueError):
         pass
-    # Try parsing as a datetime string
     try:
         return dateutil_parser.parse(str(raw))
     except (ValueError, TypeError):
@@ -136,28 +116,19 @@ def _fetch_recent_transactions(sb, user_id: str, limit: int = 60):
     return response.data or []
 
 
-def _filter_food_transactions(transactions: list[dict]) -> list[dict]:
-    food = []
-    for t in transactions:
-        category = str(t.get("category") or "").lower()
-        merchant = str(t.get("merchant") or "").lower()
-        if "food" in category or "dining" in category:
-            food.append(t)
-            continue
-        if any(k in merchant for k in ["dunkin", "taco", "chipotle", "qdoba", "starbucks", "coffee"]):
-            food.append(t)
-    return food
-
-
 def _compute_spending_stats(transactions: list[dict]) -> dict:
+    """Computes stats dynamically for the retrieved context, focusing on expenses."""
     if not transactions:
-        return {"count": 0, "total": 0.0, "weekly_avg": 0.0, "weeks": 0.0}
+        return {"count": 0, "total_spent": 0.0, "weekly_avg": 0.0, "weeks": 0.0}
 
-    amounts = []
+    expense_amounts = []
     timestamps = []
     for t in transactions:
         try:
-            amounts.append(abs(float(t.get("amount", 0) or 0)))
+            raw_amt = float(t.get("amount", 0) or 0)
+            # Only sum negative amounts (expenses) for budget tracking
+            if raw_amt <= 0:
+                expense_amounts.append(abs(raw_amt))
         except (TypeError, ValueError):
             continue
 
@@ -165,11 +136,11 @@ def _compute_spending_stats(transactions: list[dict]) -> dict:
         if parsed_dt:
             timestamps.append(parsed_dt.timestamp())
 
-    if not amounts:
-        return {"count": 0, "total": 0.0, "weekly_avg": 0.0, "weeks": 0.0}
+    if not expense_amounts:
+        return {"count": 0, "total_spent": 0.0, "weekly_avg": 0.0, "weeks": 0.0}
 
-    total = round(sum(amounts), 2)
-    count = len(amounts)
+    total = round(sum(expense_amounts), 2)
+    count = len(expense_amounts)
 
     if len(timestamps) >= 2:
         span_seconds = max(timestamps) - min(timestamps)
@@ -178,13 +149,12 @@ def _compute_spending_stats(transactions: list[dict]) -> dict:
         weeks = 1.0
 
     weekly_avg = round(total / weeks, 2)
-    return {"count": count, "total": total, "weekly_avg": weekly_avg, "weeks": round(weeks, 1)}
+    return {"count": count, "total_spent": total, "weekly_avg": weekly_avg, "weeks": round(weeks, 1)}
 
 
 def _extract_weekly_budget_amount(text: str) -> Optional[float]:
     if not text:
         return None
-
     pattern = r"\$\s*(\d+(?:\.\d+)?)\s*(?:/|per\s*)?\s*(?:week|weekly)"
     match = re.search(pattern, text.lower())
     if match:
@@ -192,7 +162,6 @@ def _extract_weekly_budget_amount(text: str) -> Optional[float]:
             return float(match.group(1))
         except ValueError:
             return None
-
     return None
 
 
@@ -242,7 +211,7 @@ def _roll_summary(existing_summary: str, question: str, answer: str, history: Op
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            model="openai/gpt-oss-120b",
+            model="llama-3.3-70b-versatile", # FIXED Fake Model
             temperature=0.1,
             max_completion_tokens=280,
             top_p=1,
@@ -274,7 +243,7 @@ async def ask_financial_assistant(context, request: ChatRequest):
         search_query = _build_search_query(request.question, request.history)
         query_instruction = "Represent this sentence for searching relevant passages: "
         
-        query_vector = embedding_model.encode(query_instruction + search_query).tolist()
+        query_vector = embedder.encode(query_instruction + search_query).tolist()
 
         direct_general = _is_general_finance_question(request.question)
         direct_spending = _is_spending_optimization_question(request.question)
@@ -306,28 +275,28 @@ async def ask_financial_assistant(context, request: ChatRequest):
         if not transactions and (wants_spending_advice or wants_general_guidance):
             transactions = _fetch_recent_transactions(sb=sb, user_id=user_id, limit=60)
 
+        # DYNAMIC STATS (Removed Hardcoded Food Filter)
         if transactions and (wants_spending_advice or wants_general_guidance):
-            food_txns = _filter_food_transactions(transactions)
-            food_stats = _compute_spending_stats(food_txns)
+            stats = _compute_spending_stats(transactions)
 
             budget_amount = _extract_weekly_budget_amount(request.question)
             if budget_amount is None and carry_over_intent:
                 budget_amount = _extract_weekly_budget_amount(recent_text)
 
-            if budget_amount is not None and _is_budget_comparison_question(request.question) and food_stats["count"] > 0:
-                weekly_avg = food_stats["weekly_avg"]
+            if budget_amount is not None and _is_budget_comparison_question(request.question) and stats["count"] > 0:
+                weekly_avg = stats["weekly_avg"]
                 recommended = max(1.0, round(weekly_avg * 0.85, 2))
 
                 if budget_amount > weekly_avg:
                     msg = (
-                        f"Yes, ${budget_amount:.2f}/week is above your current Food & Dining pace of about "
-                        f"${weekly_avg:.2f}/week (based on ${food_stats['total']:.2f} across {food_stats['count']} transactions over about {food_stats['weeks']:.1f} weeks). "
+                        f"Yes, ${budget_amount:.2f}/week is above your current spending pace for this category, which is about "
+                        f"${weekly_avg:.2f}/week (based on ${stats['total_spent']:.2f} across {stats['count']} transactions over about {stats['weeks']:.1f} weeks). "
                         f"To save money, set a target closer to ${recommended:.2f}/week instead."
                     )
                 else:
                     msg = (
-                        f"You are right to focus on savings. Your current Food & Dining pace is about ${weekly_avg:.2f}/week "
-                        f"(from ${food_stats['total']:.2f} across {food_stats['count']} transactions over about {food_stats['weeks']:.1f} weeks). "
+                        f"You are right to focus on savings. Your current spending pace here is about ${weekly_avg:.2f}/week "
+                        f"(from ${stats['total_spent']:.2f} across {stats['count']} transactions over about {stats['weeks']:.1f} weeks). "
                         f"A savings target would be around ${recommended:.2f}/week."
                     )
                 updated_summary = _roll_summary(rolling_summary, request.question, msg, request.history)
@@ -373,24 +342,29 @@ async def ask_financial_assistant(context, request: ChatRequest):
             upsert_chat_summary(context, updated_summary)
             return ChatResponse(response=fallback_response)
 
+        # FORMATTING FIX (Income vs Expense Context Injection)
         formatted_swipes = []
         for t in transactions:
             parsed_dt = _parse_txn_date(t.get('txn_date'))
             readable_date = parsed_dt.strftime('%Y-%m-%d') if parsed_dt else 'Unknown Date'
-                
+            
+            raw_amount = float(t.get('amount', 0))
+            txn_type = "INCOME (+)" if raw_amount > 0 else "EXPENSE (-)"
+            
             formatted_swipes.append(
-                f"{readable_date} - {t.get('merchant', 'Unknown')}: ${abs(float(t.get('amount', 0))):.2f} "
+                f"{readable_date} | {txn_type} | {t.get('merchant', 'Unknown')} | ${abs(raw_amount):.2f} "
                 f"(Category: {t.get('category', 'None')})"
             )
             
         context_text = "\n".join(formatted_swipes)
 
-        food_stats = _compute_spending_stats(_filter_food_transactions(transactions))
-        food_summary = (
-            f"Food & Dining summary from provided context: total=${food_stats['total']:.2f}, "
-            f"count={food_stats['count']}, weekly_avg=${food_stats['weekly_avg']:.2f}, span_weeks={food_stats['weeks']:.1f}."
-            if food_stats["count"] > 0
-            else "Food & Dining summary from provided context: no clear Food & Dining transactions detected."
+        # DYNAMIC CONTEXT SUMMARY
+        stats = _compute_spending_stats(transactions)
+        context_summary = (
+            f"Dynamic spending summary for retrieved context: total_spent=${stats['total_spent']:.2f}, "
+            f"count={stats['count']}, weekly_avg=${stats['weekly_avg']:.2f}, span_weeks={stats['weeks']:.1f}."
+            if stats["count"] > 0
+            else "No clear expense transactions detected in the provided context."
         )
 
         system_prompt = f"""You are a helpful, precise personal finance AI assistant.
@@ -404,7 +378,7 @@ async def ask_financial_assistant(context, request: ChatRequest):
         ROLLING MEMORY SUMMARY:
         {rolling_summary or 'No prior summary available.'}
 
-        {food_summary}
+        {context_summary}
 
         USER'S ACTIVE BUDGETS:
         {budget_text}
@@ -421,7 +395,7 @@ async def ask_financial_assistant(context, request: ChatRequest):
 
         chat_completion = groq_client.chat.completions.create(
             messages=llm_messages,
-            model="openai/gpt-oss-120b", 
+            model="llama-3.3-70b-versatile", # FIXED Fake Model
             temperature=0.1,
             max_completion_tokens=500,
             top_p=1,

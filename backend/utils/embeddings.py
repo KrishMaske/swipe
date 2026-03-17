@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from config.settings import embedding_model as model
+from config.settings import embedder
 
 def create_embedding(txn: dict) -> list[float]:
     try:
@@ -9,18 +9,30 @@ def create_embedding(txn: dict) -> list[float]:
         readable_date = "an unknown date"
 
     merchant = txn.get("merchant", "Unknown Merchant")
-    amount = abs(float(txn.get("amount", 0)))
+    raw_amount = float(txn.get("amount", 0))
     category = txn.get("category", "Uncategorized")
     city = txn.get("city", "Unknown City")
     state = txn.get("state", "")
     desc = txn.get("description", "")
 
+
+    if raw_amount > 0:
+        txn_type = "INCOME (Money Received / Refund)"
+    else:
+        txn_type = "EXPENSE (Money Spent)"
+        
+    absolute_amount = abs(raw_amount)
+
     semantic_string = (
-        f"On {readable_date}, a transaction occurred for ${amount:.2f} at {merchant}. "
-        f"Category: {category}. Location: {city}, {state}. "
-        f"Original bank description: {desc}."
+        f"Type: {txn_type}. "
+        f"Date: {readable_date}. "
+        f"Merchant: {merchant}. "
+        f"Amount: ${absolute_amount:.2f}. "
+        f"Category: {category}. "
+        f"Location: {city}, {state}. "
+        f"Bank Description: {desc}."
     )
 
-    embedding = model.encode(semantic_string)
+    embedding = embedder.encode(semantic_string)
     return embedding.tolist()
 

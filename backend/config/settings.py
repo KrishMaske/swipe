@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 from cryptography.fernet import Fernet
 from sentence_transformers import SentenceTransformer
+from google import genai
 from groq import Groq
 
 
@@ -18,8 +19,8 @@ FERNET_KEY = os.getenv("FERNET_KEY")
 fernet = Fernet(FERNET_KEY)
 
 groq_client = Groq(api_key=os.environ.get("GROQ_KEY"))
-
-embedding_model = SentenceTransformer('BAAI/bge-base-en-v1.5')
+gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
+embedder = SentenceTransformer('BAAI/bge-base-en-v1.5')
 
 SIMPLEFIN_CONNECT_TIMEOUT_SECONDS = int(os.getenv("SIMPLEFIN_CONNECT_TIMEOUT_SECONDS", "10"))
 SIMPLEFIN_READ_TIMEOUT_SECONDS = int(os.getenv("SIMPLEFIN_READ_TIMEOUT_SECONDS", "60"))

@@ -172,6 +172,10 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const handleSync = async () => {
+    await runBackendSync();
+  };
+
+  const handleForceSync = async () => {
     try {
       await WebBrowser.openBrowserAsync(SIMPLEFIN_ACCOUNT_URL, {
         controlsColor: Colors.accentBlueBright,
@@ -318,23 +322,43 @@ export default function DashboardScreen({ navigation }: any) {
           <Text style={styles.heroBalance}>{loading ? '...' : hasAvailableBalance ? formatCurrency(totalAvailableBalance) : 'N/A'}</Text>
           <Text style={styles.heroMeta}>{linkedAccountLabel}</Text>
 
-          <TouchableOpacity
-            style={styles.syncPillWrap}
-            onPress={handleSync}
-            disabled={syncing}
-            activeOpacity={0.8}
-          >
-            <BlurView intensity={28} tint="dark" style={styles.syncPill}>
-              {syncing ? (
-                <ActivityIndicator size="small" color={Colors.textPrimary} />
-              ) : (
-                <>
-                  <Ionicons name="sync" size={15} color={Colors.textPrimary} />
-                  <Text style={styles.syncText}>Sync</Text>
-                </>
-              )}
-            </BlurView>
-          </TouchableOpacity>
+          <View style={styles.syncButtonsContainer}>
+            <TouchableOpacity
+              style={styles.syncPillWrap}
+              onPress={handleSync}
+              disabled={syncing}
+              activeOpacity={0.8}
+            >
+              <BlurView intensity={28} tint="dark" style={styles.syncPill}>
+                {syncing ? (
+                  <ActivityIndicator size="small" color={Colors.textPrimary} />
+                ) : (
+                  <>
+                    <Ionicons name="sync" size={15} color={Colors.textPrimary} />
+                    <Text style={styles.syncText}>Sync</Text>
+                  </>
+                )}
+              </BlurView>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.syncPillWrap}
+              onPress={handleForceSync}
+              disabled={syncing}
+              activeOpacity={0.8}
+            >
+              <BlurView intensity={28} tint="dark" style={styles.syncPill}>
+                {syncing ? (
+                  <ActivityIndicator size="small" color={Colors.textPrimary} />
+                ) : (
+                  <>
+                    <Ionicons name="sync" size={15} color={Colors.textPrimary} />
+                    <Text style={styles.syncText}>Force Sync</Text>
+                  </>
+                )}
+              </BlurView>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -787,6 +811,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderRadius: 999,
     overflow: 'hidden',
+  },
+  syncButtonsContainer: {
+    marginTop: 18,
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
   },
   syncPill: {
     flexDirection: 'row',

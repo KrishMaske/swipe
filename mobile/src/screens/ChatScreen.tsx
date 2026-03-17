@@ -94,6 +94,15 @@ function MessageBubble({ item }: { item: DisplayMessage }) {
           <Ionicons name="sparkles" size={13} color="#0D1116" />
         </View>
         <View style={[styles.bubble, styles.assistantBubble]}>
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : null}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              Platform.OS === 'android' ? styles.bubbleAndroidOverlay : styles.bubbleGlassOverlay,
+            ]}
+          />
           <TypingIndicator />
         </View>
       </Animated.View>
@@ -110,16 +119,29 @@ function MessageBubble({ item }: { item: DisplayMessage }) {
       )}
 
       {isUser ? (
-        <LinearGradient
-          colors={[Colors.gradientAccentStart, '#6EA6FF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.bubble, styles.userBubble]}
-        >
+        <View style={[styles.bubble, styles.userBubble]}>
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : null}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              Platform.OS === 'android' ? styles.userBubbleAndroidOverlay : styles.userBubbleGlassOverlay,
+            ]}
+          />
           <Text style={styles.userText}>{item.content}</Text>
-        </LinearGradient>
+        </View>
       ) : (
         <View style={[styles.bubble, styles.assistantBubble]}>
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : null}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              Platform.OS === 'android' ? styles.bubbleAndroidOverlay : styles.bubbleGlassOverlay,
+            ]}
+          />
           <Markdown style={markdownStyles}>{item.content}</Markdown>
         </View>
       )}
@@ -469,15 +491,30 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
   },
   userBubble: {
     borderBottomRightRadius: 8,
+    borderColor: 'rgba(248,113,113,0.62)',
+    backgroundColor: 'rgba(82,18,24,0.46)',
   },
   assistantBubble: {
     borderBottomLeftRadius: 8,
-    backgroundColor: '#1A1F2A',
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(12, 16, 22, 0.52)',
+  },
+  bubbleGlassOverlay: {
+    backgroundColor: 'rgba(10, 10, 12, 0.35)',
+  },
+  bubbleAndroidOverlay: {
+    backgroundColor: 'rgba(8, 8, 10, 0.92)',
+  },
+  userBubbleGlassOverlay: {
+    backgroundColor: 'rgba(248,113,113,0.22)',
+  },
+  userBubbleAndroidOverlay: {
+    backgroundColor: 'rgba(78,18,24,0.9)',
   },
   userText: {
     ...Typography.subhead,
