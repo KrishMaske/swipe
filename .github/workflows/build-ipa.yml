@@ -36,12 +36,19 @@ jobs:
         working-directory: mobile
         run: npx expo prebuild --platform ios --clean
 
+      - name: List iOS directory
+        working-directory: mobile/ios
+        run: ls -la
+
       - name: Build unsigned IPA
         working-directory: mobile/ios
         run: |
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          SCHEME=$(echo $WORKSPACE | sed 's/.xcworkspace//')
+          echo "Using workspace: $WORKSPACE scheme: $SCHEME"
           xcodebuild \
-            -workspace swipe.xcworkspace \
-            -scheme swipe \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
@@ -54,8 +61,10 @@ jobs:
 
       - name: Package IPA
         run: |
+          APP=$(find mobile/ios/build/Build/Products/Release-iphoneos -name "*.app" | head -1)
+          echo "Found app: $APP"
           mkdir -p mobile/ios/build/Payload
-          cp -r "mobile/ios/build/Build/Products/Release-iphoneos/swipe.app" mobile/ios/build/Payload/
+          cp -r "$APP" mobile/ios/build/Payload/
           cd mobile/ios/build
           zip -r SwipeSmart-unsigned.ipa Payload/
 
