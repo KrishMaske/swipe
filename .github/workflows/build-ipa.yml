@@ -8,7 +8,7 @@ name: iOS Build (Sideloading)
 jobs:
   ios-build:
     name: iOS Build (Sideloading)
-    runs-on: macos-15
+    runs-on: macos-latest
     permissions:
       contents: write
 
@@ -18,15 +18,6 @@ jobs:
 
       - name: Show Xcode version
         run: xcodebuild -version
-
-      - name: Prefer Xcode 16.2 when available
-        run: |
-          if [ -d /Applications/Xcode_16.2.app ]; then
-            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          else
-            echo "Xcode 16.2 not found on runner, using default Xcode"
-          fi
-          xcodebuild -version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
