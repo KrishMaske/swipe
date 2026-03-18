@@ -1,0 +1,64 @@
+name: Build Unsigned IPA
+
+on:
+  push:
+    branches: [ ipa ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Create .env file
+        working-directory: mobile
+        run: |
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}" >> .env
+
+      - name: Prebuild iOS
+        working-directory: mobile
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Build unsigned IPA
+        working-directory: mobile/ios
+        run: |
+          xcodebuild \
+            -workspace swipe.xcworkspace \
+            -scheme swipe \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
+            -allowProvisioningUpdates \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir -p mobile/ios/build/Payload
+          cp -r "mobile/ios/build/Build/Products/Release-iphoneos/swipe.app" mobile/ios/build/Payload/
+          cd mobile/ios/build
+          zip -r SwipeSmart-unsigned.ipa Payload/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SwipeSmart-unsigned
+          path: mobile/ios/build/SwipeSmart-unsigned.ipa
+          retention-days: 7
