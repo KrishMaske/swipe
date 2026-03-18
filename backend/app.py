@@ -32,7 +32,13 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app_env = os.getenv("APP_ENV", "development").lower()
 
 if app_env in {"dev", "development", "local"}:
-    cors = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:5500"]
+    cors = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:5500",
+        "http://192.168.1.89:3000",
+        "http://192.168.1.89:8000"
+    ]
 else:
     configured = os.getenv("CORS_ORIGINS", "")
     cors = [origin.strip() for origin in configured.split(",") if origin.strip()]

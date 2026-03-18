@@ -36,6 +36,7 @@ export default function StarField() {
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
+    const animations: Animated.CompositeAnimation[] = [];
 
     stars.forEach((star) => {
       const delay = Math.floor(Math.random() * 4000);
@@ -70,6 +71,9 @@ export default function StarField() {
         ])
       );
 
+      animations.push(twinkleLoop);
+      animations.push(driftLoop);
+
       const t = setTimeout(() => {
         twinkleLoop.start();
         driftLoop.start();
@@ -80,6 +84,7 @@ export default function StarField() {
 
     return () => {
       timers.forEach(clearTimeout);
+      animations.forEach((anim) => anim.stop());
       stars.forEach((star) => {
         star.opacity.stopAnimation();
         star.translateY.stopAnimation();

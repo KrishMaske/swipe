@@ -103,7 +103,8 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
     useCallback(() => {
       fetchAccounts();
       fetchBudgets();
-    }, [fetchAccounts, fetchBudgets])
+      fetchFraudAlerts();
+    }, [fetchAccounts, fetchBudgets, fetchFraudAlerts])
   );
 
   useEffect(() => {

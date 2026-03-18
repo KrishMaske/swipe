@@ -11,7 +11,9 @@ import {
   Platform,
   TextInput,
   ActivityIndicator,
+  StyleSheet as RNStyleSheet,
 } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,11 +64,12 @@ export default function SettingsScreen() {
     setEmailInput(user?.email || '');
   }, [user?.email]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      refreshUser();
-    }, [refreshUser])
-  );
+  // Removed focus refresh that might be causing immediate closing issues
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     refreshUser();
+  //   }, [refreshUser])
+  // );
 
   const userAny = user as any;
   const pendingEmailFromUser: string | null =
@@ -282,20 +285,12 @@ export default function SettingsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 8, paddingBottom: 110 + insets.bottom },
+          { paddingBottom: 110 + insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerEyebrow}>Swipe</Text>
-            <Text style={styles.headerTitle}>Settings</Text>
-          </View>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
+        {/* Removed redundant custom header - now using native header from AppNavigator */}
 
         <View style={styles.card}>
           <View style={styles.profileRow}>
@@ -451,12 +446,12 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal
-        visible={activeModal !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeModal}
-      >
+      {activeModal !== null && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(200)}
+          style={StyleSheet.absoluteFill}
+        >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -626,7 +621,8 @@ export default function SettingsScreen() {
             </View>
           </KeyboardAvoidingView>
         </View>
-      </Modal>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -868,10 +864,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     paddingHorizontal: 20,
+    zIndex: 1000,
   },
   modalKeyboardWrap: {
     width: '100%',

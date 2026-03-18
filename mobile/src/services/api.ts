@@ -79,6 +79,21 @@ async function apiPut<T = any>(endpoint: string, body: any): Promise<T> {
   return res.json();
 }
 
+async function apiPatch<T = any>(endpoint: string, body: any): Promise<T> {
+  debugApiLog(`network PATCH ${endpoint}`);
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 async function apiDelete<T = any>(endpoint: string): Promise<T> {
   debugApiLog(`network DELETE ${endpoint}`);
   const headers = await getAuthHeaders();
@@ -178,34 +193,48 @@ export interface LocationEvaluationResponse {
 
 let userCardsCache: WalletCard[] | null = null;
 let userCardsInFlight: Promise<WalletCard[]> | null = null;
+let lastCardsForceRefreshAt = 0;
 
 async function getUserCardsCached(forceRefresh = false): Promise<WalletCard[]> {
-  debugApiLog(`cards request forceRefresh=${String(forceRefresh)}`);
+  const now = Date.now();
 
-  if (!forceRefresh && userCardsCache) {
-    debugApiLog(`cards cache-hit size=${userCardsCache.length}`);
+  // 1. If not forced and we have cache, return it
+  if (!forceRefresh && userCardsCache && userCardsCache.length > 0) {
+    debugApiLog('cards cache-hit');
     return userCardsCache;
   }
 
-  if (!forceRefresh && userCardsInFlight) {
-    debugApiLog('cards in-flight reuse');
+  // 2. If a request is already in flight, reuse it!
+  // This is the CRITICAL fix for the loop seen in logs.
+  if (userCardsInFlight) {
+    debugApiLog('cards request already in flight, reusing promise');
     return userCardsInFlight;
   }
 
-  debugApiLog('cards cache-miss, fetching');
+  // 3. Debounce forced refreshes (1.5s) to prevent spam from UI jiggles
+  if (forceRefresh && (now - lastCardsForceRefreshAt < 1500)) {
+    debugApiLog('cards forced refresh debounced');
+    return userCardsCache || [];
+  }
 
-  const fetchPromise = apiGet<WalletCard[]>('/api/user/cards')
-    .then((cards) => {
+  if (forceRefresh) {
+    lastCardsForceRefreshAt = now;
+  }
+
+  debugApiLog(`cards fetching (forced=${String(forceRefresh)})`);
+
+  userCardsInFlight = (async () => {
+    try {
+      const cards = await apiGet<WalletCard[]>('/api/user/cards');
       const normalized = cards || [];
       userCardsCache = normalized;
       return normalized;
-    })
-    .finally(() => {
+    } finally {
       userCardsInFlight = null;
-    });
+    }
+  })();
 
-  userCardsInFlight = fetchPromise;
-  return fetchPromise;
+  return userCardsInFlight;
 }
 
 export const api = {
@@ -231,7 +260,7 @@ export const api = {
 
   /** Trigger bank account sync */
   syncAccounts: () =>
-    apiGet<{ success: string }>('/api/accounts/sync'),
+    apiPost<{ success: string }>('/api/accounts/sync', {}),
 
   /** Get latest recorded bank sync timestamp for current user */
   getAccountSyncStatus: () =>
@@ -246,7 +275,7 @@ export const api = {
 
   /** Update editable transaction fields */
   updateTransaction: (txnId: string, transaction: TransactionUpdate) =>
-    apiPut<any>(`/api/transactions/${encodeURIComponent(txnId)}`, transaction),
+    apiPatch<any>(`/api/transactions/${encodeURIComponent(txnId)}`, transaction),
 
   /** Get all fraud-flagged transactions */
   getFraudulentTransactions: () =>
@@ -254,9 +283,9 @@ export const api = {
 
   /** Confirm or dismiss a fraud alert */
   updateFraudStatus: (txnId: string, isConfirmedFraud: boolean) =>
-    apiPost<any>(
-      `/api/transactions/update-fraud-status?txn_id=${encodeURIComponent(txnId)}&is_confirmed_fraud=${isConfirmedFraud}`,
-      {},
+    apiPatch<any>(
+      `/api/transactions/${encodeURIComponent(txnId)}/fraud`,
+      { is_confirmed_fraud: isConfirmedFraud },
     ),
 
   /** Ask the payments assistant */
@@ -272,11 +301,11 @@ export const api = {
 
   /** Create a new budget */
   createBudget: (budget: Omit<Budget, 'id' | 'user_id' | 'created_at' | 'updated_at'>) =>
-    apiPost<{ status: string }>('/api/transactions/create-budget', budget),
+    apiPost<{ status: string }>('/api/transactions/budgets', budget),
     
   /** Update an existing budget */
   updateBudget: (budgetId: string, budget: Partial<Budget>) =>
-    apiPut<{ status: string }>(`/api/transactions/budgets/${budgetId}`, budget),
+    apiPatch<{ status: string }>(`/api/transactions/budgets/${budgetId}`, budget),
     
   /** Delete a budget */
   deleteBudget: (budgetId: string) =>

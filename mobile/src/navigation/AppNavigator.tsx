@@ -9,8 +9,12 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { GlassBackground } from '../shared/components/ui/GlassBackground';
+import { IconSymbol } from '../shared/components/ui/icon-symbol';
 
 // Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -33,11 +37,11 @@ const { width } = Dimensions.get('window');
 const TAB_BAR_WIDTH = width - 32;
 const TAB_BAR_HEIGHT = 62;
 
-const TAB_CONFIG: Record<string, { activeIcon: string; inactiveIcon: string; label: string }> = {
-  Dashboard: { activeIcon: 'grid', inactiveIcon: 'grid-outline', label: 'Home' },
-  SwipeSmart: { activeIcon: 'card', inactiveIcon: 'card-outline', label: 'SwipeSmart' },
-  FraudAlerts: { activeIcon: 'shield', inactiveIcon: 'shield-outline', label: 'SwipeGuard' },
-  Chat: { activeIcon: 'chatbubbles', inactiveIcon: 'chatbubbles-outline', label: 'SwipeChat' },
+const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
+  Dashboard: { icon: "grid", label: "Home" },
+  SwipeSmart: { icon: "card", label: "SwipeSmart" },
+  FraudAlerts: { icon: "shield", label: "SwipeGuard" },
+  Chat: { icon: "chatbubbles", label: "SwipeChat" },
 };
 
 export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarProps>) {
@@ -66,20 +70,20 @@ export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarPr
   return (
     <View style={tabStyles.wrapper}>
       <View style={tabStyles.container}>
-        {Platform.OS === 'ios' ? (
-          <BlurView
-            intensity={85}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-        ) : null}
-        <View
-          style={[
-            tabStyles.glassOverlay,
-            Platform.OS === 'android' && tabStyles.glassOverlayAndroid,
-          ]}
+        {/* Liquid Glass / frosted background */}
+        <GlassBackground
+          style={StyleSheet.absoluteFill}
+          blurIntensity={80}
+          blurTint="dark"
+          tintColor="rgba(0, 0, 0, 0.4)"
+          fallbackColor={
+            Platform.OS === "android"
+              ? "rgba(8, 8, 10, 0.95)"
+              : "rgba(10, 10, 12, 0.85)"
+          }
         />
 
+        {/* Animated Pill — frosted capsule behind active tab */}
         <Animated.View
           style={[
             tabStyles.pillOuter,
@@ -90,11 +94,11 @@ export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarPr
           <View style={[tabStyles.pill, { width: PILL_WIDTH, height: PILL_HEIGHT }]} />
         </Animated.View>
 
+        {/* Tab Items */}
         <View style={tabStyles.tabRow}>
-          {routes.map((route, index: number) => {
+          {routes.map((route, index) => {
             const config = TAB_CONFIG[route.name] || {
-              activeIcon: 'help-circle',
-              inactiveIcon: 'help-circle-outline',
+              icon: "questionmark",
               label: route.name,
             };
             const isFocused = state.index === index;
@@ -118,10 +122,10 @@ export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarPr
                 onPress={handlePress}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name={(isFocused ? config.activeIcon : config.inactiveIcon) as any}
+                <IconSymbol
+                  name={config.icon}
                   size={isFocused ? 22 : 19}
-                  color={isFocused ? '#dc2626' : 'rgba(255,255,255,0.45)'}
+                  color={isFocused ? "#dc2626" : "rgba(255,255,255,0.4)"}
                 />
                 {config.label ? (
                   <Text style={[tabStyles.label, isFocused && tabStyles.labelActive]}>
@@ -201,7 +205,16 @@ function DashboardStack() {
       <MainStack.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ headerShown: false, presentation: 'modal' }}
+        options={{
+          headerShown: true,
+          title: 'Settings',
+          headerBackTitle: 'Back',
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: true,
+          headerStyle: { backgroundColor: Colors.bgPrimary },
+          headerTintColor: Colors.textPrimary,
+        }}
       />
       <MainStack.Screen
         name="BudgetTransactions"
@@ -408,14 +421,6 @@ const tabStyles = StyleSheet.create({
     shadowRadius: 28,
     elevation: 18,
   },
-  glassOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 10, 12, 0.35)',
-  },
-  glassOverlayAndroid: {
-    backgroundColor: 'rgba(8, 8, 10, 0.95)',
-  },
-
   // Pill
   pillOuter: {
     position: 'absolute',
