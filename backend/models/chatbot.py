@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime
 from dateutil import parser as dateutil_parser
 import re
@@ -7,6 +8,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from config.settings import embedder, groq_client
 
+logger = logging.getLogger(__name__)
 
 class Message(BaseModel):
     role: str
@@ -349,7 +351,7 @@ async def ask_financial_assistant(context, request: ChatRequest):
                     stop=None,
                 )
                 raw_msg = chat_completion.choices[0].message
-                print(f"[general guidance] content={repr(raw_msg.content)} | reasoning={repr(getattr(raw_msg, 'reasoning', 'N/A'))}")
+                logger.info(f"[general guidance] content={repr(raw_msg.content)} | reasoning={repr(getattr(raw_msg, 'reasoning', 'N/A'))}")
 
                 assistant_response = _extract_response_text(raw_msg)
                 if not assistant_response:
@@ -409,15 +411,15 @@ async def ask_financial_assistant(context, request: ChatRequest):
             stop=None,
         )
         raw_msg = chat_completion.choices[0].message
-        print(f"[main response] content={repr(raw_msg.content)} | reasoning={repr(getattr(raw_msg, 'reasoning', 'N/A'))}")
+        logger.info(f"[main response] content={repr(raw_msg.content)} | reasoning={repr(getattr(raw_msg, 'reasoning', 'N/A'))}")
 
         assistant_response = _extract_response_text(raw_msg)
         if not assistant_response:
             assistant_response = "I wasn't able to generate a response. Please try again."
-        print(f"[main response] final={repr(assistant_response)}")
+        logger.info(f"[main response] final={repr(assistant_response)}")
 
         return ChatResponse(response=assistant_response)
 
     except Exception as e:
-        print(f"Chatbot Error: {str(e)}")
+        logger.error(f"Chatbot Error: {str(e)}")
         raise HTTPException(status_code=500, detail="An error occurred while processing your question.")

@@ -1,12 +1,14 @@
 import os
-import requests
+import httpx
+import time
 from jose import jwt, JWTError
 from fastapi import HTTPException, Request, Depends
 from supabase import create_client, Client, ClientOptions
 from config.settings import jwks_url, supabase_url, supabase_key
 
 _jwks = None
-
+_jwks_last_fetched = 0
+JWKS_TTL = 3600  # 1 hour
 
 def _is_admin_from_payload(payload: dict) -> bool:
     role = str(payload.get("role") or "").lower()
@@ -22,19 +24,18 @@ def _is_admin_from_payload(payload: dict) -> bool:
         if isinstance(roles, list) and any(str(r).lower() == "admin" for r in roles):
             return True
 
-    user_metadata = payload.get("user_metadata") or {}
-    if isinstance(user_metadata, dict):
-        user_role = str(user_metadata.get("role") or "").lower()
-        if user_role == "admin":
-            return True
-
+    # Security fix: user_metadata is writable by the user, so it cannot be trusted for roles.
     return False
 
-def _get_jwks():
-    global _jwks
-    if _jwks is None:
-        jwks = requests.get(jwks_url, timeout=5).json()
-        _jwks = jwks["keys"]
+async def _get_jwks():
+    global _jwks, _jwks_last_fetched
+    now = time.time()
+    if _jwks is None or (now - _jwks_last_fetched) > JWKS_TTL:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(jwks_url, timeout=5)
+            jwks = response.json()
+            _jwks = jwks["keys"]
+            _jwks_last_fetched = now
     return _jwks
 
 def get_token(request: Request) -> str:
@@ -44,12 +45,13 @@ def get_token(request: Request) -> str:
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     return auth_header.replace("Bearer ", "")
 
-def get_user_context(token: str = Depends(get_token)) -> dict:
+async def get_user_context(token: str = Depends(get_token)) -> dict:
     """Verifies the JWT and returns a user-scoped Supabase client."""
     try:
+        jwks = await _get_jwks()
         payload = jwt.decode(
             token,
-            _get_jwks(),
+            jwks,
             algorithms=["ES256"],
             audience="authenticated",
             options={"verify_exp": True},
@@ -70,8 +72,8 @@ def get_user_context(token: str = Depends(get_token)) -> dict:
     }
 
 
-def require_admin_context(context: dict = Depends(get_user_context)) -> dict:
+async def require_admin_context(context: dict = Depends(get_user_context)) -> dict:
     """Ensures the caller has an admin role claim before allowing privileged actions."""
     if not context.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin role required")
-    return context
+    return context

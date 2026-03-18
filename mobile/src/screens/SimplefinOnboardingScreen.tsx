@@ -21,10 +21,12 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { OnboardingStackParamList } from '../types/navigation';
 
 const SIMPLEFIN_CREATE_URL = 'https://bridge.simplefin.org/simplefin/create';
 
-export default function SimplefinOnboardingScreen() {
+export default function SimplefinOnboardingScreen({ navigation }: { navigation: NativeStackNavigationProp<OnboardingStackParamList> }) {
   const insets = useSafeAreaInsets();
   const { signOut, refreshSimplefinStatus } = useAuth();
   const [setupToken, setSetupToken] = useState('');

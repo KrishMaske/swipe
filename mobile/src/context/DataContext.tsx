@@ -1,7 +1,10 @@
-import React, { createContext, useState, useContext, useCallback, useRef } from 'react';
-import { api, Account, Transaction, FraudTransaction, Budget } from '../services/api';
+import React, { createContext, useContext, useCallback, useRef } from 'react';
+import { api } from '../services/api';
 import * as Notifications from 'expo-notifications';
-import * as SecureStore from 'expo-secure-store';
+import { AccountProvider, useAccounts } from './AccountContext';
+import { TransactionProvider, useTransactions } from './TransactionContext';
+import { FraudProvider, useFraud } from './FraudContext';
+import { BudgetProvider, useBudgets } from './BudgetContext';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -13,138 +16,53 @@ Notifications.setNotificationHandler({
   }),
 });
 
-interface DataContextType {
-  accounts: Account[];
-  accountsLoading: boolean;
-  fetchAccounts: (forceRefresh?: boolean) => Promise<void>;
-  invalidateAccounts: () => void;
-  transactionsCache: Record<string, Transaction[]>;
-  transactionsLoading: Record<string, boolean>;
-  fetchTransactions: (accId: string, forceRefresh?: boolean) => Promise<void>;
-  fraudAlertsCache: FraudTransaction[] | null;
-  fraudAlertsLoading: boolean;
-  fetchFraudAlerts: (forceRefresh?: boolean) => Promise<void>;
-  optimisticallyRemoveFraudAlert: (txnId: string) => void;
-  budgetsCache: Budget[] | null;
-  budgetsLoading: boolean;
-  fetchBudgets: (forceRefresh?: boolean) => Promise<void>;
-  spendingByBudget: Record<string, number>; // budgetId -> total spent
-  budgetTransactions: Record<string, Transaction[]>; // budgetId -> matching transactions
-}
-
-const DataContext = createContext<DataContextType>({
-  accounts: [],
-  accountsLoading: true,
-  fetchAccounts: async () => {},
-  invalidateAccounts: () => {},
-  transactionsCache: {},
-  transactionsLoading: {},
-  fetchTransactions: async () => {},
-  fraudAlertsCache: null,
-  fraudAlertsLoading: true,
-  fetchFraudAlerts: async () => {},
-  optimisticallyRemoveFraudAlert: () => {},
-  budgetsCache: null,
-  budgetsLoading: true,
-  fetchBudgets: async () => {},
-  spendingByBudget: {},
-  budgetTransactions: {},
-});
-
-export const useData = () => useContext(DataContext);
-
-function debugCacheLog(message: string): void {
-  if (__DEV__) {
-    console.log(`[cache-debug] ${message}`);
-  }
-}
-
 const SYNC_STATUS_POLL_COOLDOWN_MS = 60_000;
 
+// DataContext now just serves as a way to access all contexts via useData()
+export const useData = () => {
+  const accounts = useAccounts();
+  const transactions = useTransactions();
+  const fraud = useFraud();
+  const budgets = useBudgets();
+
+  return {
+    ...accounts,
+    ...transactions,
+    ...fraud,
+    ...budgets,
+  };
+};
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountsLoading, setAccountsLoading] = useState(true);
-  const accountsLoaded = useRef(false);
-  const fetchInFlight = useRef<Promise<void> | null>(null);
-
-  const [transactionsCache, setTransactionsCache] = useState<Record<string, Transaction[]>>({});
-  const [transactionsLoading, setTransactionsLoading] = useState<Record<string, boolean>>({});
-  const txFetchInFlight = useRef<Record<string, Promise<void> | undefined>>({});
-  const transactionsCacheRef = useRef<Record<string, Transaction[]>>({});
-
-  const [fraudAlertsCache, setFraudAlertsCache] = useState<FraudTransaction[] | null>(null);
-  const [fraudAlertsLoading, setFraudAlertsLoading] = useState(true);
-  const fraudFetchInFlight = useRef<Promise<void> | null>(null);
-  const fraudAlertsCacheRef = useRef<FraudTransaction[] | null>(null);
-
-  const [budgetsCache, setBudgetsCache] = useState<Budget[] | null>(null);
-  const [budgetsLoading, setBudgetsLoading] = useState(true);
-  const budgetsFetchInFlight = useRef<Promise<void> | null>(null);
-  const budgetsCacheRef = useRef<Budget[] | null>(null);
-
   const lastKnownSync = useRef<number | null>(null);
   const syncCheckInFlight = useRef<Promise<boolean> | null>(null);
   const lastSyncStatusCheckAt = useRef<number>(0);
-  
-  const [spendingByBudget, setSpendingByBudget] = useState<Record<string, number>>({});
-  const [budgetTransactions, setBudgetTransactions] = useState<Record<string, Transaction[]>>({});
-
-  React.useEffect(() => {
-    transactionsCacheRef.current = transactionsCache;
-  }, [transactionsCache]);
-
-  React.useEffect(() => {
-    fraudAlertsCacheRef.current = fraudAlertsCache;
-  }, [fraudAlertsCache]);
-
-  React.useEffect(() => {
-    budgetsCacheRef.current = budgetsCache;
-  }, [budgetsCache]);
-
-  const clearDataCaches = useCallback(() => {
-    accountsLoaded.current = false;
-    transactionsCacheRef.current = {};
-    fraudAlertsCacheRef.current = null;
-    budgetsCacheRef.current = null;
-    setTransactionsCache({});
-    setFraudAlertsCache(null);
-    setBudgetsCache(null);
-  }, []);
+  const [syncTrigger, setSyncTrigger] = React.useState(0);
 
   const checkForScheduledSync = useCallback(async (): Promise<boolean> => {
     const now = Date.now();
-
     if (now - lastSyncStatusCheckAt.current < SYNC_STATUS_POLL_COOLDOWN_MS) {
       return false;
     }
-
     if (syncCheckInFlight.current) {
       return syncCheckInFlight.current;
     }
-
-    // Stamp before request so bursty callers in the same render cycle are rate-limited.
     lastSyncStatusCheckAt.current = now;
 
     const checkPromise = (async () => {
       try {
         const status = await api.getAccountSyncStatus();
         const remoteSync = status?.last_sync ?? null;
-
-        if (remoteSync == null) {
-          return false;
-        }
-
+        if (remoteSync == null) return false;
         if (lastKnownSync.current == null) {
           lastKnownSync.current = remoteSync;
           return false;
         }
-
         if (remoteSync > lastKnownSync.current) {
           lastKnownSync.current = remoteSync;
-          clearDataCaches();
+          setSyncTrigger(v => v + 1);
           return true;
         }
-
         return false;
       } catch {
         return false;
@@ -155,349 +73,60 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     syncCheckInFlight.current = checkPromise;
     return checkPromise;
-  }, [clearDataCaches]);
-
-  // Push Notification Helpers
-  const notifyFraud = async (txn: FraudTransaction) => {
-    const key = `notified_fraud_${txn.txn_id}`;
-    const alreadyNotified = await SecureStore.getItemAsync(key);
-    if (!alreadyNotified) {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Suspicious Transaction Detected',
-          body: `A transaction of $${txn.amount} at ${txn.merchant} was flagged as potentially fraudulent.`,
-          data: { type: 'fraud', txnId: txn.txn_id },
-        },
-        trigger: null,
-      });
-      await SecureStore.setItemAsync(key, 'true');
-    }
-  };
-
-  const notifyBudget = async (budget: Budget, percentage: number) => {
-    // percentage should be 50, 80, or 100
-    const key = `notified_budget_${budget.id}_${percentage}`;
-    const alreadyNotified = await SecureStore.getItemAsync(key);
-    if (!alreadyNotified) {
-      let title = '';
-      if (percentage >= 100) title = `Over Budget: ${budget.name}!`;
-      else if (percentage >= 80) title = `Almost there: ${budget.name} (80%)`;
-      else if (percentage >= 50) title = `Halfway there: ${budget.name} (50%)`;
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body: `You have spent ${percentage}% of your ${budget.category} budget for this ${budget.period}.`,
-          data: { type: 'budget', budgetId: budget.id },
-        },
-        trigger: null,
-      });
-      await SecureStore.setItemAsync(key, 'true');
-    }
-  };
-
-  const calculateBudgetSpending = useCallback((budgets: Budget[], allTransactions: Transaction[]) => {
-    const spending: Record<string, number> = {};
-    const transactionsByBudget: Record<string, Transaction[]> = {};
-    const now = new Date();
-
-    console.log(`[BudgetCalc] Starting calculation for ${budgets.length} budgets and ${allTransactions.length} transactions`);
-    budgets.forEach((b) => {
-      if (!b.id) return;
-      
-      // Determine the start date of the current period
-      let startDate = new Date();
-      switch (b.period) {
-        case 'daily':
-          startDate.setHours(0,0,0,0);
-          break;
-        case 'weekly':
-          // Start of current week (assuming Sunday start)
-          startDate.setDate(now.getDate() - now.getDay());
-          startDate.setHours(0,0,0,0);
-          break;
-        case 'biweekly':
-          // Start of alternative week
-          startDate.setDate(now.getDate() - 14);
-          startDate.setHours(0,0,0,0);
-          break;
-        case 'monthly':
-          startDate.setDate(1);
-          startDate.setHours(0,0,0,0);
-          break;
-        case '3-month':
-          // Start of current Quarter
-          startDate.setMonth(Math.floor(now.getMonth() / 3) * 3, 1);
-          startDate.setHours(0,0,0,0);
-          break;
-        case '6-month':
-          // Start of current Half-Year
-          startDate.setMonth(Math.floor(now.getMonth() / 6) * 6, 1);
-          startDate.setHours(0,0,0,0);
-          break;
-        case 'yearly':
-          startDate.setMonth(0, 1);
-          startDate.setHours(0,0,0,0);
-          break;
-        default:
-          startDate.setDate(1);
-          startDate.setHours(0,0,0,0);
-      }
-
-      const startEpoch = Math.floor(startDate.getTime() / 1000);
-      console.log(`[BudgetCalc] Budget '${b.name}' | Cat: '${b.category}' | Period: ${b.period} | StartDate: ${startDate.toISOString()} (Epoch: ${startEpoch})`);
-      
-      let matchedCount = 0;
-      
-      const spent = allTransactions
-        .filter(t => {
-           let txnEpoch = t.txn_date as number;
-           const dateVal = t.txn_date as unknown as string | number;
-           if (typeof dateVal === 'string') {
-             const safeDateString = dateVal.includes(' ') ? dateVal.replace(' ', 'T') : dateVal;
-             txnEpoch = new Date(safeDateString).getTime() / 1000;
-           }
-           
-           // Detailed log for the first matched category to see why it might fail
-           if (t.category === b.category) {
-             console.log(`  -> Analyzing Txn [${t.merchant}]: Amount=${t.amount}, Has TxnEpoch=${txnEpoch} (Needs >= ${startEpoch})`);
-           }
-           
-           const categoryMatch = t.category.trim().toLowerCase() === b.category.trim().toLowerCase();
-           const amountMatch = t.amount < 0;
-           const dateMatch = txnEpoch >= startEpoch;
-           
-           if (categoryMatch && amountMatch && dateMatch) {
-             matchedCount++;
-             if (b.id !== undefined) {
-               if (!transactionsByBudget[b.id]) transactionsByBudget[b.id] = [];
-               transactionsByBudget[b.id].push(t);
-             }
-             return true;
-           }
-           return false;
-        })
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-        
-      console.log(`[BudgetCalc] Budget '${b.name}' finished: Matched ${matchedCount} txns, Total Spent=$${spent.toFixed(2)}`);
-      if (b.id !== undefined) {
-        spending[b.id] = spent;
-        if (!transactionsByBudget[b.id]) transactionsByBudget[b.id] = [];
-      }
-
-      // Check for notifications
-      const pct = (spent / b.amount) * 100;
-      if (pct >= 100) notifyBudget(b, 100);
-      else if (pct >= 80) notifyBudget(b, 80);
-      else if (pct >= 50) notifyBudget(b, 50);
-    });
-    
-    setSpendingByBudget(spending);
-    setBudgetTransactions(transactionsByBudget);
   }, []);
 
-  // Update spending whenever transactions or budgets change
-  React.useEffect(() => {
-    const allTxns = Object.values(transactionsCache).flatMap((c) => c);
-    console.log(`[BudgetCalc] Trigger Tracker => Budgets Loaded: ${!!budgetsCache}, TxnCount: ${allTxns.length}`);
-    if (budgetsCache) {
-      calculateBudgetSpending(budgetsCache, allTxns);
-    }
-  }, [transactionsCache, budgetsCache, calculateBudgetSpending]);
-
-  const fetchAccounts = useCallback(async (forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
-
-    if (!forceRefresh && !detectedSync && accountsLoaded.current) {
-      debugCacheLog('accounts cache-hit');
-      setAccountsLoading(false);
-      return;
-    }
-
-    debugCacheLog(`accounts fetch force=${String(forceRefresh)} syncInvalidate=${String(detectedSync)}`);
-
-    // Deduplicate concurrent calls — if a fetch is already in progress, await it
-    if (fetchInFlight.current) {
-      await fetchInFlight.current;
-      return;
-    }
-
-    const doFetch = async () => {
-      try {
-        setAccountsLoading(true);
-        const data = await api.getAccounts();
-        setAccounts(data || []);
-        accountsLoaded.current = true;
-      } catch (err: any) {
-        // Silently handle — user may not have linked bank yet
-      } finally {
-        setAccountsLoading(false);
-        fetchInFlight.current = null;
-      }
-    };
-
-    fetchInFlight.current = doFetch();
-    await fetchInFlight.current;
-  }, [checkForScheduledSync]);
-
-  const invalidateAccounts = useCallback(() => {
-    clearDataCaches();
-  }, [clearDataCaches]);
-
-  const fetchTransactions = useCallback(async (accId: string, forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
-    const cached = transactionsCacheRef.current[accId];
-
-    if (!forceRefresh && !detectedSync && cached) {
-      debugCacheLog(`transactions cache-hit accId=${accId} size=${cached.length}`);
-      return;
-    }
-
-    debugCacheLog(`transactions fetch accId=${accId} force=${String(forceRefresh)} syncInvalidate=${String(detectedSync)}`);
-
-    if (txFetchInFlight.current[accId]) {
-      await txFetchInFlight.current[accId];
-      return;
-    }
-
-    const doFetch = async () => {
-      try {
-        setTransactionsLoading((prev) => ({ ...prev, [accId]: true }));
-        const data = await api.getTransactions(accId);
-         const sorted = (data || []).sort((a, b) => {
-           // Handle both string timestamps and epoch numbers for sorting
-           const getTime = (val: unknown) => {
-             if (typeof val === 'string') {
-               return new Date((val as string).includes(' ') ? (val as string).replace(' ', 'T') : (val as string)).getTime();
-             }
-             return (val as number) * 1000;
-           };
-           return getTime(b.txn_date) - getTime(a.txn_date);
-        });
-
-        setTransactionsCache((prev) => ({
-          ...prev,
-          [accId]: sorted,
-        }));
-        transactionsCacheRef.current = {
-          ...transactionsCacheRef.current,
-          [accId]: sorted,
-        };
-        console.log(`[BudgetCalc] Fetched and cached ${sorted.length} transactions for account ${accId}`);
-      } catch (err) {
-        // Silently handle
-      } finally {
-        setTransactionsLoading((prev) => ({ ...prev, [accId]: false }));
-        delete txFetchInFlight.current[accId];
-      }
-    };
-
-    txFetchInFlight.current[accId] = doFetch();
-    await txFetchInFlight.current[accId];
-  }, [checkForScheduledSync]);
-
-  const fetchFraudAlerts = useCallback(async (forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
-
-    if (!forceRefresh && !detectedSync && fraudAlertsCacheRef.current) {
-      debugCacheLog(`fraud cache-hit size=${fraudAlertsCacheRef.current.length}`);
-      setFraudAlertsLoading(false);
-      return;
-    }
-
-    debugCacheLog(`fraud fetch force=${String(forceRefresh)} syncInvalidate=${String(detectedSync)}`);
-
-    if (fraudFetchInFlight.current) {
-      await fraudFetchInFlight.current;
-      return;
-    }
-
-    const doFetch = async () => {
-      try {
-        setFraudAlertsLoading(true);
-        const data = await api.getFraudulentTransactions();
-        // pre-filter to unresolved alerts
-        const unresolved = data.filter((t: FraudTransaction) => t.is_confirmed_fraud === null);
-        fraudAlertsCacheRef.current = unresolved;
-        setFraudAlertsCache(unresolved);
-
-        // Trigger notifications for new fraud
-        unresolved.forEach(notifyFraud);
-      } catch (err) {
-        // Silently handle
-      } finally {
-        setFraudAlertsLoading(false);
-        fraudFetchInFlight.current = null;
-      }
-    };
-
-    fraudFetchInFlight.current = doFetch();
-    await fraudFetchInFlight.current;
-  }, [checkForScheduledSync]);
-
-  const fetchBudgets = useCallback(async (forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
-
-    if (!forceRefresh && !detectedSync && budgetsCacheRef.current) {
-      debugCacheLog(`budgets cache-hit size=${budgetsCacheRef.current.length}`);
-      setBudgetsLoading(false);
-      return;
-    }
-
-    debugCacheLog(`budgets fetch force=${String(forceRefresh)} syncInvalidate=${String(detectedSync)}`);
-
-    if (budgetsFetchInFlight.current) {
-      await budgetsFetchInFlight.current;
-      return;
-    }
-
-    const doFetch = async () => {
-      try {
-        setBudgetsLoading(true);
-        const data = await api.getBudgets();
-        budgetsCacheRef.current = data || [];
-        setBudgetsCache(data || []);
-      } catch (err) {
-        // Silently handle
-      } finally {
-        setBudgetsLoading(false);
-        budgetsFetchInFlight.current = null;
-      }
-    };
-
-    budgetsFetchInFlight.current = doFetch();
-    await budgetsFetchInFlight.current;
-  }, [checkForScheduledSync]);
-
-  const optimisticallyRemoveFraudAlert = useCallback((txnId: string) => {
-    setFraudAlertsCache((prev) => {
-      if (!prev) return prev;
-      return prev.filter((t) => t.txn_id !== txnId);
-    });
+  const clearDataCaches = useCallback(() => {
+    setSyncTrigger(v => v + 1);
   }, []);
 
   return (
-    <DataContext.Provider
-      value={{
-        accounts,
-        accountsLoading,
-        fetchAccounts,
-        invalidateAccounts,
-        transactionsCache,
-        transactionsLoading,
-        fetchTransactions,
-        fraudAlertsCache,
-        fraudAlertsLoading,
-        fetchFraudAlerts,
-        optimisticallyRemoveFraudAlert,
-        budgetsCache,
-        budgetsLoading,
-        fetchBudgets,
-        spendingByBudget,
-        budgetTransactions,
-      }}
-    >
-      {children}
-    </DataContext.Provider>
+    <AccountProvider checkForScheduledSync={checkForScheduledSync} clearAllCaches={clearDataCaches} syncTrigger={syncTrigger}>
+      <SyncWrappedTransactionProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
+        <SyncWrappedFraudProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
+          <SyncWrappedBudgetProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
+            {children}
+          </SyncWrappedBudgetProvider>
+        </SyncWrappedFraudProvider>
+      </SyncWrappedTransactionProvider>
+    </AccountProvider>
   );
 }
+
+// Helper components to avoid hook order issues and ensure access to TransactionContext
+function SyncWrappedTransactionProvider({ children, checkForScheduledSync, syncTrigger }: { 
+  children: React.ReactNode, 
+  checkForScheduledSync: () => Promise<boolean>,
+  syncTrigger: number
+}) {
+  return (
+    <TransactionProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
+      {children}
+    </TransactionProvider>
+  );
+}
+
+function SyncWrappedFraudProvider({ children, checkForScheduledSync, syncTrigger }: { 
+  children: React.ReactNode, 
+  checkForScheduledSync: () => Promise<boolean>,
+  syncTrigger: number
+}) {
+  return (
+    <FraudProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
+      {children}
+    </FraudProvider>
+  );
+}
+
+function SyncWrappedBudgetProvider({ children, checkForScheduledSync, syncTrigger }: { 
+  children: React.ReactNode, 
+  checkForScheduledSync: () => Promise<boolean>,
+  syncTrigger: number
+}) {
+  const { transactionsCache } = useTransactions();
+  return (
+    <BudgetProvider checkForScheduledSync={checkForScheduledSync} transactionsCache={transactionsCache} syncTrigger={syncTrigger}>
+      {children}
+    </BudgetProvider>
+  );
+}
+

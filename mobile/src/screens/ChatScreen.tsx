@@ -18,7 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { api, ChatMessage } from '../services/api';
+import { AppStackParamList } from '../types/navigation';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -149,7 +151,9 @@ function MessageBubble({ item }: { item: DisplayMessage }) {
   );
 }
 
-export default function ChatScreen() {
+type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
+
+export default function ChatScreen({ navigation }: { navigation: NavigationProp }) {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [history, setHistory] = useState<ChatMessage[]>([]);
@@ -240,12 +244,6 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 

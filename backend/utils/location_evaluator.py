@@ -1,7 +1,6 @@
 import re
 from typing import Any
-
-import requests
+import httpx
 
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
@@ -13,7 +12,7 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 _MAX_GEOFENCES = 18  # iOS allows 20 total; leave 2 as buffer
 
 
-def get_nearby_merchants(latitude: float, longitude: float, radius: int = 400) -> list[dict[str, Any]]:
+async def get_nearby_merchants(latitude: float, longitude: float, radius: int = 400) -> list[dict[str, Any]]:
     """Return named commercial POIs within `radius` metres using the Overpass API."""
     query = f"""
 [out:json][timeout:8];
@@ -26,14 +25,15 @@ def get_nearby_merchants(latitude: float, longitude: float, radius: int = 400) -
 out body {_MAX_GEOFENCES};
 """
     try:
-        response = requests.post(
-            OVERPASS_URL,
-            data={"data": query},
-            headers={"User-Agent": "SwipeSmart/1.0"},
-            timeout=8,
-        )
-        response.raise_for_status()
-        elements = response.json().get("elements", [])
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                OVERPASS_URL,
+                data={"data": query},
+                headers={"User-Agent": "SwipeSmart/1.0"},
+                timeout=8,
+            )
+            response.raise_for_status()
+            elements = response.json().get("elements", [])
 
         merchants = []
         for el in elements:
@@ -71,7 +71,7 @@ def _clean_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", (value or "")).strip()
 
 
-def resolve_place_details(latitude: float, longitude: float) -> dict[str, Any]:
+async def resolve_place_details(latitude: float, longitude: float) -> dict[str, Any]:
     fallback = {
         "place_name": "Nearby merchant",
         "display_name": "Nearby merchant",
@@ -81,21 +81,22 @@ def resolve_place_details(latitude: float, longitude: float) -> dict[str, Any]:
     }
 
     try:
-        response = requests.get(
-            NOMINATIM_URL,
-            params={
-                "lat": latitude,
-                "lon": longitude,
-                "format": "jsonv2",
-                "zoom": 18,
-                "addressdetails": 1,
-                "namedetails": 1,
-            },
-            headers=NOMINATIM_HEADERS,
-            timeout=6,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                NOMINATIM_URL,
+                params={
+                    "lat": latitude,
+                    "lon": longitude,
+                    "format": "jsonv2",
+                    "zoom": 18,
+                    "addressdetails": 1,
+                    "namedetails": 1,
+                },
+                headers=NOMINATIM_HEADERS,
+                timeout=6,
+            )
+            response.raise_for_status()
+            payload = response.json()
 
         display_name = _clean_text(payload.get("display_name")) or fallback["display_name"]
         place_name = (
@@ -221,4 +222,4 @@ def evaluate_best_card(cards: list[dict[str, Any]], place: dict[str, Any]) -> di
         "best_card_name": best_match.get("best_card_name") if best_match else None,
         "multiplier": best_match.get("multiplier") if best_match else None,
         "matched_key": best_match.get("matched_key") if best_match else None,
-    }
+    }

@@ -82,7 +82,9 @@ async function sendCardNotification(evaluation: LocationEvaluationResponse) {
 if (!TaskManager.isTaskDefined(MERCHANT_SEED_TASK)) {
   TaskManager.defineTask(MERCHANT_SEED_TASK, async ({ data, error }) => {
     if (error) {
-      console.warn('[LocationService] Seed task error:', error.message);
+      if (__DEV__) {
+        console.warn('[LocationService] Seed task error:', error.message);
+      }
       return;
     }
 
@@ -122,7 +124,9 @@ if (!TaskManager.isTaskDefined(MERCHANT_SEED_TASK)) {
       }
       await Location.startGeofencingAsync(GEOFENCE_ENTER_TASK, regions);
     } catch (err) {
-      console.warn('[LocationService] Failed to seed geofences:', err);
+      if (__DEV__) {
+        console.warn('[LocationService] Failed to seed geofences:', err);
+      }
     }
   });
 }
@@ -133,7 +137,9 @@ if (!TaskManager.isTaskDefined(MERCHANT_SEED_TASK)) {
 if (!TaskManager.isTaskDefined(GEOFENCE_ENTER_TASK)) {
   TaskManager.defineTask(GEOFENCE_ENTER_TASK, async ({ data, error }) => {
     if (error) {
-      console.warn('[LocationService] Geofence task error:', error.message);
+      if (__DEV__) {
+        console.warn('[LocationService] Geofence task error:', error.message);
+      }
       return;
     }
 
@@ -167,7 +173,9 @@ if (!TaskManager.isTaskDefined(GEOFENCE_ENTER_TASK)) {
 
       await sendCardNotification(evaluation);
     } catch (err) {
-      console.warn('[LocationService] Failed to evaluate geofence entry:', err);
+      if (__DEV__) {
+        console.warn('[LocationService] Failed to evaluate geofence entry:', err);
+      }
     }
   });
 }

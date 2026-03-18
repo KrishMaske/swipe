@@ -19,9 +19,10 @@ import { useAuth } from '../context/AuthContext';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { AuthNavigationProp } from '../types/navigation';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: AuthNavigationProp;
 };
 
 export default function LoginScreen({ navigation }: Props) {
@@ -85,10 +86,7 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <LinearGradient
-      colors={['#000000', '#000000']}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <StarField />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -220,7 +218,7 @@ export default function LoginScreen({ navigation }: Props) {
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 

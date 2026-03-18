@@ -209,6 +209,12 @@ async function getUserCardsCached(forceRefresh = false): Promise<WalletCard[]> {
 }
 
 export const api = {
+  /** Clear user cards cache (e.g., on logout) */
+  clearCardsCache: () => {
+    userCardsCache = null;
+    userCardsInFlight = null;
+  },
+
   /** Check if the current user has linked SimpleFIN */
   getSimplefinStatus: () =>
     apiGet<{ linked: boolean }>('/api/simplefin/status'),

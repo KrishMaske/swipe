@@ -28,41 +28,15 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { api, WalletCard } from '../services/api';
+import { AppStackParamList } from '../types/navigation';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 
 const ALL_CARDS = require('../../data/cards.json') as WalletCard[];
 
-function ScalePressable({
-  onPress,
-  onLongPress,
-  delayLongPress,
-  style,
-  children,
-}: {
-  onPress?: () => void;
-  onLongPress?: () => void;
-  delayLongPress?: number;
-  style?: any;
-  children: React.ReactNode;
-}) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(scale.value, { damping: 15, stiffness: 400 }) }],
-  }));
-  return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={delayLongPress}
-      onPressIn={() => { scale.value = 0.965; }}
-      onPressOut={() => { scale.value = 1; }}
-    >
-      <Animated.View style={[style, animStyle]}>{children}</Animated.View>
-    </Pressable>
-  );
-}
+import { ScalePressable } from '../components/ScalePressable';
 
 function getTopReward(card: WalletCard) {
   const entries = Object.entries(card.reward_multipliers || {});
@@ -74,7 +48,9 @@ function getTopReward(card: WalletCard) {
   };
 }
 
-export default function SwipeSmartScreen({ navigation }: any) {
+type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
+
+export default function SwipeSmartScreen({ navigation }: { navigation: NavigationProp }) {
   const insets = useSafeAreaInsets();
 
   // Wallet state
@@ -166,12 +142,6 @@ export default function SwipeSmartScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <ScrollView

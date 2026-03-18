@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
+import shutil
+import tempfile
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime, timezone
@@ -253,10 +255,29 @@ def train_global_fraud_detector(all_transactions: list[dict]):
     )
     model.fit(X_scaled)
 
-    # 5 ── Persist
-    joblib.dump(model, GLOBAL_MODEL_PATH)
-    joblib.dump(scaler, GLOBAL_SCALER_PATH)
-    joblib.dump(user_profiles, USER_PROFILES_PATH)
+    # 5 ── Persist with versioning and atomic swap
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    
+    # Define versioned paths
+    v_model_path = os.path.join(_DIR, f"global_fraud_detector_{timestamp}.pkl")
+    v_scaler_path = os.path.join(_DIR, f"global_fraud_scaler_{timestamp}.pkl")
+    v_profile_path = os.path.join(_DIR, f"user_profiles_{timestamp}.pkl")
+    
+    # Save versioned files first
+    joblib.dump(model, v_model_path)
+    joblib.dump(scaler, v_scaler_path)
+    joblib.dump(user_profiles, v_profile_path)
+    
+    # Atomic swap: Save to temp then rename to "current" paths
+    def atomic_save(obj, target_path):
+        with tempfile.NamedTemporaryFile("wb", delete=False, dir=_DIR) as tf:
+            temp_name = tf.name
+            joblib.dump(obj, temp_name)
+        os.replace(temp_name, target_path)
+
+    atomic_save(model, GLOBAL_MODEL_PATH)
+    atomic_save(scaler, GLOBAL_SCALER_PATH)
+    atomic_save(user_profiles, USER_PROFILES_PATH)
 
     # Bust the in-memory cache so next inference picks up the new model
     global _global_model, _global_scaler, _user_profiles
@@ -337,8 +358,9 @@ def score_transaction(txn: dict, user_id: str) -> dict:
         
     risk_score = round(risk_score, 3)
 
+    threshold = float(os.getenv("FRAUD_THRESHOLD", "0.45"))
     return {
-        "is_anomaly": bool(prediction == -1 or risk_score >= 0.45),
+        "is_anomaly": bool(prediction == -1 or risk_score >= threshold),
         "risk_score": risk_score,
         "features": feature_breakdown,
     }

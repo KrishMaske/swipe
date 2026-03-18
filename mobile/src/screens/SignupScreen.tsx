@@ -19,9 +19,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { AuthNavigationProp } from '../types/navigation';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: AuthNavigationProp;
 };
 
 export default function SignupScreen({ navigation }: Props) {
@@ -80,10 +81,7 @@ export default function SignupScreen({ navigation }: Props) {
   };
 
   return (
-    <LinearGradient
-      colors={['#000000', '#000000']}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <StarField />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -227,7 +225,7 @@ export default function SignupScreen({ navigation }: Props) {
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 

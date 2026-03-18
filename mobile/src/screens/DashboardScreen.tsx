@@ -27,8 +27,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SvgUri } from 'react-native-svg';
-import { api } from '../services/api';
+import { api, Account, Budget } from '../services/api';
+import { AppStackParamList } from '../types/navigation';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -60,37 +62,11 @@ const PROVIDER_LOGO_SCALE: Record<string, number> = {
   bofa: 1.65,
 };
 
-function ScalePressable({
-  onPress,
-  onLongPress,
-  delayLongPress,
-  style,
-  children,
-}: {
-  onPress?: () => void;
-  onLongPress?: () => void;
-  delayLongPress?: number;
-  style?: any;
-  children: React.ReactNode;
-}) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(scale.value, { damping: 15, stiffness: 400 }) }],
-  }));
-  return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={delayLongPress}
-      onPressIn={() => { scale.value = 0.965; }}
-      onPressOut={() => { scale.value = 1; }}
-    >
-      <Animated.View style={[style, animStyle]}>{children}</Animated.View>
-    </Pressable>
-  );
-}
+import { ScalePressable } from '../components/ScalePressable';
 
-export default function DashboardScreen({ navigation }: any) {
+type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
+
+export default function DashboardScreen({ navigation }: { navigation: NavigationProp }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const budgetCardWidth = Math.min(Math.max(width - 96, 240), 320);
@@ -153,18 +129,47 @@ export default function DashboardScreen({ navigation }: any) {
   const runBackendSync = async () => {
     setSyncing(true);
     try {
+      // Get initial sync status to detect completion
+      const initialStatus = await api.getAccountSyncStatus();
+      const initialSyncTime = initialStatus?.last_sync ?? 0;
+
       const result = await api.syncAccounts();
       Alert.alert(
         'Sync Started',
         result.success || 'Account sync initiated. Transactions will update in the background.'
       );
-      setTimeout(async () => {
+
+      // Poll for sync completion
+      let attempts = 0;
+      const MAX_ATTEMPTS = 10;
+      const poll = async () => {
+        if (attempts >= MAX_ATTEMPTS) {
+          refreshDataAfterSync();
+          return;
+        }
+
+        attempts++;
+        const currentStatus = await api.getAccountSyncStatus();
+        const currentSyncTime = currentStatus?.last_sync ?? 0;
+
+        if (currentSyncTime > initialSyncTime) {
+          refreshDataAfterSync();
+        } else {
+          setTimeout(poll, 3000);
+        }
+      };
+
+      const refreshDataAfterSync = async () => {
         invalidateAccounts();
         await fetchAccounts(true);
         await fetchBudgets(true);
         await fetchFraudAlerts(true);
-        await Promise.all((accounts || []).map((acc) => fetchTransactions(acc.acc_id, true)));
-      }, 3000);
+        if (accounts && accounts.length > 0) {
+          await Promise.all(accounts.map((acc) => fetchTransactions(acc.acc_id, true)));
+        }
+      };
+
+      poll();
     } catch (err: any) {
       Alert.alert('Sync Failed', err.message || 'Could not sync accounts');
     } finally {
@@ -200,19 +205,25 @@ export default function DashboardScreen({ navigation }: any) {
       return;
     }
 
+    const amountNum = parseFloat(newBudget.amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount greater than 0.');
+      return;
+    }
+
     setCreatingBudget(true);
     try {
       if (editingBudgetId) {
         await api.updateBudget(editingBudgetId, {
           name: newBudget.name,
-          amount: parseFloat(newBudget.amount),
+          amount: amountNum,
           category: newBudget.category,
           period: newBudget.period,
         });
       } else {
         await api.createBudget({
           name: newBudget.name,
-          amount: parseFloat(newBudget.amount),
+          amount: amountNum,
           category: newBudget.category,
           period: newBudget.period,
         });
@@ -285,12 +296,6 @@ export default function DashboardScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <ScrollView
@@ -398,7 +403,7 @@ export default function DashboardScreen({ navigation }: any) {
                   <ScalePressable
                     onPress={() =>
                       navigation.navigate('BudgetTransactions', {
-                        budgetId: budget.id,
+                        budgetId: budget.id!,
                         budgetName: budget.name,
                       })
                     }

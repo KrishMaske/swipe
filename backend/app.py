@@ -2,6 +2,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from contextlib import asynccontextmanager
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from config.rate_limit import limiter
+
 from routes.token_exchange import router as token_exchange
 from routes.bank_routes import router as bank_routes
 from routes.card_routes import router as card_routes
@@ -9,6 +13,7 @@ from routes.chatbot_routes import router as chatbot_routes
 from routes.model_routes import router as model_routes
 from routes.account_routes import router as account_routes
 from scheduler import start_scheduler, stop_scheduler
+
 
 
 @asynccontextmanager
@@ -21,6 +26,8 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app_env = os.getenv("APP_ENV", "development").lower()
 
@@ -47,6 +54,10 @@ app.include_router(chatbot_routes)
 app.include_router(model_routes)
 app.include_router(account_routes)
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 @app.get("/")
 def read_root():
     return {"message": "Hello World"}
@@ -54,4 +65,6 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)

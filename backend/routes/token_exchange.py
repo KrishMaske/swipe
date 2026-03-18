@@ -9,13 +9,15 @@ router = APIRouter()
 class SimplefinPayload(BaseModel):
     setup_token: str
 
-@router.post("/api/exchange_setup")
-def exchange_setup_endpoint(payload: SimplefinPayload, context: dict = Depends(get_user_context)):
-    access_url = exchange_setup(payload.setup_token)
+@router.post("/api/exchange-setup")
+async def exchange_setup_handler(payload: SimplefinPayload, context: dict = Depends(get_user_context)):
+    """Standardized to kebab-case: exchanges a SimpleFIN setup token for an access URL."""
+    access_url = await exchange_setup(payload.setup_token)
     
     if isinstance(access_url, dict) and "error" in access_url:
         raise HTTPException(status_code=400, detail=access_url["error"])
     
+    # create_simplefin_connection is currently sync
     result = create_simplefin_connection(context, access_url)
     
     if "error" in result:
@@ -24,5 +26,5 @@ def exchange_setup_endpoint(payload: SimplefinPayload, context: dict = Depends(g
     return {"message": "Setup exchange successful"}
 
 @router.get("/api/simplefin/status")
-def simplefin_status_endpoint(context: dict = Depends(get_user_context)):
+async def simplefin_status_handler(context: dict = Depends(get_user_context)):
     return {"linked": has_simplefin_connection(context)}

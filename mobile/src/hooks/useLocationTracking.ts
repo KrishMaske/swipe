@@ -73,50 +73,46 @@ export function useLocationTracking(enabled = true) {
 
         await ensureLocationNotificationChannelAsync();
 
-        const notificationPermissions = await Notifications.requestPermissionsAsync({
-          ios: {
-            allowAlert: true,
-            allowBadge: true,
-            allowSound: true,
-          },
-        });
+        const [notificationPermissions, foregroundPermissions, backgroundPermissions] = await Promise.all([
+          Notifications.getPermissionsAsync(),
+          Location.getForegroundPermissionsAsync(),
+          Location.getBackgroundPermissionsAsync(),
+        ]);
 
         if (notificationPermissions.status !== 'granted') {
           if (!cancelled) {
             setState({
-              hasForegroundPermission: false,
-              hasBackgroundPermission: false,
+              hasForegroundPermission: foregroundPermissions.status === 'granted',
+              hasBackgroundPermission: backgroundPermissions.status === 'granted',
               hasNotificationPermission: false,
               isTracking: false,
-              error: 'Notification permission was denied.',
+              error: 'Notification permission is required but not granted.',
             });
           }
           return;
         }
 
-        const foregroundPermissions = await Location.requestForegroundPermissionsAsync();
         if (foregroundPermissions.status !== 'granted') {
           if (!cancelled) {
             setState({
               hasForegroundPermission: false,
-              hasBackgroundPermission: false,
-              hasNotificationPermission: notificationPermissions.status === 'granted',
+              hasBackgroundPermission: backgroundPermissions.status === 'granted',
+              hasNotificationPermission: true,
               isTracking: false,
-              error: 'Foreground location permission was denied.',
+              error: 'Foreground location permission is required but not granted.',
             });
           }
           return;
         }
 
-        const backgroundPermissions = await Location.requestBackgroundPermissionsAsync();
         if (backgroundPermissions.status !== 'granted') {
           if (!cancelled) {
             setState({
               hasForegroundPermission: true,
               hasBackgroundPermission: false,
-              hasNotificationPermission: notificationPermissions.status === 'granted',
+              hasNotificationPermission: true,
               isTracking: false,
-              error: 'Background location permission was denied.',
+              error: 'Background location permission is required but not granted.',
             });
           }
           return;
