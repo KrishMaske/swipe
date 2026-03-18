@@ -32,9 +32,11 @@ jobs:
 
       - name: Align Expo package versions for current SDK
         working-directory: mobile
+        env:
+          CI: 1
         run: |
-          npx expo install --fix --non-interactive
-          npx expo install expo-modules-core --non-interactive
+          npx expo install --fix
+          npx expo install expo-modules-core
 
       - name: Show Expo and React Native versions
         working-directory: mobile
