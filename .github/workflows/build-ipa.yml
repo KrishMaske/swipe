@@ -64,11 +64,16 @@ jobs:
       - name: Patch Podfile for Swift 6
         working-directory: mobile/ios
         run: |
-          echo "Injecting Swift 6.0 setting into existing post_install block..."
-          # Use sed to insert the Swift version setting after the post_install line
-          # This avoids the "multiple post_install hooks" error
-          sed -i '' '/post_install do |installer|/a\
-            installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings["SWIFT_VERSION"] = "6.0" } }' Podfile
+          echo "Creating Ruby patch script..."
+          cat <<EOF > patch_podfile.rb
+          content = File.read('Podfile')
+          # Inject Swift 6.0 setting into the existing post_install block
+          # We insert it right after the block start
+          patched = content.gsub(/post_install do \|installer\|/, "post_install do |installer|\n  installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['SWIFT_VERSION'] = '6.0' } }")
+          File.write('Podfile', patched)
+          EOF
+          echo "Applying Ruby patch..."
+          ruby patch_podfile.rb
           echo "Podfile patched successfully."
 
       - name: Install CocoaPods
