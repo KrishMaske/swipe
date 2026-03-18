@@ -6,10 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { AuthNavigationProp } from '../types/navigation';
 import StarField from '../components/StarField';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: AuthNavigationProp;
 };
 
 export default function AuthLandingScreen({ navigation }: Props) {
@@ -22,12 +23,6 @@ export default function AuthLandingScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 26 }]}> 

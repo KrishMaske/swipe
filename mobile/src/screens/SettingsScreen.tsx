@@ -21,6 +21,8 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { AppStackParamList } from '../types/navigation';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const SIMPLEFIN_BRIDGE_URL = 'https://bridge.simplefin.org/simplefin/create';
 
@@ -28,7 +30,7 @@ type SettingsModal = 'email' | 'password' | 'delete' | null;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const {
     user,
     signOut,
@@ -273,12 +275,6 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#000000', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
       <View style={styles.bgGlowTop} />
       <View style={styles.bgGlowBottom} />

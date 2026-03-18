@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { DashboardNavigationProp, BudgetTransactionsRouteProp } from '../types/navigation';
 
 function formatCurrency(amount: number): string {
   const abs = Math.abs(amount);
@@ -22,7 +23,10 @@ function formatCurrency(amount: number): string {
   return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
-export default function BudgetTransactionsScreen({ route, navigation }: any) {
+export default function BudgetTransactionsScreen({ route, navigation }: {
+  route: BudgetTransactionsRouteProp;
+  navigation: DashboardNavigationProp;
+}) {
   const insets = useSafeAreaInsets();
   const { budgetId, budgetName } = route.params;
   const { budgetTransactions } = useData();
@@ -31,12 +35,6 @@ export default function BudgetTransactionsScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.gradientStart, Colors.gradientMid, Colors.gradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}>

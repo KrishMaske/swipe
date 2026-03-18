@@ -2,7 +2,23 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from utils.simplefin_service import retrieve_accounts
 from typing import Optional
-from database.db import create_budget, update_budget, delete_budget, get_access_url, get_active_budgets, sync_accounts, sync_transactions, update_sync_time, get_accounts, get_last_sync, get_transactions, get_fraudulent_transactions, update_fraud_status, get_latest_transaction_epoch, update_transaction
+from database.db import (
+    create_budget, 
+    update_budget, 
+    delete_budget, 
+    get_access_url, 
+    get_active_budgets, 
+    sync_accounts, 
+    sync_transactions, 
+    update_sync_time, 
+    get_accounts, 
+    get_last_sync, 
+    get_transactions, 
+    get_fraudulent_transactions, 
+    update_fraud_status, 
+    get_latest_transaction_epoch, 
+    update_transaction
+)
 from config.security import get_user_context
 from utils.date_service import ninety_days, epoch_to_date
 
@@ -28,19 +44,21 @@ class TransactionUpdateRequest(BaseModel):
 
 router = APIRouter()
 
-@router.get("/api/accounts/sync")
-def sync_accounts_endpoint(background_tasks: BackgroundTasks, context: dict = Depends(get_user_context)):
+@router.post("/api/accounts/sync")
+async def sync_accounts_handler(background_tasks: BackgroundTasks, context: dict = Depends(get_user_context)):
+    """Standardized to POST: triggers a bank transaction sync."""
     try:
         data = get_access_url(context)
         access_url = data["access_url"]
         last_sync = data.get("last_sync")
         
         if last_sync:
-            start_date = last_sync - 259200
+            start_date = last_sync - 259200 # 3 days buffer
         else:
             start_date = ninety_days()
             
-        accounts = retrieve_accounts(access_url, start_date)
+        # retrieve_accounts is now async
+        accounts = await retrieve_accounts(access_url, start_date)
         all_acc_transactions = sync_accounts(context, data["id"], accounts)
 
         latest_txn_epoch = get_latest_transaction_epoch(all_acc_transactions)
@@ -56,43 +74,47 @@ def sync_accounts_endpoint(background_tasks: BackgroundTasks, context: dict = De
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/accounts")
-def get_accounts_endpoint(context: dict = Depends(get_user_context)):
+async def get_accounts_handler(context: dict = Depends(get_user_context)):
     return get_accounts(context)
 
 
 @router.get("/api/accounts/sync-status")
-def get_sync_status_endpoint(context: dict = Depends(get_user_context)):
+async def get_sync_status_handler(context: dict = Depends(get_user_context)):
     return get_last_sync(context)
 
 @router.get("/api/transactions")
-def get_transactions_endpoint(acc_id, context: dict = Depends(get_user_context)):
+async def get_transactions_handler(acc_id: str, context: dict = Depends(get_user_context)):
     return get_transactions(context, acc_id)
 
 
-@router.put("/api/transactions/{txn_id}")
-def update_transaction_endpoint(txn_id: str, transaction: TransactionUpdateRequest, context: dict = Depends(get_user_context)):
+@router.patch("/api/transactions/{txn_id}")
+async def update_transaction_handler(txn_id: str, transaction: TransactionUpdateRequest, context: dict = Depends(get_user_context)):
+    """Standardized to PATCH for partial updates."""
     return update_transaction(context, txn_id, transaction)
 
 @router.get("/api/transactions/fraud")
-def get_fraudulent_transactions_endpoint(context: dict = Depends(get_user_context)):
+async def get_fraudulent_transactions_handler(context: dict = Depends(get_user_context)):
     return get_fraudulent_transactions(context)
 
-@router.post("/api/transactions/update-fraud-status")
-def update_fraud_status_endpoint(txn_id: str, is_confirmed_fraud: bool, context: dict = Depends(get_user_context)):
+@router.patch("/api/transactions/{txn_id}/fraud")
+async def update_fraud_status_handler(txn_id: str, is_confirmed_fraud: bool, context: dict = Depends(get_user_context)):
+    """Standardized to PATCH /api/transactions/{id}/fraud."""
     return update_fraud_status(context, txn_id, is_confirmed_fraud)
 
 @router.get("/api/transactions/budgets")
-def get_budgets_endpoint(context: dict = Depends(get_user_context)):
+async def get_budgets_handler(context: dict = Depends(get_user_context)):
     return get_active_budgets(context)
 
-@router.post("/api/transactions/create-budget")
-def create_budget_endpoint(budget: BudgetCreateRequest, context: dict = Depends(get_user_context)):
+@router.post("/api/transactions/budgets")
+async def create_budget_handler(budget: BudgetCreateRequest, context: dict = Depends(get_user_context)):
+    """Standardized to POST /api/transactions/budgets."""
     return create_budget(context, budget)
 
-@router.put("/api/transactions/budgets/{budget_id}")
-def update_budget_endpoint(budget_id: str, budget: BudgetUpdateRequest, context: dict = Depends(get_user_context)):
+@router.patch("/api/transactions/budgets/{budget_id}")
+async def update_budget_handler(budget_id: str, budget: BudgetUpdateRequest, context: dict = Depends(get_user_context)):
+    """Standardized to PATCH."""
     return update_budget(context, budget_id, budget)
 
 @router.delete("/api/transactions/budgets/{budget_id}")
-def delete_budget_endpoint(budget_id: str, context: dict = Depends(get_user_context)):
-    return delete_budget(context, budget_id)
+async def delete_budget_handler(budget_id: str, context: dict = Depends(get_user_context)):
+    return delete_budget(context, budget_id)

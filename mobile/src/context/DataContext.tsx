@@ -201,7 +201,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const transactionsByBudget: Record<string, Transaction[]> = {};
     const now = new Date();
 
-    console.log(`[BudgetCalc] Starting calculation for ${budgets.length} budgets and ${allTransactions.length} transactions`);
+    debugCacheLog(`[BudgetCalc] Starting calculation for ${budgets.length} budgets and ${allTransactions.length} transactions`);
     budgets.forEach((b) => {
       if (!b.id) return;
       
@@ -245,7 +245,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
 
       const startEpoch = Math.floor(startDate.getTime() / 1000);
-      console.log(`[BudgetCalc] Budget '${b.name}' | Cat: '${b.category}' | Period: ${b.period} | StartDate: ${startDate.toISOString()} (Epoch: ${startEpoch})`);
+      debugCacheLog(`[BudgetCalc] Budget '${b.name}' | Cat: '${b.category}' | Period: ${b.period} | StartDate: ${startDate.toISOString()} (Epoch: ${startEpoch})`);
       
       let matchedCount = 0;
       
@@ -260,7 +260,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
            
            // Detailed log for the first matched category to see why it might fail
            if (t.category === b.category) {
-             console.log(`  -> Analyzing Txn [${t.merchant}]: Amount=${t.amount}, Has TxnEpoch=${txnEpoch} (Needs >= ${startEpoch})`);
+          if (txnEpoch >= startEpoch) {
+             debugCacheLog(`  -> Analyzing Txn [${t.merchant}]: Amount=${t.amount}, Has TxnEpoch=${txnEpoch} (Needs >= ${startEpoch})`);
+           }
            }
            
            const categoryMatch = t.category.trim().toLowerCase() === b.category.trim().toLowerCase();
@@ -279,7 +281,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         })
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
         
-      console.log(`[BudgetCalc] Budget '${b.name}' finished: Matched ${matchedCount} txns, Total Spent=$${spent.toFixed(2)}`);
+      debugCacheLog(`[BudgetCalc] Budget '${b.name}' finished: Matched ${matchedCount} txns, Total Spent=$${spent.toFixed(2)}`);
       if (b.id !== undefined) {
         spending[b.id] = spent;
         if (!transactionsByBudget[b.id]) transactionsByBudget[b.id] = [];
@@ -299,8 +301,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Update spending whenever transactions or budgets change
   React.useEffect(() => {
     const allTxns = Object.values(transactionsCache).flatMap((c) => c);
-    console.log(`[BudgetCalc] Trigger Tracker => Budgets Loaded: ${!!budgetsCache}, TxnCount: ${allTxns.length}`);
-    if (budgetsCache) {
+    debugCacheLog(`[BudgetCalc] Trigger Tracker => Budgets Loaded: ${!!budgetsCache}, TxnCount: ${allTxns.length}`);
+    if (budgetsCache && allTxns.length > 0) {
       calculateBudgetSpending(budgetsCache, allTxns);
     }
   }, [transactionsCache, budgetsCache, calculateBudgetSpending]);
@@ -379,11 +381,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           [accId]: sorted,
         }));
-        transactionsCacheRef.current = {
-          ...transactionsCacheRef.current,
-          [accId]: sorted,
-        };
-        console.log(`[BudgetCalc] Fetched and cached ${sorted.length} transactions for account ${accId}`);
+        transactionsCacheRef.current[accId] = sorted;
+        debugCacheLog(`[BudgetCalc] Fetched and cached ${sorted.length} transactions for account ${accId}`);
+        setTransactionsCache({ ...transactionsCacheRef.current });
       } catch (err) {
         // Silently handle
       } finally {

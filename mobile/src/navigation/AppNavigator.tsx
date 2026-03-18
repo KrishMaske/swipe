@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, View, StyleSheet, Dimensions, Platform, TouchableOpacity, Text } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Dimensions, Platform, TouchableOpacity, Text, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 
@@ -24,6 +26,8 @@ import RecentScansScreen from '../screens/RecentScansScreen';
 import SwipeSmartScreen from '../screens/SwipeSmartScreen';
 import CardDetailsScreen from '../screens/CardDetailsScreen';
 import SimplefinOnboardingScreen from '../screens/SimplefinOnboardingScreen';
+import PermissionsScreen from '../screens/PermissionsScreen';
+import { AppStackParamList, DashboardStackParamList, SwipeStackParamList, FraudStackParamList, AuthStackParamList, AccountDetailRouteProp } from '../types/navigation';
 
 const { width } = Dimensions.get('window');
 const TAB_BAR_WIDTH = width - 32;
@@ -87,7 +91,7 @@ export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarPr
         </Animated.View>
 
         <View style={tabStyles.tabRow}>
-          {routes.map((route: any, index: number) => {
+          {routes.map((route, index: number) => {
             const config = TAB_CONFIG[route.name] || {
               activeIcon: 'help-circle',
               inactiveIcon: 'help-circle-outline',
@@ -133,12 +137,30 @@ export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarPr
   );
 }
 
-const AuthStack = createNativeStackNavigator();
-const MainStack = createNativeStackNavigator();
-const FraudStack = createNativeStackNavigator();
-const SwipeStack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const MainStack = createNativeStackNavigator<DashboardStackParamList>();
+const FraudStack = createNativeStackNavigator<FraudStackParamList>();
+const SwipeStack = createNativeStackNavigator<SwipeStackParamList>();
 const OnboardingStack = createNativeStackNavigator();
+const PermissionsStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+function hasFullAccuracy(permission: Location.LocationPermissionResponse): boolean {
+  const maybeAccuracy = (permission as any)?.accuracy;
+  const iosAccuracy = (permission as any)?.ios?.accuracy;
+  const value = String(maybeAccuracy ?? iosAccuracy ?? '').toLowerCase();
+
+  if (!value) {
+    return Platform.OS !== 'ios';
+  }
+  return value === 'full';
+}
+
+function notificationsGranted(permission: Notifications.NotificationPermissionsStatus): boolean {
+  if (permission.granted) return true;
+  const status = String(permission.status || '').toLowerCase();
+  return status === 'granted';
+}
 
 function AuthNavigator() {
   return (
@@ -168,7 +190,7 @@ function DashboardStack() {
       <MainStack.Screen
         name="AccountDetail"
         component={AccountDetailScreen}
-        options={({ route }: any) => ({
+        options={({ route }: { route: AccountDetailRouteProp }) => ({
           title: route.params?.accType || 'Account',
           headerBackTitle: 'Back',
           presentation: 'modal',
@@ -229,6 +251,14 @@ function OnboardingNavigator() {
     <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
       <OnboardingStack.Screen name="SimplefinOnboarding" component={SimplefinOnboardingScreen} />
     </OnboardingStack.Navigator>
+  );
+}
+
+function PermissionsNavigator() {
+  return (
+    <PermissionsStack.Navigator screenOptions={{ headerShown: false }}>
+      <PermissionsStack.Screen name="PermissionsGate" component={PermissionsScreen} />
+    </PermissionsStack.Navigator>
   );
 }
 
@@ -296,8 +326,44 @@ function TabNavigator() {
 
 export default function AppNavigator() {
   const { session, loading, simplefinLinked, simplefinStatusLoading } = useAuth();
+  const [permissionsReady, setPermissionsReady] = React.useState(false);
+  const [permissionsGranted, setPermissionsGranted] = React.useState(false);
 
-  if (loading || (session && simplefinStatusLoading)) {
+  const checkPermissions = React.useCallback(async () => {
+    const [foreground, background, notif] = await Promise.all([
+      Location.getForegroundPermissionsAsync(),
+      Location.getBackgroundPermissionsAsync(),
+      Notifications.getPermissionsAsync(),
+    ]);
+
+    const okForeground = foreground.granted && hasFullAccuracy(foreground);
+    const okBackground = background.granted;
+    const okNotifications = notificationsGranted(notif);
+
+    setPermissionsGranted(okForeground && okBackground && okNotifications);
+    setPermissionsReady(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!session) {
+      setPermissionsReady(true);
+      setPermissionsGranted(false);
+      return;
+    }
+
+    setPermissionsReady(false);
+    checkPermissions();
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        checkPermissions();
+      }
+    });
+
+    return () => sub.remove();
+  }, [session, checkPermissions]);
+
+  if (loading || (session && (simplefinStatusLoading || !permissionsReady))) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={Colors.accentBlue} />
@@ -307,7 +373,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      {!session ? <AuthNavigator /> : simplefinLinked ? <TabNavigator /> : <OnboardingNavigator />}
+      {!session ? <AuthNavigator /> : !permissionsGranted ? <PermissionsNavigator /> : simplefinLinked ? <TabNavigator /> : <OnboardingNavigator />}
     </NavigationContainer>
   );
 }

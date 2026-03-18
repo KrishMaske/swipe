@@ -23,7 +23,9 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { api, FraudTransaction } from '../services/api';
+import { AppStackParamList } from '../types/navigation';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -55,12 +57,14 @@ function formatAmount(amount: number): string {
 
 function riskLabel(score: number): { text: string; color: string } {
   if (score >= 0.75) return { text: 'Critical', color: '#FF4D4F' };
-  if (score >= 0.5) return { text: 'Critical', color: Colors.negative };
+  if (score >= 0.5) return { text: 'High', color: Colors.negative };
   if (score >= 0.35) return { text: 'Medium', color: '#FFB347' };
   return { text: 'No Risk', color: Colors.accentEmerald };
 }
 
-export default function FraudAlertsScreen({ navigation }: any) {
+type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
+
+export default function FraudAlertsScreen({ navigation }: { navigation: NavigationProp }) {
   const insets = useSafeAreaInsets();
   const {
     accounts,
@@ -173,12 +177,6 @@ export default function FraudAlertsScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#000000', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
       <View style={styles.bgGlow} />
 

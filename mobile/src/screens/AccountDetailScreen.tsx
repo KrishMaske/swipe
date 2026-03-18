@@ -24,6 +24,7 @@ import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { DashboardNavigationProp, AccountDetailRouteProp } from '../types/navigation';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -92,7 +93,10 @@ function formatAmount(amount: number): string {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TRANSACTION_MENU_WIDTH = 240;
 
-export default function AccountDetailScreen({ route, navigation }: any) {
+export default function AccountDetailScreen({ route, navigation }: {
+  route: AccountDetailRouteProp;
+  navigation: DashboardNavigationProp;
+}) {
   const insets = useSafeAreaInsets();
   const { accId, accType, provider } = route.params;
   const { transactionsCache, transactionsLoading, fetchTransactions } = useData();
@@ -286,12 +290,6 @@ export default function AccountDetailScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.gradientStart, Colors.gradientMid, Colors.gradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>

@@ -1,8 +1,9 @@
 import logging
+import asyncio
 import os
 import html
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -123,7 +124,7 @@ def _evaluation_report_html() -> tuple[str, int, int, int]:
 
 async def sync_all_accounts_job() -> None:
     """Syncs accounts/transactions for every user with a linked SimpleFIN connection."""
-    logger.info("[scheduler] Starting account sync job at %s", datetime.utcnow().isoformat())
+    logger.info("[scheduler] Starting account sync job at %s", datetime.now(timezone.utc).isoformat())
     await send_html_email(
         "Swipe Scheduler: Account Sync Started",
         wrap_html(
@@ -162,12 +163,12 @@ async def sync_all_accounts_job() -> None:
             last_sync = access_data.get("last_sync")
             start_date = (last_sync - 259200) if last_sync else ninety_days()
 
-            accounts = retrieve_accounts(access_data["access_url"], start_date)
+            accounts = await retrieve_accounts(access_data["access_url"], start_date)
             all_acc_transactions = sync_accounts(context, access_data["id"], accounts)
 
             latest_txn_epoch = get_latest_transaction_epoch(all_acc_transactions)
             if latest_txn_epoch is not None:
-                sync_transactions(context, all_acc_transactions)
+                await sync_transactions(context, all_acc_transactions)
                 update_sync_time(context, access_data["id"], latest_txn_epoch)
 
             users_synced += 1
@@ -202,7 +203,7 @@ async def sync_all_accounts_job() -> None:
 
 async def retrain_fraud_model_job() -> None:
     """Runs monthly global fraud model retraining using all non-confirmed-fraud transactions."""
-    logger.info("[scheduler] Starting fraud retraining job at %s", datetime.utcnow().isoformat())
+    logger.info("[scheduler] Starting fraud retraining job at %s", datetime.now(timezone.utc).isoformat())
     await send_html_email(
         "Swipe Scheduler: Fraud Retraining Started",
         wrap_html(
@@ -224,7 +225,8 @@ async def retrain_fraud_model_job() -> None:
             )
             return
 
-        _, _, user_profiles = train_global_fraud_detector(all_txns)
+        # Offload CPU-bound training to a separate thread
+        _, _, user_profiles = await asyncio.to_thread(train_global_fraud_detector, all_txns)
         report_html, total_eval, anomalies_eval, normal_eval = _evaluation_report_html()
         logger.info(
             "[scheduler] Fraud model retrained with %s transactions across %s users",

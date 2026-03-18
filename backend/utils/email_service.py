@@ -4,7 +4,7 @@ import os
 import smtplib
 from email.message import EmailMessage
 
-TARGET_EMAIL = "KRISHM.IMP@GMAIL.COM"
+TARGET_EMAIL = os.getenv("TARGET_EMAIL", "KRISHM.IMP@GMAIL.COM")
 
 
 def _send_sync(subject: str, html_body: str, to_email: str) -> None:

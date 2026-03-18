@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { SwipeNavigationProp, CardDetailsRouteProp } from '../types/navigation';
 
 function formatFee(amount: number) {
   if (!amount) {
@@ -14,7 +15,10 @@ function formatFee(amount: number) {
   return `$${amount.toLocaleString('en-US')}`;
 }
 
-export default function CardDetailsScreen({ route, navigation }: any) {
+export default function CardDetailsScreen({ route, navigation }: {
+  route: CardDetailsRouteProp;
+  navigation: SwipeNavigationProp;
+}) {
   const insets = useSafeAreaInsets();
   const { card } = route.params;
 
@@ -28,12 +32,6 @@ export default function CardDetailsScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.gradientStart, Colors.gradientMid, Colors.gradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}>

@@ -21,6 +21,9 @@ import { api, Transaction } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { FraudNavigationProp } from '../types/navigation';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AppStackParamList } from '../types/navigation';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -63,7 +66,7 @@ function formatAmount(amount: number): string {
   return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
-export default function RecentScansScreen({ navigation }: any) {
+export default function RecentScansScreen({ navigation }: { navigation: FraudNavigationProp }) {
   const insets = useSafeAreaInsets();
   const {
     accounts,
@@ -135,12 +138,6 @@ export default function RecentScansScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.gradientStart, Colors.gradientMid, Colors.gradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <StarField />
 
       <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}> 
