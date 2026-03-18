@@ -31,25 +31,34 @@ jobs:
 
       - name: "Diagnostic: Check Secret Presence"
         run: |
-          echo "Checking if secrets are available to the runner..."
-          if [ -n "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" ]; then echo "✓ EXPO_PUBLIC_SUPABASE_URL is set"; else echo "✗ EXPO_PUBLIC_SUPABASE_URL is MISSING"; fi
-          if [ -n "${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" ]; then echo "✓ EXPO_PUBLIC_SUPABASE_ANON_KEY is set"; else echo "✗ EXPO_PUBLIC_SUPABASE_ANON_KEY is MISSING"; fi
-          if [ -n "${{ secrets.EXPO_PUBLIC_API_URL }}" ]; then echo "✓ EXPO_PUBLIC_API_URL is set"; else echo "✗ EXPO_PUBLIC_API_URL is MISSING"; fi
+          echo "Checking if secrets are available to the runner (by checking multiple possible names)..."
+          check_secret() {
+            if [ -n "$1" ]; then echo "✓ $2 is set"; else echo "✗ $2 is MISSING"; fi
+          }
+          check_secret "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}${{ secrets.SUPABASE_URL }}" "SUPABASE_URL (any form)"
+          check_secret "${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}${{ secrets.SUPABASE_KEY }}${{ secrets.SUPABASE_ANON_KEY }}" "SUPABASE_ANON_KEY (any form)"
+          check_secret "${{ secrets.EXPO_PUBLIC_API_URL }}${{ secrets.API_URL }}" "API_URL (any form)"
 
       - name: Create .env file
         working-directory: mobile
         run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
-          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}" >> .env
+          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}" >> .env
 
       - name: Expo prebuild (generate native iOS project)
         working-directory: mobile
         env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
         run: npx expo prebuild --platform ios --clean
+
+      - name: Patch Podfile for Swift 6
+        working-directory: mobile/ios
+        run: |
+          echo "Forcing Swift 6 for all targets in Podfile..."
+          printf "\npost_install do |installer|\n  installer.pods_project.targets.each do |target|\n    target.build_configurations.each do |config|\n      config.build_settings['SWIFT_VERSION'] = '6.0'\n    end\n  end\nend\n" >> Podfile
 
       - name: Install CocoaPods
         working-directory: mobile/ios
@@ -96,7 +105,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
-            SWIFT_VERSION=5.10 \
+            SWIFT_VERSION=6.0 \
             SWIFT_STRICT_CONCURRENCY=minimal \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_ALLOWED=NO \
