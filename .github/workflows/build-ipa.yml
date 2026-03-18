@@ -1,29 +1,49 @@
-name: Build Unsigned IPA
+name: iOS Build (Sideloading)
 
 on:
-  push:
-    branches: [ main, ipa ]
   workflow_dispatch:
+  push:
+    branches: [ ipa ]
 
 jobs:
-  build:
-    runs-on: macos-14
+  ios-build:
+    name: iOS Build (Sideloading)
+    runs-on: macos-26
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16.1
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
-
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
 
-      - name: Install dependencies
+      - name: Install Node dependencies
         working-directory: mobile
         run: npm install
+
+      - name: Validate required environment variables
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+        run: |
+          MISSING=0
+          for VAR_NAME in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_API_URL; do
+            if [ -z "${!VAR_NAME}" ]; then
+              echo "::error::Missing required GitHub secret: ${VAR_NAME}"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            echo "One or more required variables are missing."
+            exit 1
+          fi
 
       - name: Create .env file
         working-directory: mobile
@@ -32,45 +52,101 @@ jobs:
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
           echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}" >> .env
 
-      - name: Prebuild iOS
+      - name: Restore prebuild cache
+        id: prebuild-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: mobile/ios
+          key: ios-prebuild-${{ hashFiles('mobile/package-lock.json', 'mobile/app.json') }}
+          restore-keys: ios-prebuild-
+
+      - name: Expo prebuild
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
         working-directory: mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
         run: npx expo prebuild --platform ios --clean
 
-      - name: List iOS directory
-        working-directory: mobile/ios
-        run: ls -la
+      - name: Save prebuild cache
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: mobile/ios
+          key: ios-prebuild-${{ hashFiles('mobile/package-lock.json', 'mobile/app.json') }}
 
-      - name: Build unsigned IPA
-        working-directory: mobile/ios
+      - name: Identify workspace and scheme
+        id: xcode_info
         run: |
-          WORKSPACE=$(ls -d *.xcworkspace | head -1)
-          SCHEME=$(echo $WORKSPACE | sed 's/.xcworkspace//')
-          echo "Using workspace: $WORKSPACE scheme: $SCHEME"
+          WORKSPACE=$(find mobile/ios -maxdepth 1 -name "*.xcworkspace" | head -1)
+          if [ -z "$WORKSPACE" ]; then
+            echo "Error: No .xcworkspace found in mobile/ios" >&2
+            exit 1
+          fi
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "workspace=$WORKSPACE" >> "$GITHUB_OUTPUT"
+          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
+          echo "Workspace: $WORKSPACE"
+          echo "Scheme:    $SCHEME"
+
+      - name: Auto-increment build number
+        run: |
+          INFO_PLIST="mobile/ios/${{ steps.xcode_info.outputs.scheme }}/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$INFO_PLIST"
+          echo "Build number set to ${{ github.run_number }}"
+
+      - name: Restore Xcode build cache
+        uses: irgaly/xcode-cache@v1.9.2
+        with:
+          key: ios-xcode-${{ hashFiles('mobile/package-lock.json', 'mobile/app.json') }}
+          restore-keys: ios-xcode-
+          deriveddata-directory: ${{ github.workspace }}/build
+
+      - name: Build with xcodebuild
+        run: |
           xcodebuild \
-            -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
+            -resolvePackageDependencies \
+            -workspace "${{ steps.xcode_info.outputs.workspace }}" \
+            -scheme "${{ steps.xcode_info.outputs.scheme }}"
+
+          xcodebuild \
+            -workspace "${{ steps.xcode_info.outputs.workspace }}" \
+            -scheme "${{ steps.xcode_info.outputs.scheme }}" \
             -configuration Release \
             -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            EXPANDED_CODE_SIGN_IDENTITY="" \
-            -allowProvisioningUpdates \
-            build
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-      - name: Package IPA
+      - name: Package app as IPA
         run: |
-          APP=$(find mobile/ios/build/Build/Products/Release-iphoneos -name "*.app" | head -1)
-          echo "Found app: $APP"
-          mkdir -p mobile/ios/build/Payload
-          cp -r "$APP" mobile/ios/build/Payload/
-          cd mobile/ios/build
-          zip -r SwipeSmart-unsigned.ipa Payload/
+          SCHEME="${{ steps.xcode_info.outputs.scheme }}"
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: No .app bundle found" >&2
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r "${SCHEME}.ipa" Payload/
+          echo "Created ${SCHEME}.ipa"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SwipeSmart-unsigned
-          path: mobile/ios/build/SwipeSmart-unsigned.ipa
-          retention-days: 7
+          name: SwipeSmart-${{ github.run_number }}
+          path: ${{ steps.xcode_info.outputs.scheme }}.ipa
+          retention-days: 30
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "ios-build-${{ github.run_number }}" "${{ steps.xcode_info.outputs.scheme }}.ipa" \
+            --title "iOS Sideloading Build ${{ github.run_number }}" \
+            --generate-notes \
+            --prerelease
