@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
@@ -19,12 +18,12 @@ import StarField from '../components/StarField';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { AppStackParamList } from '../types/navigation';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ScalePressable } from '../components/ScalePressable';
 
 const SIMPLEFIN_BRIDGE_URL = 'https://bridge.simplefin.org/simplefin/create';
 
@@ -32,7 +31,7 @@ type SettingsModal = 'email' | 'password' | 'delete' | null;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const router = useRouter();
   const {
     user,
     signOut,
@@ -320,10 +319,9 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Change Email</Text>
           <Text style={styles.cardDesc}>Update your login email. You may need to confirm via email.</Text>
-          <TouchableOpacity
+          <ScalePressable
             onPress={() => openModal('email')}
             disabled={emailLoading}
-            activeOpacity={0.85}
             style={styles.actionButtonWrap}
           >
             <LinearGradient
@@ -341,16 +339,15 @@ export default function SettingsScreen() {
                 </>
               )}
             </LinearGradient>
-          </TouchableOpacity>
+          </ScalePressable>
 
           <View style={styles.inlineDivider} />
 
           <Text style={styles.cardTitle}>Change Password</Text>
           <Text style={styles.cardDesc}>Enter your current password, then choose a different new password.</Text>
-          <TouchableOpacity
+          <ScalePressable
             onPress={() => openModal('password')}
             disabled={passwordLoading}
-            activeOpacity={0.85}
             style={styles.actionButtonWrap}
           >
             <LinearGradient
@@ -368,7 +365,7 @@ export default function SettingsScreen() {
                 </>
               )}
             </LinearGradient>
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -398,7 +395,7 @@ export default function SettingsScreen() {
           <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and revoke/disable your token there.</Text>
           <Text style={styles.instructionText}>2. Next app sign-in will require reconnecting before access.</Text>
 
-          <TouchableOpacity onPress={openSimplefinBridge} activeOpacity={0.85} style={styles.actionButtonWrap}>
+          <ScalePressable onPress={openSimplefinBridge} activeOpacity={0.85} style={styles.actionButtonWrap}>
             <LinearGradient
               colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
               style={styles.primaryButton}
@@ -408,12 +405,12 @@ export default function SettingsScreen() {
               <Ionicons name="open-outline" size={17} color="#fff" />
               <Text style={styles.primaryButtonText}>Open SimpleFIN Bridge</Text>
             </LinearGradient>
-          </TouchableOpacity>
+          </ScalePressable>
 
-          <TouchableOpacity onPress={signOut} activeOpacity={0.8} style={styles.secondaryButton}>
+          <ScalePressable onPress={signOut} activeOpacity={0.8} style={styles.secondaryButton}>
             <Ionicons name="refresh-outline" size={16} color={Colors.textPrimary} />
             <Text style={styles.secondaryButtonText}>Sign Out to Reconnect</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -423,7 +420,7 @@ export default function SettingsScreen() {
           <Text style={styles.cardDesc}>
             Permanently delete your account and all Swipe data. Enter your password to continue. This cannot be undone.
           </Text>
-          <TouchableOpacity
+          <ScalePressable
             style={styles.deleteAccountButton}
             onPress={() => openModal('delete')}
             activeOpacity={0.8}
@@ -437,13 +434,13 @@ export default function SettingsScreen() {
                 <Text style={styles.deleteAccountText}>Delete Account</Text>
               </>
             )}
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.8}>
+        <ScalePressable style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={18} color={Colors.negative} />
           <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        </ScalePressable>
       </ScrollView>
 
       {activeModal !== null && (
@@ -466,9 +463,9 @@ export default function SettingsScreen() {
                       ? 'Change Password'
                       : 'Delete Account'}
                 </Text>
-                <TouchableOpacity onPress={closeModal} activeOpacity={0.8} style={styles.modalCloseButton}>
+                <ScalePressable onPress={closeModal} activeOpacity={0.8} style={styles.modalCloseButton}>
                   <Ionicons name="close" size={18} color={Colors.textPrimary} />
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
 
               <Text style={styles.modalSubtitle}>
@@ -502,7 +499,7 @@ export default function SettingsScreen() {
                       placeholderTextColor={Colors.textMuted}
                       secureTextEntry={!currentPasswordVisible}
                     />
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => setCurrentPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
                       activeOpacity={0.75}
@@ -512,7 +509,7 @@ export default function SettingsScreen() {
                         size={20}
                         color={Colors.textMuted}
                       />
-                    </TouchableOpacity>
+                    </ScalePressable>
                   </View>
                   <View style={styles.passwordInputWrap}>
                     <TextInput
@@ -523,7 +520,7 @@ export default function SettingsScreen() {
                       placeholderTextColor={Colors.textMuted}
                       secureTextEntry={!newPasswordVisible}
                     />
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => setNewPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
                       activeOpacity={0.75}
@@ -533,7 +530,7 @@ export default function SettingsScreen() {
                         size={20}
                         color={Colors.textMuted}
                       />
-                    </TouchableOpacity>
+                    </ScalePressable>
                   </View>
                   <View style={styles.passwordInputWrap}>
                     <TextInput
@@ -544,7 +541,7 @@ export default function SettingsScreen() {
                       placeholderTextColor={Colors.textMuted}
                       secureTextEntry={!confirmPasswordVisible}
                     />
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => setConfirmPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
                       activeOpacity={0.75}
@@ -554,7 +551,7 @@ export default function SettingsScreen() {
                         size={20}
                         color={Colors.textMuted}
                       />
-                    </TouchableOpacity>
+                    </ScalePressable>
                   </View>
                 </>
               )}
@@ -569,7 +566,7 @@ export default function SettingsScreen() {
                     placeholderTextColor={Colors.textMuted}
                     secureTextEntry={!deletePasswordVisible}
                   />
-                  <TouchableOpacity
+                  <ScalePressable
                     onPress={() => setDeletePasswordVisible((prev) => !prev)}
                     style={styles.eyeButton}
                     activeOpacity={0.75}
@@ -579,18 +576,18 @@ export default function SettingsScreen() {
                       size={20}
                       color={Colors.textMuted}
                     />
-                  </TouchableOpacity>
+                  </ScalePressable>
                 </View>
               )}
 
               {modalError ? <Text style={styles.modalError}>{modalError}</Text> : null}
 
               <View style={styles.modalActions}>
-                <TouchableOpacity onPress={closeModal} activeOpacity={0.8} style={styles.modalSecondaryButton}>
+                <ScalePressable onPress={closeModal} activeOpacity={0.8} style={styles.modalSecondaryButton}>
                   <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
-                </TouchableOpacity>
+                </ScalePressable>
 
-                <TouchableOpacity
+                <ScalePressable
                   onPress={
                     activeModal === 'email'
                       ? handleUpdateEmail
@@ -616,7 +613,7 @@ export default function SettingsScreen() {
                       </Text>
                     )}
                   </LinearGradient>
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
           </KeyboardAvoidingView>

@@ -8,12 +8,10 @@ import {
   Modal,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,20 +21,22 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  useAnimatedScrollHandler,
+  runOnJS,
 } from 'react-native-reanimated';
 import { GlassBackground } from '../components/GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { Skeleton } from '../components/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { api, WalletCard } from '../services/api';
-import { AppStackParamList } from '../types/navigation';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { ScalePressable } from '../components/ScalePressable';
+import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 
 const ALL_CARDS = require('../../data/cards.json') as WalletCard[];
-
-import { ScalePressable } from '../components/ScalePressable';
 
 function getTopReward(card: WalletCard) {
   const entries = Object.entries(card.reward_multipliers || {});
@@ -48,9 +48,8 @@ function getTopReward(card: WalletCard) {
   };
 }
 
-type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
-
-export default function SwipeSmartScreen({ navigation }: { navigation: NavigationProp }) {
+export default function SwipeSmartScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   // Wallet state
@@ -67,6 +66,20 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
 
   // Long-press context menu
   const [contextMenuCard, setContextMenuCard] = useState<WalletCard | null>(null);
+
+  const scrollY = useSharedValue(0);
+  const REFRESH_THRESHOLD = 80;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(onRefresh)();
+      }
+    },
+  });
 
   const loadSavedCards = useCallback(async (forceRefresh = false) => {
     try {
@@ -144,15 +157,12 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
     <View style={styles.container}>
       <StarField />
 
-      <ScrollView
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
+      <Animated.ScrollView
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.accentBlueBright}
-          />
-        }
         showsVerticalScrollIndicator={false}
       >
         {/* Header — identical structure to DashboardScreen */}
@@ -161,17 +171,29 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
             <Text style={styles.headerEyebrow}>Swipe</Text>
             <Text style={styles.headerTitle}>Smart</Text>
           </View>
-          <TouchableOpacity style={styles.addBtn} onPress={openAddModal} activeOpacity={0.8}>
+          <ScalePressable style={styles.addBtn} onPress={openAddModal}>
             <Ionicons name="add" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         {/* Hero — identical structure to DashboardScreen heroSection */}
         <View style={styles.heroSection}>
           <Text style={styles.heroLabel}>Smart Wallet</Text>
-          <Text style={styles.heroBalance}>{loadingCards ? '...' : savedCards.length}</Text>
+          <View style={{ height: 48, justifyContent: 'center' }}>
+            {loadingCards ? (
+              <Skeleton width={120} height={40} borderRadius={10} />
+            ) : (
+              <Text style={styles.heroBalance}>{savedCards.length}</Text>
+            )}
+          </View>
           <Text style={styles.heroMeta}>
-            {savedCards.length === 1 ? '1 card saved' : `${savedCards.length} cards saved`}
+            {loadingCards ? (
+              <Skeleton width={100} height={16} borderRadius={4} />
+            ) : savedCards.length === 1 ? (
+              '1 card saved'
+            ) : (
+              `${savedCards.length} cards saved`
+            )}
           </Text>
         </View>
 
@@ -181,9 +203,10 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
         </View>
 
         {loadingCards ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color={Colors.accentBlueBright} />
-            <Text style={styles.loadingText}>Loading wallet...</Text>
+          <View style={{ paddingHorizontal: 20, gap: 16, marginTop: 10 }}>
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} width={340} height={100} borderRadius={18} />
+            ))}
           </View>
         ) : savedCards.length === 0 ? (
           <View style={styles.emptyWallet}>
@@ -204,7 +227,10 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
               return (
                 <Animated.View key={card.id} entering={FadeInDown.delay(index * 60).springify()}>
                   <ScalePressable
-                    onPress={() => navigation.navigate('CardDetails', { card })}
+                    onPress={() => router.push({
+                      pathname: '/swipesmart/card-details',
+                      params: { card: JSON.stringify(card) }
+                    })}
                     onLongPress={() => setContextMenuCard(card)}
                     delayLongPress={1200}
                     style={styles.walletCard}
@@ -230,9 +256,8 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
       {/* Long-press context menu */}
       <Modal visible={contextMenuCard !== null} transparent animationType="fade">
         <View style={styles.contextOverlay}>
-          <TouchableOpacity
+          <Pressable
             style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
             onPress={() => setContextMenuCard(null)}
           />
           <GlassBackground
@@ -258,13 +283,13 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
                   </View>
                 </View>
                 <View style={styles.contextDivider} />
-                <TouchableOpacity
+                <ScalePressable
                   style={styles.contextMenuItem}
                   onPress={() => handleRemoveCard(contextMenuCard)}
                 >
                   <Ionicons name="trash-outline" size={20} color={Colors.negative} />
                   <Text style={[styles.contextMenuText, { color: Colors.negative }]}>Remove Card</Text>
-                </TouchableOpacity>
+                </ScalePressable>
               </>
             )}
           </GlassBackground>
@@ -277,9 +302,8 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.centeredOverlay}
         >
-          <TouchableOpacity
+          <Pressable
             style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
             onPress={() => setAddModalVisible(false)}
           />
           <GlassBackground
@@ -292,15 +316,15 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add to Wallet</Text>
               <View style={styles.modalActions}>
-                <TouchableOpacity onPress={() => setAddModalVisible(false)} style={{ marginRight: 16 }}>
+                <ScalePressable onPress={() => setAddModalVisible(false)} style={{ marginRight: 16 }}>
                   <Ionicons name="close" size={26} color={Colors.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleSaveWallet} disabled={saving}>
+                </ScalePressable>
+                <ScalePressable onPress={handleSaveWallet} disabled={saving}>
                   {saving
                     ? <ActivityIndicator color={Colors.accentBlueBright} size="small" />
                     : <Ionicons name="checkmark" size={26} color={Colors.accentBlueBright} />
                   }
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
 
@@ -324,16 +348,15 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
               {providerOptions.map((provider) => {
                 const active = provider === selectedProvider;
                 return (
-                  <TouchableOpacity
+                  <ScalePressable
                     key={provider}
                     style={[styles.filterChip, active && styles.filterChipActive]}
                     onPress={() => setSelectedProvider(provider)}
-                    activeOpacity={0.85}
                   >
                     <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                       {provider}
                     </Text>
-                  </TouchableOpacity>
+                  </ScalePressable>
                 );
               })}
             </ScrollView>

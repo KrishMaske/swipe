@@ -13,8 +13,11 @@ import {
   Platform,
   ScrollView,
   TextInput,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, FadeInDown } from 'react-native-reanimated';
+import { Swipeable } from 'react-native-gesture-handler';
+import { ScalePressable } from '../components/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +27,7 @@ import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { DashboardNavigationProp, AccountDetailRouteProp } from '../types/navigation';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -93,12 +96,10 @@ function formatAmount(amount: number): string {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TRANSACTION_MENU_WIDTH = 240;
 
-export default function AccountDetailScreen({ route, navigation }: {
-  route: AccountDetailRouteProp;
-  navigation: DashboardNavigationProp;
-}) {
+export default function AccountDetailScreen() {
+  const router = useRouter();
+  const { id: accId, accType, provider } = useLocalSearchParams<{ id: string; accType: string; provider: string }>();
   const insets = useSafeAreaInsets();
-  const { accId, accType, provider } = route.params;
   const { transactionsCache, transactionsLoading, fetchTransactions } = useData();
   const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
   const [transactionMenuTarget, setTransactionMenuTarget] = useState<Transaction | null>(null);
@@ -140,11 +141,10 @@ export default function AccountDetailScreen({ route, navigation }: {
   }, [transactions, selectedRange]);
 
   useEffect(() => {
-    navigation.setOptions({
-      title: accType || 'Account',
-    });
+    // navigation.setOptions is removed as navigation prop is no longer passed
+    // If title needs to be set, it should be done via expo-router's _layout.tsx or screen options
     fetchTransactions(accId);
-  }, []);
+  }, [accId]); // Added accId to dependency array
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -242,47 +242,98 @@ export default function AccountDetailScreen({ route, navigation }: {
     }
   };
 
-  const renderTransaction = ({ item }: { item: Transaction }) => {
+  const handleAction = (txnId: string, isFlag: boolean) => {
+    Alert.alert(
+      isFlag ? 'Flag Transaction' : 'Verify Transaction',
+      `Are you sure you want to ${isFlag ? 'flag' : 'verify'} this transaction? (ID: ${txnId})`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'OK', onPress: () => console.log(`${isFlag ? 'Flagged' : 'Verified'} transaction ${txnId}`) },
+      ],
+    );
+  };
+
+  const renderRightActions = (_prog: Animated.SharedValue<number>, _drag: Animated.SharedValue<number>, txn: Transaction) => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionRight}
+        onPress={() => handleAction(txn.txn_id, true)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="alert-circle" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Flag</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
+  const renderLeftActions = (_prog: Animated.SharedValue<number>, _drag: Animated.SharedValue<number>, txn: Transaction) => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionLeft}
+        onPress={() => handleAction(txn.txn_id, false)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="checkmark-circle" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Verify</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
+  const renderTransaction = ({ item, index }: { item: Transaction; index: number }) => {
     const catColor = getCategoryColor(item.category);
     const isNegative = item.amount < 0;
 
     return (
-      <TouchableOpacity activeOpacity={0.9} onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1000}>
-        <GlassBackground
-          blurIntensity={38}
-          blurTint="systemChromeMaterialDark"
-          style={styles.txnCard}
-          tintColor="rgba(0, 0, 0, 0.4)"
-          tintOpacity={0.6}
+      <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
+        <Swipeable
+          renderLeftActions={(prog, drag) => renderLeftActions(prog, drag, item)}
+          renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
+          friction={2}
+          enableTrackpadTwoFingerGesture
+          rightThreshold={40}
+          leftThreshold={40}
+          containerStyle={styles.swipeContainer}
         >
-          <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive }]} />
-          <View style={styles.txnInfo}>
-            <Text style={styles.txnMerchant} numberOfLines={1}>
-              {item.merchant || 'Unknown'}
-            </Text>
-            <View style={styles.txnMeta}>
-              <Text style={styles.txnCategory}>{item.category}</Text>
-              {item.city && item.city !== 'REMOTE' && (
-                <>
-                  <Text style={styles.txnDot}>·</Text>
-                  <Text style={styles.txnLocation}>
-                    {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-                  </Text>
-                </>
-              )}
-            </View>
-            <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
-          </View>
-          <Text
-            style={[
-              styles.txnAmount,
-              { color: isNegative ? Colors.negative : Colors.positive },
-            ]}
-          >
-            {formatAmount(item.amount)}
-          </Text>
-        </GlassBackground>
-      </TouchableOpacity>
+          <ScalePressable onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1000}>
+            <GlassBackground
+              blurIntensity={38}
+              blurTint="systemChromeMaterialDark"
+              style={styles.txnCard}
+              tintColor="rgba(0, 0, 0, 0.4)"
+              tintOpacity={0.6}
+            >
+              <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive }]} />
+              <View style={styles.txnInfo}>
+                <Text style={styles.txnMerchant} numberOfLines={1}>
+                  {item.merchant || 'Unknown'}
+                </Text>
+                <View style={styles.txnMeta}>
+                  <Text style={styles.txnCategory}>{item.category}</Text>
+                  {item.city && item.city !== 'REMOTE' && (
+                    <>
+                      <Text style={styles.txnDot}>·</Text>
+                      <Text style={styles.txnLocation}>
+                        {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
+                      </Text>
+                    </>
+                  )}
+                </View>
+                <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
+              </View>
+              <Text
+                style={[
+                  styles.txnAmount,
+                  { color: isNegative ? Colors.negative : Colors.positive },
+                ]}
+              >
+                {formatAmount(item.amount)}
+              </Text>
+            </GlassBackground>
+          </ScalePressable>
+        </Swipeable>
+      </Animated.View>
     );
   };
 
@@ -300,15 +351,15 @@ export default function AccountDetailScreen({ route, navigation }: {
 
       <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>
         <View style={styles.menuOverlay}>
-          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeTransactionMenu} />
+          <Pressable style={styles.sheetBackdrop} onPress={closeTransactionMenu} />
           <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={[styles.contextMenu, { left: transactionMenuPosition.x, top: transactionMenuPosition.y }]}>
-            <TouchableOpacity
+            <ScalePressable
               style={styles.contextMenuItem}
               onPress={() => transactionMenuTarget && openEditModal(transactionMenuTarget)}
             >
               <Ionicons name="create-outline" size={20} color={Colors.textPrimary} />
               <Text style={styles.contextMenuText}>Edit Transaction</Text>
-            </TouchableOpacity>
+            </ScalePressable>
           </GlassBackground>
         </View>
       </Modal>
@@ -319,7 +370,7 @@ export default function AccountDetailScreen({ route, navigation }: {
           keyboardVerticalOffset={0}
           style={[styles.centeredCardOverlay, keyboardOpen && styles.keyboardOpenOverlay]}
         >
-          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeEditModal} />
+          <Pressable style={styles.sheetBackdrop} onPress={closeEditModal} />
           <GlassBackground
             blurIntensity={65}
             blurTint="systemChromeMaterialDark"
@@ -335,9 +386,9 @@ export default function AccountDetailScreen({ route, navigation }: {
               <View style={styles.sheetHeader}>
                 <Text style={styles.sheetTitle}>Edit Transaction</Text>
                 <View style={styles.modalActionsRow}>
-                  <TouchableOpacity onPress={closeEditModal} disabled={savingEdit}>
+                  <ScalePressable onPress={closeEditModal} disabled={savingEdit}>
                     <Ionicons name="close" size={26} color={Colors.textMuted} />
-                  </TouchableOpacity>
+                  </ScalePressable>
                 </View>
               </View>
 
@@ -396,7 +447,7 @@ export default function AccountDetailScreen({ route, navigation }: {
                 </View>
               </View>
 
-              <TouchableOpacity onPress={saveTransactionEdit} disabled={savingEdit} activeOpacity={0.85}>
+              <ScalePressable onPress={saveTransactionEdit} disabled={savingEdit}>
                 <LinearGradient
                   colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                   style={styles.saveButton}
@@ -405,7 +456,7 @@ export default function AccountDetailScreen({ route, navigation }: {
                 >
                   {savingEdit ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
                 </LinearGradient>
-              </TouchableOpacity>
+              </ScalePressable>
             </ScrollView>
           </GlassBackground>
         </KeyboardAvoidingView>
@@ -433,16 +484,15 @@ export default function AccountDetailScreen({ route, navigation }: {
           {DATE_RANGE_OPTIONS.map((option) => {
             const active = selectedRange === option.value;
             return (
-              <TouchableOpacity
+              <ScalePressable
                 key={String(option.value)}
                 style={[styles.filterChip, active && styles.filterChipActive]}
                 onPress={() => setSelectedRange(option.value)}
-                activeOpacity={0.85}
               >
                 <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                   {option.label}
                 </Text>
-              </TouchableOpacity>
+              </ScalePressable>
             );
           })}
         </ScrollView>
@@ -564,16 +614,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.navGlassBackground,
     padding: 16,
-    borderRadius: 24,
-    marginBottom: 12,
+    borderRadius: 20,
+    marginBottom: 0, // Removed for swipe container gap
     borderWidth: 1,
-    borderColor: Colors.navGlassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.4,
     shadowRadius: 18,
     elevation: 7,
     overflow: 'hidden',
+  },
+  swipeContainer: {
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  swipeActionLeft: {
+    backgroundColor: Colors.positive,
+    width: 90,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeActionRight: {
+    backgroundColor: Colors.negative,
+    width: 90,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeIconWrap: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  swipeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   categoryDot: {
     width: 10,

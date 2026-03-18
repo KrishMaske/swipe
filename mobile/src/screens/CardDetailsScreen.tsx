@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScalePressable } from '../components/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,7 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { SwipeNavigationProp, CardDetailsRouteProp } from '../types/navigation';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { WalletCard } from '../services/api';
 
 function formatFee(amount: number) {
   if (!amount) {
@@ -16,12 +18,11 @@ function formatFee(amount: number) {
   return `$${amount.toLocaleString('en-US')}`;
 }
 
-export default function CardDetailsScreen({ route, navigation }: {
-  route: CardDetailsRouteProp;
-  navigation: SwipeNavigationProp;
-}) {
+export default function CardDetailsScreen() {
+  const router = useRouter();
+  const { card: cardJson } = useLocalSearchParams<{ card: string }>();
+  const card = cardJson ? (JSON.parse(cardJson) as WalletCard) : null;
   const insets = useSafeAreaInsets();
-  const { card } = route.params;
 
   if (!card) {
     return (
@@ -47,13 +48,12 @@ export default function CardDetailsScreen({ route, navigation }: {
             <Text style={styles.headerTitle}>Card Details</Text>
             <Text style={styles.headerProvider}>{card.card_name || 'Unknown Card'}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
+          <ScalePressable
+            onPress={() => router.back()}
             style={styles.closeBtn}
-            activeOpacity={0.7}
           >
             <Ionicons name="close" size={20} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
       </GlassBackground>
 

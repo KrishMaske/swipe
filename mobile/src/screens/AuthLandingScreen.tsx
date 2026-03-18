@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform } from 'react-native';
+import { Image, StyleSheet, Text, useWindowDimensions, View, Platform } from 'react-native';
+import { ScalePressable } from '../components/ScalePressable';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackground } from '../components/GlassBackground';
@@ -10,11 +11,10 @@ import { Typography } from '../theme/typography';
 import { AuthNavigationProp } from '../types/navigation';
 import StarField from '../components/StarField';
 
-type Props = {
-  navigation: AuthNavigationProp;
-};
+import { useRouter } from 'expo-router';
 
-export default function AuthLandingScreen({ navigation }: Props) {
+export default function AuthLandingScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const compact = width < 370 || height < 760;
@@ -51,9 +51,8 @@ export default function AuthLandingScreen({ navigation }: Props) {
               Join a smart scanning payments system. Access your premium finance dashboard and scan for security vulnerabilities.
             </Text>
 
-            <TouchableOpacity
-              onPress={() => navigation.replace('Login')}
-              activeOpacity={0.86}
+            <ScalePressable
+              onPress={() => router.replace('/auth/login')}
               style={styles.actionButtonWrap}
             >
               <LinearGradient
@@ -64,16 +63,15 @@ export default function AuthLandingScreen({ navigation }: Props) {
               >
                 <Text style={styles.primaryButtonText}>Sign In</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </ScalePressable>
 
-            <TouchableOpacity
-              onPress={() => navigation.replace('Signup')}
-              activeOpacity={0.86}
+            <ScalePressable
+              onPress={() => router.replace('/auth/signup')}
               style={styles.secondaryButton}
             >
               <Ionicons name="person-add-outline" size={18} color={Colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>Create Account</Text>
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
         </GlassBackground>
       </View>

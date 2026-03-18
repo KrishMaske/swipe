@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -21,12 +20,12 @@ import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { AuthNavigationProp } from '../types/navigation';
+import { ScalePressable } from '../components/ScalePressable';
 
-type Props = {
-  navigation: AuthNavigationProp;
-};
+import { useRouter } from 'expo-router';
 
-export default function SignupScreen({ navigation }: Props) {
+export default function SignupScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
   const [email, setEmail] = useState('');
@@ -100,13 +99,12 @@ export default function SignupScreen({ navigation }: Props) {
           ]}
         >
           <View style={styles.topBar}>
-            <TouchableOpacity
-              onPress={() => navigation.replace('AuthLanding')}
+            <ScalePressable
+              onPress={() => router.back()}
               style={styles.backButton}
-              activeOpacity={0.8}
             >
               <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
 
           <View style={styles.centerContent}>
@@ -161,17 +159,16 @@ export default function SignupScreen({ navigation }: Props) {
                   onChangeText={setPassword}
                   secureTextEntry={!passwordVisible}
                 />
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => setPasswordVisible((prev) => !prev)}
                   style={styles.eyeButton}
-                  activeOpacity={0.75}
                 >
                   <Ionicons
                     name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
                     color={Colors.textMuted}
                   />
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
 
@@ -186,27 +183,25 @@ export default function SignupScreen({ navigation }: Props) {
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!confirmPasswordVisible}
                 />
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => setConfirmPasswordVisible((prev) => !prev)}
                   style={styles.eyeButton}
-                  activeOpacity={0.75}
                 >
                   <Ionicons
                     name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
                     color={Colors.textMuted}
                   />
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             {success ? <Text style={styles.successText}>{success}</Text> : null}
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={handleSignup}
               disabled={loading}
-              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
@@ -220,16 +215,16 @@ export default function SignupScreen({ navigation }: Props) {
                   <Text style={styles.buttonText}>Create Account</Text>
                 )}
               </LinearGradient>
-            </TouchableOpacity>
+            </ScalePressable>
 
-                  <TouchableOpacity
-                    onPress={() => navigation.replace('Login')}
+                  <ScalePressable
+                    onPress={() => router.replace('/auth/login')}
                     style={styles.switchButton}
                   >
                     <Text style={styles.switchText}>
                       Already with Swipe? <Text style={styles.switchHighlight}>Sign In</Text>
                     </Text>
-                  </TouchableOpacity>
+                  </ScalePressable>
                 </View>
               </GlassBackground>
             </ScrollView>

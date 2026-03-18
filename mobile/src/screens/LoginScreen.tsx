@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -21,12 +20,12 @@ import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { AuthNavigationProp } from '../types/navigation';
+import { ScalePressable } from '../components/ScalePressable';
 
-type Props = {
-  navigation: AuthNavigationProp;
-};
+import { useRouter } from 'expo-router';
 
-export default function LoginScreen({ navigation }: Props) {
+export default function LoginScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signIn, requestPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
@@ -105,13 +104,12 @@ export default function LoginScreen({ navigation }: Props) {
           ]}
         >
           <View style={styles.topBar}>
-            <TouchableOpacity
-              onPress={() => navigation.replace('AuthLanding')}
+            <ScalePressable
+              onPress={() => router.back()}
               style={styles.backButton}
-              activeOpacity={0.8}
             >
               <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
 
           <View style={styles.centerContent}>
@@ -167,39 +165,36 @@ export default function LoginScreen({ navigation }: Props) {
                   onChangeText={setPassword}
                   secureTextEntry={!passwordVisible}
                 />
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => setPasswordVisible((prev) => !prev)}
                   style={styles.eyeButton}
-                  activeOpacity={0.75}
                 >
                   <Ionicons
                     name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
                     color={Colors.textMuted}
                   />
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={handleForgotPassword}
               disabled={resettingPassword}
               style={styles.forgotButton}
-              activeOpacity={0.75}
             >
               {resettingPassword ? (
                 <ActivityIndicator size="small" color={Colors.accentBlueBright} />
               ) : (
                 <Text style={styles.forgotText}>Forgot password?</Text>
               )}
-            </TouchableOpacity>
+            </ScalePressable>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={handleLogin}
               disabled={loading}
-              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
@@ -213,16 +208,16 @@ export default function LoginScreen({ navigation }: Props) {
                   <Text style={styles.buttonText}>Sign In</Text>
                 )}
               </LinearGradient>
-            </TouchableOpacity>
+            </ScalePressable>
 
-                  <TouchableOpacity
-                    onPress={() => navigation.replace('Signup')}
+                  <ScalePressable
+                    onPress={() => router.replace('/auth/signup')}
                     style={styles.switchButton}
                   >
                     <Text style={styles.switchText}>
                       New to Swipe? <Text style={styles.switchHighlight}>Create Account</Text>
                     </Text>
-                  </TouchableOpacity>
+                  </ScalePressable>
                 </View>
               </GlassBackground>
             </ScrollView>

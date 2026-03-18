@@ -2,17 +2,17 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { ScalePressable } from '../components/ScalePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -21,14 +21,18 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  useAnimatedScrollHandler,
+  runOnJS,
 } from 'react-native-reanimated';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { api, FraudTransaction } from '../services/api';
-import { AppStackParamList } from '../types/navigation';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
+import { Skeleton } from '../components/Skeleton';
 
+function formatDate(txnDate: any): string {
+// ... rest of helper functions ...
 function formatDate(txnDate: any): string {
   try {
     const d = new Date(txnDate);
@@ -61,9 +65,8 @@ function riskLabel(score: number): { text: string; color: string } {
   return { text: 'No Risk', color: Colors.accentEmerald };
 }
 
-type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
-
-export default function FraudAlertsScreen({ navigation }: { navigation: NavigationProp }) {
+export default function FraudAlertsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
     accounts,
@@ -85,6 +88,20 @@ export default function FraudAlertsScreen({ navigation }: { navigation: Navigati
   );
 
   const loading = fraudAlertsLoading && queueTransactions.length === 0 && scannedCount === 0;
+
+  const scrollY = useSharedValue(0);
+  const REFRESH_THRESHOLD = 80;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(handleRefresh)();
+      }
+    },
+  });
 
   const pulse = useSharedValue(0.9);
   React.useEffect(() => {
@@ -168,8 +185,22 @@ export default function FraudAlertsScreen({ navigation }: { navigation: Navigati
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.accentBlueBright} />
+      <View style={styles.container}>
+        <StarField />
+        <View style={[styles.scroll, { paddingTop: insets.top + 8 }]}>
+          <Skeleton width={120} height={34} borderRadius={8} style={{ marginBottom: 20 }} />
+          <Skeleton width="100%" height={160} borderRadius={24} style={{ marginBottom: 14 }} />
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            <Skeleton width="31%" height={80} borderRadius={16} />
+            <Skeleton width="31%" height={80} borderRadius={16} />
+            <Skeleton width="31%" height={80} borderRadius={16} />
+          </View>
+          <Skeleton width={140} height={24} borderRadius={6} style={{ marginBottom: 10 }} />
+          <Skeleton width="100%" height={50} borderRadius={12} style={{ marginBottom: 10 }} />
+          <Skeleton width={120} height={24} borderRadius={6} style={{ marginBottom: 10 }} />
+          <Skeleton width="100%" height={120} borderRadius={18} style={{ marginBottom: 10 }} />
+          <Skeleton width="100%" height={120} borderRadius={18} style={{ marginBottom: 10 }} />
+        </View>
       </View>
     );
   }
@@ -179,15 +210,12 @@ export default function FraudAlertsScreen({ navigation }: { navigation: Navigati
       <StarField />
       <View style={styles.bgGlow} />
 
-      <ScrollView
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
+      <Animated.ScrollView
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 8, paddingBottom: 110 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={Colors.accentBlueBright}
-          />
-        }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
@@ -228,14 +256,13 @@ export default function FraudAlertsScreen({ navigation }: { navigation: Navigati
         </View>
 
         <Text style={styles.sectionTitle}>Recent Scans</Text>
-        <TouchableOpacity
+        <ScalePressable
           style={styles.viewScansButton}
-          onPress={() => navigation.navigate('RecentScans')}
-          activeOpacity={0.85}
+          onPress={() => router.push('/guard/recent-scans')}
         >
           <Ionicons name="list-outline" size={16} color={Colors.textPrimary} />
           <Text style={styles.viewScansText}>View Recent Scans</Text>
-        </TouchableOpacity>
+        </ScalePressable>
 
         {queueTransactions.length > 0 && (
           <>
@@ -256,11 +283,10 @@ export default function FraudAlertsScreen({ navigation }: { navigation: Navigati
                     <Text style={[styles.queueMeta, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>{formatAmount(item.amount)}<Text style={styles.queueMeta}> · {formatDate(item.txn_date)}</Text></Text>
 
                     <View style={styles.actionRow}>
-                      <TouchableOpacity
+                      <ScalePressable
                         style={[styles.actionButton, styles.safeButton]}
                         onPress={() => handleAction(item.txn_id, false)}
                         disabled={isProcessing}
-                        activeOpacity={0.85}
                       >
                         {isProcessing ? (
                           <ActivityIndicator size="small" color={Colors.accentEmerald} />
@@ -270,13 +296,12 @@ export default function FraudAlertsScreen({ navigation }: { navigation: Navigati
                             <Text style={[styles.actionText, { color: Colors.textPrimary }]}>Mark Safe</Text>
                           </>
                         )}
-                      </TouchableOpacity>
+                      </ScalePressable>
 
-                      <TouchableOpacity
+                      <ScalePressable
                         style={[styles.actionButton, styles.fraudButton]}
                         onPress={() => handleAction(item.txn_id, true)}
                         disabled={isProcessing}
-                        activeOpacity={0.85}
                       >
                         {isProcessing ? (
                           <ActivityIndicator size="small" color={Colors.negative} />
@@ -286,7 +311,7 @@ export default function FraudAlertsScreen({ navigation }: { navigation: Navigati
                             <Text style={[styles.actionText, { color: Colors.negative }]}>Confirm Fraud</Text>
                           </>
                         )}
-                      </TouchableOpacity>
+                      </ScalePressable>
                     </View>
                   </Animated.View>
                 );

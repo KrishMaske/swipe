@@ -3,7 +3,6 @@ import {
   FlatList,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { DashboardNavigationProp, BudgetTransactionsRouteProp } from '../types/navigation';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ScalePressable } from '../components/ScalePressable';
 
 function formatCurrency(amount: number): string {
   const abs = Math.abs(amount);
@@ -25,12 +25,10 @@ function formatCurrency(amount: number): string {
   return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
-export default function BudgetTransactionsScreen({ route, navigation }: {
-  route: BudgetTransactionsRouteProp;
-  navigation: DashboardNavigationProp;
-}) {
+export default function BudgetTransactionsScreen() {
+  const router = useRouter();
+  const { id: budgetId, budgetName } = useLocalSearchParams<{ id: string; budgetName: string }>();
   const insets = useSafeAreaInsets();
-  const { budgetId, budgetName } = route.params;
   const { budgetTransactions } = useData();
 
   const transactions = useMemo(() => budgetTransactions[budgetId] || [], [budgetId, budgetTransactions]);
@@ -57,13 +55,13 @@ export default function BudgetTransactionsScreen({ route, navigation }: {
                 {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
+            <ScalePressable
+              onPress={() => router.back()}
               style={styles.closeBtn}
               activeOpacity={0.7}
             >
               <Ionicons name="close" size={20} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
         </View>
       </GlassBackground>

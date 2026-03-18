@@ -4,15 +4,18 @@ import {
   Alert,
   FlatList,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
+  ScalePressable,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackground } from '../components/GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { ScalePressable } from '../components/ScalePressable';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -21,9 +24,6 @@ import { api, Transaction } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { FraudNavigationProp } from '../types/navigation';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AppStackParamList } from '../types/navigation';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -66,7 +66,8 @@ function formatAmount(amount: number): string {
   return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
-export default function RecentScansScreen({ navigation }: { navigation: FraudNavigationProp }) {
+export default function RecentScansScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
     accounts,
@@ -158,13 +159,12 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
                 {recentScans.length} transaction{recentScans.length !== 1 ? 's' : ''}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
+            <ScalePressable
+              onPress={() => router.back()}
               style={styles.closeBtn}
-              activeOpacity={0.7}
             >
               <Ionicons name="close" size={20} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
         </View>
 
@@ -172,16 +172,15 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
           {DATE_RANGE_OPTIONS.map((option) => {
             const active = selectedRange === option.value;
             return (
-              <TouchableOpacity
+              <ScalePressable
                 key={String(option.value)}
                 style={[styles.filterChip, active && styles.filterChipActive]}
                 onPress={() => setSelectedRange(option.value)}
-                activeOpacity={0.85}
               >
                 <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                   {option.label}
                 </Text>
-              </TouchableOpacity>
+              </ScalePressable>
             );
           })}
         </ScrollView>
@@ -204,7 +203,7 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
           renderItem={({ item, index }) => (
-            <TouchableOpacity activeOpacity={0.9} onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
+            <ScalePressable onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
               <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
                 <GlassBackground
                   blurIntensity={38}
@@ -235,14 +234,14 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
                   </Text>
                 </GlassBackground>
               </Animated.View>
-            </TouchableOpacity>
+            </ScalePressable>
           )}
         />
       )}
 
       <Modal visible={selectedScanTxn !== null} transparent animationType="fade">
         <View style={styles.inlineActionOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setSelectedScanTxn(null)} />
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setSelectedScanTxn(null)} />
           <GlassBackground
             blurIntensity={65}
             blurTint="systemChromeMaterialDark"
@@ -253,27 +252,27 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
             <Text style={styles.scanActionTitle} numberOfLines={2}>{selectedScanTxn?.merchant || 'Unknown Merchant'}</Text>
             <Text style={styles.scanActionMeta}>Update this transaction's fraud status.</Text>
 
-            <TouchableOpacity
+            <ScalePressable
               style={[styles.scanActionButton, styles.safeButton]}
               onPress={() => selectedScanTxn && handleAction(selectedScanTxn.txn_id, false)}
               disabled={!!selectedScanTxn && updating === selectedScanTxn.txn_id}
             >
               <Ionicons name="checkmark-circle-outline" size={18} color={Colors.textPrimary} />
               <Text style={[styles.actionText, { color: Colors.textPrimary }]}>Set as Safe</Text>
-            </TouchableOpacity>
+            </ScalePressable>
 
-            <TouchableOpacity
+            <ScalePressable
               style={[styles.scanActionButton, styles.fraudButton]}
               onPress={() => selectedScanTxn && handleAction(selectedScanTxn.txn_id, true)}
               disabled={!!selectedScanTxn && updating === selectedScanTxn.txn_id}
             >
               <Ionicons name="alert-circle-outline" size={18} color={Colors.negative} />
               <Text style={[styles.actionText, { color: Colors.negative }]}>Set as Fraud</Text>
-            </TouchableOpacity>
+            </ScalePressable>
 
-            <TouchableOpacity style={styles.scanActionCancel} onPress={() => setSelectedScanTxn(null)}>
+            <ScalePressable style={styles.scanActionCancel} onPress={() => setSelectedScanTxn(null)}>
               <Text style={styles.scanActionCancelText}>Cancel</Text>
-            </TouchableOpacity>
+            </ScalePressable>
           </GlassBackground>
         </View>
       </Modal>

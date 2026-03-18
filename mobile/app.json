@@ -52,7 +52,12 @@
     "web": {
       "favicon": "./images/AppIcons/playstore.png"
     },
+    "scheme": "swipe",
+    "experiments": {
+      "typedRoutes": true
+    },
     "plugins": [
+      "expo-router",
       "expo-asset",
       [
         "expo-location",

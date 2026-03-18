@@ -9,9 +9,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { ScalePressable } from '../components/ScalePressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,12 +21,12 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { OnboardingStackParamList } from '../types/navigation';
+import { useRouter } from 'expo-router';
 
 const SIMPLEFIN_CREATE_URL = 'https://bridge.simplefin.org/simplefin/create';
 
-export default function SimplefinOnboardingScreen({ navigation }: { navigation: NativeStackNavigationProp<OnboardingStackParamList> }) {
+export default function SimplefinOnboardingScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signOut, refreshSimplefinStatus } = useAuth();
   const [setupToken, setSetupToken] = useState('');
@@ -83,7 +83,7 @@ export default function SimplefinOnboardingScreen({ navigation }: { navigation: 
       await api.exchangeSetupToken(token);
       // Kick off first sync so dashboard data can load shortly after onboarding.
       await api.syncAccounts().catch(() => undefined);
-      await refreshSimplefinStatus();
+      router.replace('/');
       setSetupToken('');
     } catch (err: any) {
       setError(err?.message || 'Failed to link your SimpleFIN connection.');
@@ -137,7 +137,7 @@ export default function SimplefinOnboardingScreen({ navigation }: { navigation: 
               Open SimpleFIN Bridge and sign in to your bank there. After linking, SimpleFIN shows a long token
               that usually starts with "aHR0c...".
             </Text>
-            <TouchableOpacity onPress={openSimplefinBridge} activeOpacity={0.85}>
+            <ScalePressable onPress={openSimplefinBridge}>
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                 style={styles.linkButton}
@@ -147,7 +147,7 @@ export default function SimplefinOnboardingScreen({ navigation }: { navigation: 
                 <Ionicons name="open-outline" size={17} color="#fff" />
                 <Text style={styles.linkButtonText}>Open SimpleFIN Bridge</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </ScalePressable>
             <Text style={styles.urlText}>{SIMPLEFIN_CREATE_URL}</Text>
           </View>
 
@@ -178,10 +178,9 @@ export default function SimplefinOnboardingScreen({ navigation }: { navigation: 
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={handleConnect}
               disabled={linking}
-              activeOpacity={0.85}
             >
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
@@ -195,7 +194,7 @@ export default function SimplefinOnboardingScreen({ navigation }: { navigation: 
                   <Text style={styles.buttonText}>Connect and Continue</Text>
                 )}
               </LinearGradient>
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
 
           <View style={styles.noteRow}>
@@ -205,10 +204,10 @@ export default function SimplefinOnboardingScreen({ navigation }: { navigation: 
             </Text>
           </View>
 
-          <TouchableOpacity onPress={confirmSignOut} style={styles.signOutRow} activeOpacity={0.8}>
+          <ScalePressable onPress={confirmSignOut} style={styles.signOutRow}>
             <Ionicons name="log-out-outline" size={16} color={Colors.textMuted} />
             <Text style={styles.signOutText}>Sign out</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>

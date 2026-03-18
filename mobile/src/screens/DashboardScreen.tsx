@@ -11,7 +11,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -21,21 +20,26 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
+  interpolate,
 } from 'react-native-reanimated';
 import { GlassBackground } from '../components/GlassBackground';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SvgUri } from 'react-native-svg';
 import { api, Account, Budget } from '../services/api';
-import { AppStackParamList } from '../types/navigation';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { getProviderLogoUrl, normalizeProviderKey } from '../utils/providerLogos';
 import StarField from '../components/StarField';
+import { useRouter } from 'expo-router';
+import { ScalePressable } from '../components/ScalePressable';
+import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
+import { useAnimatedScrollHandler } from 'react-native-reanimated';
+import { Skeleton } from '../components/Skeleton';
 
 const SIMPLEFIN_ACCOUNT_URL = 'https://beta-bridge.simplefin.org/my-account';
 
@@ -62,11 +66,8 @@ const PROVIDER_LOGO_SCALE: Record<string, number> = {
   bofa: 1.65,
 };
 
-import { ScalePressable } from '../components/ScalePressable';
-
-type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
-
-export default function DashboardScreen({ navigation }: { navigation: NavigationProp }) {
+export default function DashboardScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const budgetCardWidth = Math.min(Math.max(width - 96, 240), 320);
@@ -96,8 +97,22 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
   const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
 
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
-  const [contextMenuBudget, setContextMenuBudget] = useState<any>(null);
+  const [contextMenuBudget, setContextMenuBudget] = useState<Budget | null>(null);
   const [failedLogoProviders, setFailedLogoProviders] = useState<Record<string, boolean>>({});
+  
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(onRefresh)();
+      }
+    },
+  });
+
+  const REFRESH_THRESHOLD = 80;
 
   useFocusEffect(
     useCallback(() => {
@@ -119,15 +134,14 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchAccounts(true);
-    await fetchBudgets(true);
-    if (accounts) {
-      await Promise.all(accounts.map((acc) => fetchTransactions(acc.acc_id, true)));
+    try {
+      await runBackendSync(true); // pass true to skip initial alert
+    } finally {
+      setRefreshing(false);
     }
-    setRefreshing(false);
   };
 
-  const runBackendSync = async () => {
+  const runBackendSync = async (silent = false) => {
     setSyncing(true);
     try {
       // Get initial sync status to detect completion
@@ -135,10 +149,12 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
       const initialSyncTime = initialStatus?.last_sync ?? 0;
 
       const result = await api.syncAccounts();
-      Alert.alert(
-        'Sync Started',
-        result.success || 'Account sync initiated. Transactions will update in the background.'
-      );
+      if (!silent) {
+        Alert.alert(
+          'Sync Started',
+          result.success || 'Account sync initiated. Transactions will update in the background.'
+        );
+      }
 
       // Poll for sync completion
       let attempts = 0;
@@ -172,7 +188,9 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
 
       poll();
     } catch (err: any) {
-      Alert.alert('Sync Failed', err.message || 'Could not sync accounts');
+      if (!silent) {
+        Alert.alert('Sync Failed', err.message || 'Could not sync accounts');
+      }
     } finally {
       setSyncing(false);
     }
@@ -250,7 +268,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
         text: 'Cancel', 
         style: 'cancel',
         onPress: () => {
-          setContextMenuBudget(null);
+          setContextMenuBudget?.(null);
         }
       },
       {
@@ -262,7 +280,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
             await api.deleteBudget(targetId);
             setBudgetModalVisible(false);
             setEditingBudgetId(null);
-            setContextMenuBudget(null);
+            setContextMenuBudget?.(null);
             setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
             await fetchBudgets(true);
           } catch (err: any) {
@@ -299,15 +317,12 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
     <View style={styles.container}>
       <StarField />
 
-      <ScrollView
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
+      <Animated.ScrollView
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.accentBlue}
-          />
-        }
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
@@ -315,26 +330,32 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
             <Text style={styles.headerEyebrow}>Swipe</Text>
             <Text style={styles.headerTitle}>Overview</Text>
           </View>
-          <TouchableOpacity
+          <ScalePressable
             style={styles.settingsBtn}
-            onPress={() => navigation.navigate('Settings')}
-            activeOpacity={0.8}
+            onPress={() => router.push('/dashboard/settings')}
           >
             <Ionicons name="settings-outline" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         <View style={styles.heroSection}> 
           <Text style={styles.heroLabel}>Total Available Balance</Text>
-          <Text style={styles.heroBalance}>{loading ? '...' : hasAvailableBalance ? formatCurrency(totalAvailableBalance) : 'N/A'}</Text>
+          <Text style={styles.heroBalance}>
+            {loading ? (
+              <Skeleton width={180} height={42} borderRadius={10} style={{ marginTop: 4 }} />
+            ) : hasAvailableBalance ? (
+              formatCurrency(totalAvailableBalance)
+            ) : (
+              'N/A'
+            )}
+          </Text>
           <Text style={styles.heroMeta}>{linkedAccountLabel}</Text>
 
           <View style={styles.syncButtonsContainer}>
-            <TouchableOpacity
+            <ScalePressable
               style={styles.syncPillWrap}
               onPress={handleSync}
               disabled={syncing}
-              activeOpacity={0.8}
             >
               <GlassBackground
                 blurIntensity={28}
@@ -352,13 +373,12 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                   </>
                 )}
               </GlassBackground>
-            </TouchableOpacity>
+            </ScalePressable>
 
-            <TouchableOpacity
+            <ScalePressable
               style={styles.syncPillWrap}
               onPress={handleForceSync}
               disabled={syncing}
-              activeOpacity={0.8}
             >
               <GlassBackground
                 blurIntensity={28}
@@ -376,23 +396,22 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                   </>
                 )}
               </GlassBackground>
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Budgets</Text>
-          <TouchableOpacity
+          <ScalePressable
             onPress={() => {
               setEditingBudgetId(null);
               setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
               setCategoryDropdownVisible(false);
               setBudgetModalVisible(true);
             }}
-            hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
           >
             <Ionicons name="add-circle" size={26} color={Colors.accentBlueBright} />
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         {budgets.length === 0 ? (
@@ -415,31 +434,31 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                 <Animated.View key={budget.id} entering={FadeInDown.delay(index * 70).springify()}>
                   <ScalePressable
                     onPress={() =>
-                      navigation.navigate('BudgetTransactions', {
-                        budgetId: budget.id!,
-                        budgetName: budget.name,
+                      router.push({
+                        pathname: '/dashboard/budget/[id]',
+                        params: { id: budget.id, budgetName: budget.name }
                       })
                     }
                     onLongPress={() => setContextMenuBudget(budget)}
                     delayLongPress={1200}
                     style={[styles.budgetCard, { width: budgetCardWidth }]}
                   >
-                  <View style={styles.budgetHeadRow}>
-                    <Text style={styles.budgetName}>{budget.name}</Text>
-                    <Text style={styles.budgetPeriod}>{budget.period}</Text>
-                  </View>
-                  <Text style={styles.budgetCategory}>{budget.category}</Text>
-                  <View style={styles.progressTrack}>
-                    <LinearGradient
-                      colors={gradient as [string, string]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.progressFill, { width: `${progress * 100}%` }]}
-                    />
-                  </View>
-                  <Text style={styles.budgetAmountText}>
-                    {formatCurrency(spent)} / {formatCurrency(budget.amount)}
-                  </Text>
+                    <View style={styles.budgetHeadRow}>
+                      <Text style={styles.budgetName}>{budget.name}</Text>
+                      <Text style={styles.budgetPeriod}>{budget.period}</Text>
+                    </View>
+                    <Text style={styles.budgetCategory}>{budget.category}</Text>
+                    <View style={styles.progressTrack}>
+                      <LinearGradient
+                        colors={gradient as [string, string]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.progressFill, { width: `${progress * 100}%` }]}
+                      />
+                    </View>
+                    <Text style={styles.budgetAmountText}>
+                      {formatCurrency(spent)} / {formatCurrency(budget.amount)}
+                    </Text>
                   </ScalePressable>
                 </Animated.View>
               );
@@ -459,12 +478,12 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                 entering={FadeInDown.delay(i * 80).springify()}
                 style={styles.skeletonAccountRow}
               >
-                <View style={styles.skeletonLogo} />
+                <Skeleton width={44} height={44} borderRadius={14} />
                 <View style={styles.skeletonInfo}>
-                  <View style={styles.skeletonLine} />
-                  <View style={[styles.skeletonLine, styles.skeletonLineShort]} />
+                  <Skeleton width="100%" height={12} borderRadius={6} />
+                  <Skeleton width="60%" height={12} borderRadius={6} />
                 </View>
-                <View style={[styles.skeletonLine, { width: 60 }]} />
+                <Skeleton width={60} height={18} borderRadius={6} />
               </Animated.View>
             ))}
           </>
@@ -473,7 +492,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
             <Ionicons name="business-outline" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Accounts Linked</Text>
             <Text style={styles.emptySubtitle}>Go to Settings to link your bank with SimpleFIN.</Text>
-            <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('Settings')}>
+            <ScalePressable style={styles.linkButton} onPress={() => router.push('/dashboard/settings')}>
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                 style={styles.linkButtonGradient}
@@ -483,7 +502,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                 <Ionicons name="link" size={18} color="#fff" />
                 <Text style={styles.linkButtonText}>Link Bank Account</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </ScalePressable>
           </View>
         ) : (
           accounts.map((account, index) => {
@@ -494,69 +513,67 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
             const logoSize = Math.round(LOGO_BASE_SIZE * logoScale);
 
             return (
-            <Animated.View key={account.acc_id} entering={FadeInDown.delay(index * 80).springify()}>
-              <TouchableOpacity
-                style={styles.accountRow}
-                activeOpacity={0.85}
-                onPress={() =>
-                  navigation.navigate('AccountDetail', {
-                    accId: account.acc_id,
-                    accType: account.acc_type,
-                    provider: account.provider,
-                  })
-                }
-              >
-              <View style={styles.accountLeft}>
-                {showProviderLogo ? (
-                  <View style={styles.accountLogoImageWrap}>
-                    <SvgUri
-                      uri={logoUrl}
-                      width={logoSize}
-                      height={logoSize}
-                      onError={() => {
-                        if (!providerKey) return;
-                        setFailedLogoProviders((prev) => ({ ...prev, [providerKey]: true }));
-                      }}
-                    />
-                  </View>
-                ) : (
-                  <LinearGradient
-                    colors={['rgba(130,166,255,0.25)', 'rgba(46,230,166,0.15)']}
-                    style={styles.accountLogo}
-                  >
-                    <Ionicons
-                      name={accountLogos[index % accountLogos.length]}
-                      size={18}
-                      color={Colors.accentBlueBright}
-                    />
-                  </LinearGradient>
-                )}
-                <View>
-                  <Text style={styles.accountName}>{account.acc_type}</Text>
-                  <Text style={styles.accountProvider}>{account.provider}</Text>
-                </View>
-              </View>
-
-              <View style={styles.accountRight}>
-                <Text
-                  style={[
-                    styles.accountBalance,
-                    {
-                      color:
-                        account.available_balance === null
-                          ? Colors.textMuted
-                          : account.available_balance >= 0
-                            ? Colors.textPrimary
-                            : Colors.negative,
-                    },
-                  ]}
+              <Animated.View key={account.acc_id} entering={FadeInDown.delay(index * 80).springify()}>
+                <ScalePressable
+                  style={styles.accountRow}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/dashboard/account/[id]',
+                      params: { id: account.acc_id, accType: account.acc_type, provider: account.provider }
+                    })
+                  }
                 >
-                  {account.available_balance !== null ? formatCurrency(account.available_balance) : 'N/A'}
-                </Text>
-                <Text style={styles.accountCurrency}>{account.currency}</Text>
-              </View>
-              </TouchableOpacity>
-            </Animated.View>
+                  <View style={styles.accountLeft}>
+                    {showProviderLogo ? (
+                      <View style={styles.accountLogoImageWrap}>
+                        <SvgUri
+                          uri={logoUrl}
+                          width={logoSize}
+                          height={logoSize}
+                          onError={() => {
+                            if (!providerKey) return;
+                            setFailedLogoProviders((prev) => ({ ...prev, [providerKey]: true }));
+                          }}
+                        />
+                      </View>
+                    ) : (
+                      <LinearGradient
+                        colors={['rgba(130,166,255,0.25)', 'rgba(46,230,166,0.15)']}
+                        style={styles.accountLogo}
+                      >
+                        <Ionicons
+                          name={accountLogos[index % accountLogos.length]}
+                          size={18}
+                          color={Colors.accentBlueBright}
+                        />
+                      </LinearGradient>
+                    )}
+                    <View>
+                      <Text style={styles.accountName}>{account.acc_type}</Text>
+                      <Text style={styles.accountProvider}>{account.provider}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.accountRight}>
+                    <Text
+                      style={[
+                        styles.accountBalance,
+                        {
+                          color:
+                            account.available_balance === null
+                              ? Colors.textMuted
+                              : account.available_balance! >= 0
+                                ? Colors.textPrimary
+                                : Colors.negative,
+                        },
+                      ]}
+                    >
+                      {account.available_balance !== null ? formatCurrency(account.available_balance) : 'N/A'}
+                    </Text>
+                    <Text style={styles.accountCurrency}>{account.currency}</Text>
+                  </View>
+                </ScalePressable>
+              </Animated.View>
             );
           })
         )}
@@ -564,9 +581,9 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
 
       <Modal visible={!!contextMenuBudget} transparent animationType="fade">
         <View style={styles.centeredCardOverlay}>
-          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setContextMenuBudget(null)} />
+          <Pressable style={styles.sheetBackdrop} onPress={() => setContextMenuBudget(null)} />
           <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={styles.contextMenu}>
-            <TouchableOpacity
+            <ScalePressable
               style={styles.contextMenuItem}
               onPress={() => {
                  setEditingBudgetId(contextMenuBudget.id!);
@@ -582,9 +599,9 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
             >
               <Ionicons name="pencil" size={20} color={Colors.textPrimary} />
               <Text style={styles.contextMenuText}>Edit Budget</Text>
-            </TouchableOpacity>
+            </ScalePressable>
             <View style={styles.contextMenuDivider} />
-            <TouchableOpacity
+            <ScalePressable
               style={styles.contextMenuItem}
               onPress={() => {
                 const idToDel = contextMenuBudget.id!;
@@ -593,7 +610,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
             >
               <Ionicons name="trash-outline" size={20} color={Colors.negative} />
               <Text style={[styles.contextMenuText, { color: Colors.negative }]}>Delete Budget</Text>
-            </TouchableOpacity>
+            </ScalePressable>
           </GlassBackground>
         </View>
       </Modal>
@@ -603,9 +620,8 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.centeredCardOverlay}
         >
-          <TouchableOpacity
+          <Pressable
             style={styles.sheetBackdrop}
-            activeOpacity={1}
             onPress={() => {
               setBudgetModalVisible(false);
               setEditingBudgetId(null);
@@ -615,7 +631,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{editingBudgetId ? 'Edit Budget' : 'Create Budget'}</Text>
               <View style={styles.modalActionsRow}>
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => {
                     setBudgetModalVisible(false);
                     setEditingBudgetId(null);
@@ -623,14 +639,14 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                   style={{ marginRight: 16 }}
                 >
                   <Ionicons name="close" size={26} color={Colors.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleCreateBudget} disabled={creatingBudget}>
+                </ScalePressable>
+                <ScalePressable onPress={handleCreateBudget} disabled={creatingBudget}>
                   {creatingBudget ? (
                     <ActivityIndicator color={Colors.accentBlueBright} size="small" />
                   ) : (
                     <Ionicons name="checkmark" size={26} color={Colors.accentBlueBright} />
                   )}
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
 
@@ -645,9 +661,8 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
 
             <Text style={styles.inputLabel}>Category</Text>
             <View style={styles.dropdownContainer}>
-              <TouchableOpacity
+              <ScalePressable
                 style={styles.dropdownButton}
-                activeOpacity={0.85}
                 onPress={() => setCategoryDropdownVisible(!categoryDropdownVisible)}
               >
                 <Text style={styles.dropdownButtonText}>{newBudget.category || 'Select a Category'}</Text>
@@ -656,13 +671,13 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                   size={20}
                   color={Colors.textMuted}
                 />
-              </TouchableOpacity>
+              </ScalePressable>
 
               {categoryDropdownVisible && (
                 <View style={styles.dropdownList}>
                   <ScrollView nestedScrollEnabled style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
                     {CATEGORIES.map((cat) => (
-                      <TouchableOpacity
+                      <ScalePressable
                         key={cat}
                         style={styles.dropdownItem}
                         onPress={() => {
@@ -681,7 +696,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                         {newBudget.category === cat && (
                           <Ionicons name="checkmark" size={18} color={Colors.accentBlueBright} />
                         )}
-                      </TouchableOpacity>
+                      </ScalePressable>
                     ))}
                   </ScrollView>
                 </View>
@@ -704,14 +719,13 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                 {PERIOD_OPTIONS.map((period) => {
                   const active = newBudget.period === period;
                   return (
-                    <TouchableOpacity
+                    <ScalePressable
                       key={period}
                       style={[styles.segmentChip, active && styles.segmentChipActive]}
                       onPress={() => setNewBudget({ ...newBudget, period })}
-                      activeOpacity={0.85}
                     >
                       <Text style={[styles.segmentChipText, active && styles.segmentChipTextActive]}>{period}</Text>
-                    </TouchableOpacity>
+                    </ScalePressable>
                   );
                 })}
               </ScrollView>

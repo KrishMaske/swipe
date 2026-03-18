@@ -16,6 +16,7 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -56,7 +57,8 @@ function resolveStepState(options: {
   return options.canAskAgain ? 'pending' : 'denied';
 }
 
-export default function PermissionsScreen({ navigation }: { navigation: NativeStackNavigationProp<PermissionsStackParamList> }) {
+export default function PermissionsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
@@ -145,6 +147,12 @@ export default function PermissionsScreen({ navigation }: { navigation: NativeSt
       sub.remove();
     };
   }, [refreshPermissionStates]);
+
+  useEffect(() => {
+    if (allGranted) {
+      router.replace('/onboarding/simplefin');
+    }
+  }, [allGranted, router]);
 
   const requestForeground = useCallback(async () => {
     setRequesting(true);
