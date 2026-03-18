@@ -1,6 +1,3 @@
-uild ipa · YML
-Copy
-
 name: iOS Build (Sideloading)
  
 on:
@@ -69,13 +66,10 @@ jobs:
       - name: Patch Podfile for Xcode 16 compatibility
         working-directory: mobile/ios
         run: |
-          python3 - <<'PYEOF'
-          import re
- 
-          with open('Podfile', 'r') as f:
-              content = f.read()
- 
-          patch = """
+          node -e "
+          const fs = require('fs');
+          let content = fs.readFileSync('Podfile', 'utf8');
+          const patch = \`
             # Xcode 16 compatibility patch
             installer.pods_project.targets.each do |target|
               target.build_configurations.each do |config|
@@ -84,21 +78,11 @@ jobs:
                 config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
               end
             end
-          """
- 
-          # Inject after the first post_install do |installer| line
-          patched = re.sub(
-              r'(post_install do \|installer\|)',
-              r'\1' + patch,
-              content,
-              count=1
-          )
- 
-          with open('Podfile', 'w') as f:
-              f.write(patched)
- 
-          print("Podfile patched successfully")
-          PYEOF
+          \`;
+          content = content.replace('post_install do |installer|', 'post_install do |installer|' + patch);
+          fs.writeFileSync('Podfile', content);
+          console.log('Podfile patched successfully');
+          "
  
       - name: Install CocoaPods
         working-directory: mobile/ios
@@ -164,4 +148,3 @@ jobs:
           name: SwipeSmart-${{ github.run_number }}
           path: ${{ steps.xcode_info.outputs.scheme }}.ipa
           retention-days: 30
- 
