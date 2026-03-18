@@ -12,7 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import StarField from '../components/StarField';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -127,11 +127,14 @@ export default function SignupScreen({ navigation }: Props) {
                 <Text style={styles.subtitle}>Join Swipe. Access your premium finance dashboard and scan for security vulnerabilities.</Text>
               </View>
 
-              <View style={styles.cardContainer}>
-                {Platform.OS === 'ios' && (
-                  <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
-                )}
-                <View style={[styles.card, Platform.OS === 'android' && styles.cardAndroid]}>
+              <GlassBackground
+                blurIntensity={26}
+                blurTint="systemChromeMaterialDark"
+                style={styles.cardContainer}
+                fallbackColor="rgba(15, 15, 18, 0.98)"
+                tintColor="rgba(255,255,255,0.02)"
+              >
+                <View style={styles.card}>
                   <Text style={styles.cardTitle}>Account Details</Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Email</Text>
@@ -228,7 +231,7 @@ export default function SignupScreen({ navigation }: Props) {
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </GlassBackground>
             </ScrollView>
           </View>
         </Animated.View>

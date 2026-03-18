@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -140,7 +140,13 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
     <View style={styles.container}>
       <StarField />
 
-      <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}> 
+      <GlassBackground
+        blurIntensity={38}
+        blurTint="systemChromeMaterialDark"
+        style={[styles.header, { marginTop: insets.top + 8 }]}
+        tintColor="rgba(0,0,0,0.4)"
+        tintOpacity={0.6}
+      >
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Recent Scans</Text>
@@ -152,6 +158,13 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
                 {recentScans.length} transaction{recentScans.length !== 1 ? 's' : ''}
               </Text>
             </View>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.closeBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={20} color={Colors.textPrimary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -172,7 +185,7 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
             );
           })}
         </ScrollView>
-      </BlurView>
+      </GlassBackground>
 
       {loading ? (
         <View style={[styles.container, styles.centered]}>
@@ -193,7 +206,13 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
           renderItem={({ item, index }) => (
             <TouchableOpacity activeOpacity={0.9} onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
               <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
-                <BlurView intensity={38} tint="dark" style={styles.txnCard}>
+                <GlassBackground
+                  blurIntensity={38}
+                  blurTint="systemChromeMaterialDark"
+                  style={styles.txnCard}
+                  tintColor="rgba(0,0,0,0.4)"
+                  tintOpacity={0.6}
+                >
                   <View style={[styles.categoryDot, { backgroundColor: item.amount < 0 ? Colors.negative : Colors.positive }]} />
                   <View style={styles.txnInfo}>
                     <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
@@ -214,7 +233,7 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
                   <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
                     {formatAmount(item.amount)}
                   </Text>
-                </BlurView>
+                </GlassBackground>
               </Animated.View>
             </TouchableOpacity>
           )}
@@ -224,7 +243,13 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
       <Modal visible={selectedScanTxn !== null} transparent animationType="fade">
         <View style={styles.inlineActionOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setSelectedScanTxn(null)} />
-          <BlurView intensity={65} tint="dark" style={styles.scanActionCard}>
+          <GlassBackground
+            blurIntensity={65}
+            blurTint="systemChromeMaterialDark"
+            style={styles.scanActionCard}
+            tintColor="rgba(0,0,0,0.4)"
+            tintOpacity={0.6}
+          >
             <Text style={styles.scanActionTitle} numberOfLines={2}>{selectedScanTxn?.merchant || 'Unknown Merchant'}</Text>
             <Text style={styles.scanActionMeta}>Update this transaction's fraud status.</Text>
 
@@ -249,7 +274,7 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
             <TouchableOpacity style={styles.scanActionCancel} onPress={() => setSelectedScanTxn(null)}>
               <Text style={styles.scanActionCancelText}>Cancel</Text>
             </TouchableOpacity>
-          </BlurView>
+          </GlassBackground>
         </View>
       </Modal>
     </View>
@@ -319,6 +344,16 @@ const styles = StyleSheet.create({
     ...Typography.caption2,
     color: Colors.textPrimary,
     fontWeight: '700',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   filterRow: {
     gap: 8,

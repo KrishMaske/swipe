@@ -22,7 +22,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -336,7 +336,13 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
               disabled={syncing}
               activeOpacity={0.8}
             >
-              <BlurView intensity={28} tint="dark" style={styles.syncPill}>
+              <GlassBackground
+                blurIntensity={28}
+                blurTint="systemChromeMaterialDark"
+                style={styles.syncPill}
+                tintColor="rgba(0, 0, 0, 0.4)"
+                tintOpacity={0.6}
+              >
                 {syncing ? (
                   <ActivityIndicator size="small" color={Colors.textPrimary} />
                 ) : (
@@ -345,7 +351,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                     <Text style={styles.syncText}>Sync</Text>
                   </>
                 )}
-              </BlurView>
+              </GlassBackground>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -354,7 +360,13 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
               disabled={syncing}
               activeOpacity={0.8}
             >
-              <BlurView intensity={28} tint="dark" style={styles.syncPill}>
+              <GlassBackground
+                blurIntensity={28}
+                blurTint="systemChromeMaterialDark"
+                style={styles.syncPill}
+                tintColor="rgba(0, 0, 0, 0.4)"
+                tintOpacity={0.6}
+              >
                 {syncing ? (
                   <ActivityIndicator size="small" color={Colors.textPrimary} />
                 ) : (
@@ -363,7 +375,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                     <Text style={styles.syncText}>Force Sync</Text>
                   </>
                 )}
-              </BlurView>
+              </GlassBackground>
             </TouchableOpacity>
           </View>
         </View>
@@ -553,7 +565,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
       <Modal visible={!!contextMenuBudget} transparent animationType="fade">
         <View style={styles.centeredCardOverlay}>
           <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setContextMenuBudget(null)} />
-          <BlurView intensity={65} tint="dark" style={styles.contextMenu}>
+          <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={styles.contextMenu}>
             <TouchableOpacity
               style={styles.contextMenuItem}
               onPress={() => {
@@ -582,7 +594,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
               <Ionicons name="trash-outline" size={20} color={Colors.negative} />
               <Text style={[styles.contextMenuText, { color: Colors.negative }]}>Delete Budget</Text>
             </TouchableOpacity>
-          </BlurView>
+          </GlassBackground>
         </View>
       </Modal>
 
@@ -599,7 +611,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
               setEditingBudgetId(null);
             }}
           />
-          <BlurView intensity={65} tint="dark" style={styles.staticSquareCard}>
+          <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={styles.staticSquareCard}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{editingBudgetId ? 'Edit Budget' : 'Create Budget'}</Text>
               <View style={styles.modalActionsRow}>
@@ -704,7 +716,7 @@ export default function DashboardScreen({ navigation }: { navigation: Navigation
                 })}
               </ScrollView>
             </View>
-          </BlurView>
+          </GlassBackground>
         </KeyboardAvoidingView>
       </Modal>
 

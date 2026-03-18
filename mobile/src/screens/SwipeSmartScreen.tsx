@@ -24,7 +24,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -235,7 +235,13 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
             activeOpacity={1}
             onPress={() => setContextMenuCard(null)}
           />
-          <BlurView intensity={50} tint="dark" style={styles.contextMenu}>
+          <GlassBackground
+            blurIntensity={50}
+            blurTint="systemChromeMaterialDark"
+            style={styles.contextMenu}
+            tintColor="rgba(0, 0, 0, 0.4)"
+            tintOpacity={0.6}
+          >
             {contextMenuCard && (
               <>
                 <View style={styles.contextCardHeader}>
@@ -261,7 +267,7 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
                 </TouchableOpacity>
               </>
             )}
-          </BlurView>
+          </GlassBackground>
         </View>
       </Modal>
 
@@ -276,7 +282,13 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
             activeOpacity={1}
             onPress={() => setAddModalVisible(false)}
           />
-          <BlurView intensity={65} tint="dark" style={styles.addModalCard}>
+          <GlassBackground
+            blurIntensity={65}
+            blurTint="systemChromeMaterialDark"
+            style={styles.addModalCard}
+            tintColor="rgba(0, 0, 0, 0.4)"
+            tintOpacity={0.7}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add to Wallet</Text>
               <View style={styles.modalActions}>
@@ -367,7 +379,7 @@ export default function SwipeSmartScreen({ navigation }: { navigation: Navigatio
                 );
               }}
             />
-          </BlurView>
+          </GlassBackground>
         </KeyboardAvoidingView>
       </Modal>
 

@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
@@ -314,7 +314,13 @@ export default function PermissionsScreen({ navigation }: { navigation: NativeSt
         })}
       </View>
 
-      <BlurView intensity={35} tint="dark" style={styles.card}>
+      <GlassBackground
+        blurIntensity={35}
+        blurTint="systemChromeMaterialDark"
+        style={styles.card}
+        fallbackColor="rgba(15, 15, 18, 0.98)"
+        tintColor="rgba(255,255,255,0.02)"
+      >
         <View style={styles.iconWrap}>
           <Ionicons name={active.icon} size={26} color={Colors.accentBlueBright} />
         </View>
@@ -375,7 +381,7 @@ export default function PermissionsScreen({ navigation }: { navigation: NativeSt
         <Text style={styles.hardGateText}>
           SwipeSmart requires all 3 permissions to continue. Access to onboarding and the app remains locked until complete.
         </Text>
-      </BlurView>
+      </GlassBackground>
     </View>
   );
 }

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StarField from '../components/StarField';
@@ -34,17 +35,36 @@ export default function CardDetailsScreen({ route, navigation }: {
     <View style={styles.container}>
       <StarField />
 
-      <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}>
+      <GlassBackground
+        blurIntensity={38}
+        blurTint="systemChromeMaterialDark"
+        style={[styles.header, { marginTop: insets.top + 8 }]}
+        tintColor="rgba(0,0,0,0.4)"
+        tintOpacity={0.6}
+      >
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Card Details</Text>
             <Text style={styles.headerProvider}>{card.card_name || 'Unknown Card'}</Text>
           </View>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.closeBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={20} color={Colors.textPrimary} />
+          </TouchableOpacity>
         </View>
-      </BlurView>
+      </GlassBackground>
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        <BlurView intensity={28} tint="dark" style={styles.detailsCard}>
+        <GlassBackground
+          blurIntensity={28}
+          blurTint="systemChromeMaterialDark"
+          style={styles.detailsCard}
+          tintColor="rgba(0,0,0,0.4)"
+          tintOpacity={0.5}
+        >
           <Image
             source={{ uri: card.card_image_url }}
             style={styles.detailsCardArt}
@@ -76,7 +96,7 @@ export default function CardDetailsScreen({ route, navigation }: {
                 <Text style={styles.multiplierValue}>{multiplier}x</Text>
               </View>
             ))}
-        </BlurView>
+        </GlassBackground>
       </ScrollView>
     </View>
   );
@@ -129,6 +149,16 @@ const styles = StyleSheet.create({
     ...Typography.caption1,
     color: Colors.textSecondary,
     marginTop: 4,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   scrollContent: {
     padding: 16,

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -95,18 +95,15 @@ function MessageBubble({ item }: { item: DisplayMessage }) {
         <View style={styles.assistantAvatar}>
           <Ionicons name="sparkles" size={13} color="#0D1116" />
         </View>
-        <View style={[styles.bubble, styles.assistantBubble]}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              Platform.OS === 'android' ? styles.bubbleAndroidOverlay : styles.bubbleGlassOverlay,
-            ]}
-          />
+        <GlassBackground
+          style={[styles.bubble, styles.assistantBubble]}
+          blurIntensity={82}
+          blurTint="systemChromeMaterialDark"
+          tintColor={Platform.OS === 'ios' ? 'rgba(10, 10, 12, 0.35)' : undefined}
+          fallbackColor="rgba(8, 8, 10, 0.92)"
+        >
           <TypingIndicator />
-        </View>
+        </GlassBackground>
       </Animated.View>
     );
   }
@@ -121,31 +118,25 @@ function MessageBubble({ item }: { item: DisplayMessage }) {
       )}
 
       {isUser ? (
-        <View style={[styles.bubble, styles.userBubble]}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              Platform.OS === 'android' ? styles.userBubbleAndroidOverlay : styles.userBubbleGlassOverlay,
-            ]}
-          />
+        <GlassBackground
+          style={[styles.bubble, styles.userBubble]}
+          blurIntensity={82}
+          blurTint="systemChromeMaterialDark"
+          tintColor={Platform.OS === 'ios' ? 'rgba(248, 113, 113, 0.22)' : undefined}
+          fallbackColor="rgba(78, 18, 24, 0.9)"
+        >
           <Text style={styles.userText}>{item.content}</Text>
-        </View>
+        </GlassBackground>
       ) : (
-        <View style={[styles.bubble, styles.assistantBubble]}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              Platform.OS === 'android' ? styles.bubbleAndroidOverlay : styles.bubbleGlassOverlay,
-            ]}
-          />
+        <GlassBackground
+          style={[styles.bubble, styles.assistantBubble]}
+          blurIntensity={82}
+          blurTint="systemChromeMaterialDark"
+          tintColor={Platform.OS === 'ios' ? 'rgba(10, 10, 12, 0.35)' : undefined}
+          fallbackColor="rgba(8, 8, 10, 0.92)"
+        >
           <Markdown style={markdownStyles}>{item.content}</Markdown>
-        </View>
+        </GlassBackground>
       )}
     </Animated.View>
   );
@@ -294,18 +285,13 @@ export default function ChatScreen({ navigation }: { navigation: NavigationProp 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.composerWrap}>
-            <View style={styles.composerInner}>
-              {Platform.OS === 'ios' ? (
-                <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFill} />
-              ) : null}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  Platform.OS === 'android'
-                    ? styles.composerAndroidOverlay
-                    : styles.composerGlassOverlay,
-                ]}
-              />
+            <GlassBackground
+              style={styles.composerInner}
+              blurIntensity={85}
+              blurTint="systemChromeMaterialDark"
+              tintColor={Platform.OS === 'ios' ? 'rgba(10, 10, 12, 0.35)' : undefined}
+              fallbackColor="rgba(8, 8, 10, 0.92)"
+            >
               <TextInput
                 value={input}
                 onChangeText={setInput}
@@ -334,7 +320,7 @@ export default function ChatScreen({ navigation }: { navigation: NavigationProp 
                   <Ionicons name="arrow-up" size={20} color={canSend ? '#FFF' : Colors.textMuted} />
                 </View>
               </TouchableOpacity>
-            </View>
+            </GlassBackground>
         </View>
         <View style={{ height: keyboardVisible ? 0 : 100 }} />
       </KeyboardAvoidingView>

@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -248,7 +248,13 @@ export default function AccountDetailScreen({ route, navigation }: {
 
     return (
       <TouchableOpacity activeOpacity={0.9} onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1000}>
-        <BlurView intensity={38} tint="dark" style={styles.txnCard}>
+        <GlassBackground
+          blurIntensity={38}
+          blurTint="systemChromeMaterialDark"
+          style={styles.txnCard}
+          tintColor="rgba(0, 0, 0, 0.4)"
+          tintOpacity={0.6}
+        >
           <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive }]} />
           <View style={styles.txnInfo}>
             <Text style={styles.txnMerchant} numberOfLines={1}>
@@ -275,7 +281,7 @@ export default function AccountDetailScreen({ route, navigation }: {
           >
             {formatAmount(item.amount)}
           </Text>
-        </BlurView>
+        </GlassBackground>
       </TouchableOpacity>
     );
   };
@@ -295,7 +301,7 @@ export default function AccountDetailScreen({ route, navigation }: {
       <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>
         <View style={styles.menuOverlay}>
           <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeTransactionMenu} />
-          <BlurView intensity={65} tint="dark" style={[styles.contextMenu, { left: transactionMenuPosition.x, top: transactionMenuPosition.y }]}>
+          <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={[styles.contextMenu, { left: transactionMenuPosition.x, top: transactionMenuPosition.y }]}>
             <TouchableOpacity
               style={styles.contextMenuItem}
               onPress={() => transactionMenuTarget && openEditModal(transactionMenuTarget)}
@@ -303,7 +309,7 @@ export default function AccountDetailScreen({ route, navigation }: {
               <Ionicons name="create-outline" size={20} color={Colors.textPrimary} />
               <Text style={styles.contextMenuText}>Edit Transaction</Text>
             </TouchableOpacity>
-          </BlurView>
+          </GlassBackground>
         </View>
       </Modal>
 
@@ -314,7 +320,13 @@ export default function AccountDetailScreen({ route, navigation }: {
           style={[styles.centeredCardOverlay, keyboardOpen && styles.keyboardOpenOverlay]}
         >
           <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeEditModal} />
-          <BlurView intensity={65} tint="dark" style={styles.editModalCard}>
+          <GlassBackground
+            blurIntensity={65}
+            blurTint="systemChromeMaterialDark"
+            style={styles.editModalCard}
+            tintColor="rgba(0, 0, 0, 0.4)"
+            tintOpacity={0.6}
+          >
             <ScrollView
               contentContainerStyle={[styles.editModalScrollContent, { paddingBottom: insets.bottom + 6 }]}
               showsVerticalScrollIndicator={false}
@@ -395,12 +407,12 @@ export default function AccountDetailScreen({ route, navigation }: {
                 </LinearGradient>
               </TouchableOpacity>
             </ScrollView>
-          </BlurView>
+          </GlassBackground>
         </KeyboardAvoidingView>
       </Modal>
 
       {/* Account Header */}
-      <BlurView intensity={38} tint="dark" style={styles.header}>
+      <GlassBackground blurIntensity={38} blurTint="systemChromeMaterialDark" style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Transactions</Text>
@@ -434,7 +446,7 @@ export default function AccountDetailScreen({ route, navigation }: {
             );
           })}
         </ScrollView>
-      </BlurView>
+      </GlassBackground>
 
       {filteredTransactions.length === 0 ? (
         <View style={styles.emptyState}>

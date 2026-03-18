@@ -4,7 +4,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
@@ -13,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { GlassBackground } from '../shared/components/ui/GlassBackground';
+import { GlassBackground } from '../components/GlassBackground';
 import { IconSymbol } from '../shared/components/ui/icon-symbol';
 
 // Screens
@@ -73,14 +72,12 @@ export function LiquidGlassTabBar({ state, navigation }: Readonly<BottomTabBarPr
         {/* Liquid Glass / frosted background */}
         <GlassBackground
           style={StyleSheet.absoluteFill}
+          glassStyle="regular"
           blurIntensity={80}
-          blurTint="dark"
+          blurTint="systemChromeMaterialDark"
           tintColor="rgba(0, 0, 0, 0.4)"
-          fallbackColor={
-            Platform.OS === "android"
-              ? "rgba(8, 8, 10, 0.95)"
-              : "rgba(10, 10, 12, 0.85)"
-          }
+          tintOpacity={0.8}
+          fallbackColor="rgba(8, 8, 10, 0.95)"
         />
 
         {/* Animated Pill — frosted capsule behind active tab */}

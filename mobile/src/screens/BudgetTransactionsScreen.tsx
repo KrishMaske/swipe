@@ -3,9 +3,11 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,7 +39,13 @@ export default function BudgetTransactionsScreen({ route, navigation }: {
     <View style={styles.container}>
       <StarField />
 
-      <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}>
+      <GlassBackground
+        blurIntensity={38}
+        blurTint="systemChromeMaterialDark"
+        style={[styles.header, { marginTop: insets.top + 8 }]}
+        tintColor="rgba(0, 0, 0, 0.4)"
+        tintOpacity={0.6}
+      >
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>{budgetName || 'Budget'}</Text>
@@ -49,9 +57,16 @@ export default function BudgetTransactionsScreen({ route, navigation }: {
                 {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
               </Text>
             </View>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.closeBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={20} color={Colors.textPrimary} />
+            </TouchableOpacity>
           </View>
         </View>
-      </BlurView>
+      </GlassBackground>
 
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
@@ -65,7 +80,13 @@ export default function BudgetTransactionsScreen({ route, navigation }: {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 80 }]}
           renderItem={({ item }) => (
-            <BlurView intensity={38} tint="dark" style={styles.txnCard}>
+            <GlassBackground
+              blurIntensity={38}
+              blurTint="systemChromeMaterialDark"
+              style={styles.txnCard}
+              tintColor="rgba(0, 0, 0, 0.4)"
+              tintOpacity={0.6}
+            >
               <View
                 style={[
                   styles.categoryDot,
@@ -88,7 +109,7 @@ export default function BudgetTransactionsScreen({ route, navigation }: {
               >
                 {formatCurrency(Number(item.amount) || 0)}
               </Text>
-            </BlurView>
+            </GlassBackground>
           )}
         />
       )}
@@ -155,6 +176,16 @@ const styles = StyleSheet.create({
     ...Typography.caption2,
     color: Colors.textPrimary,
     fontWeight: '700',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   list: {
     paddingHorizontal: 16,

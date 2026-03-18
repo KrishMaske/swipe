@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
@@ -38,11 +38,14 @@ export default function AuthLandingScreen({ navigation }: Props) {
           <Text style={[styles.subtitle, { maxWidth: subtitleMaxWidth }]}>A smart payments system. One secure connection.</Text>
         </View>
 
-        <View style={styles.cardContainer}>
-          {Platform.OS === 'ios' && (
-            <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
-          )}
-          <View style={[styles.card, Platform.OS === 'android' && styles.cardAndroid]}>
+        <GlassBackground
+          blurIntensity={26}
+          blurTint="systemChromeMaterialDark"
+          style={styles.cardContainer}
+          fallbackColor="rgba(15, 15, 18, 0.98)"
+          tintColor="rgba(255,255,255,0.02)"
+        >
+          <View style={styles.card}>
             <Text style={styles.cardTitle}>Get Started</Text>
             <Text style={styles.cardBody}>
               Join a smart scanning payments system. Access your premium finance dashboard and scan for security vulnerabilities.
@@ -72,7 +75,7 @@ export default function AuthLandingScreen({ navigation }: Props) {
               <Text style={styles.secondaryButtonText}>Create Account</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </GlassBackground>
       </View>
     </View>
   );
