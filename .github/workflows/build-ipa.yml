@@ -102,6 +102,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            SWIFT_STRICT_CONCURRENCY=minimal \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
