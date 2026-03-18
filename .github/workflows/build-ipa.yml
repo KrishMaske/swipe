@@ -30,35 +30,32 @@ jobs:
 
       - name: Validate required environment variables
         env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          S_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          S_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}
+          A_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
         run: |
           MISSING=0
-          for VAR_NAME in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_API_URL; do
-            if [ -z "${!VAR_NAME}" ]; then
-              echo "::error::Missing required GitHub secret: ${VAR_NAME}"
-              MISSING=1
-            fi
-          done
+          [ -z "$S_URL" ] && echo "::error::Missing SUPABASE_URL" && MISSING=1
+          [ -z "$S_KEY" ] && echo "::error::Missing SUPABASE_ANON_KEY" && MISSING=1
+          [ -z "$A_URL" ] && echo "::error::Missing API_URL" && MISSING=1
           if [ "$MISSING" -ne 0 ]; then
-            echo "One or more required variables are missing."
+            echo "Required secrets are missing in GitHub repository settings."
             exit 1
           fi
 
       - name: Create .env file
         working-directory: mobile
         run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
-          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}" >> .env
+          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}" >> .env
 
       - name: Expo prebuild
         working-directory: mobile
         env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
         # Removed the cache for the 'ios' folder to prevent absolute path corruption
         run: npx expo prebuild --platform ios --clean
 
@@ -102,6 +99,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             SWIFT_VERSION=5.10 \
             SWIFT_STRICT_CONCURRENCY=minimal \
             OTHER_SWIFT_FLAGS="-Xfrontend -disable-strict-concurrency-checking" \
