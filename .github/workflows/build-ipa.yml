@@ -22,6 +22,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
 
       - name: Install Node dependencies
         working-directory: mobile
@@ -29,51 +31,31 @@ jobs:
           HUSKY: 0
         run: npm install
 
-      - name: Validate required environment variables
-        env:
-          S_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
-          S_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}
-          A_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
+      - name: Diagnostic: Check Secret Presence
         run: |
-          MISSING=0
-          [ -z "$S_URL" ] && echo "::error::Missing SUPABASE_URL" && MISSING=1
-          [ -z "$S_KEY" ] && echo "::error::Missing SUPABASE_ANON_KEY" && MISSING=1
-          [ -z "$A_URL" ] && echo "::error::Missing API_URL" && MISSING=1
-          if [ "$MISSING" -ne 0 ]; then
-            echo "Required secrets are missing in GitHub repository settings."
-            exit 1
-          fi
+          echo "Checking if secrets are available to the runner..."
+          if [ -n "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" ]; then echo "✓ EXPO_PUBLIC_SUPABASE_URL is set"; else echo "✗ EXPO_PUBLIC_SUPABASE_URL is MISSING"; fi
+          if [ -n "${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" ]; then echo "✓ EXPO_PUBLIC_SUPABASE_ANON_KEY is set"; else echo "✗ EXPO_PUBLIC_SUPABASE_ANON_KEY is MISSING"; fi
+          if [ -n "${{ secrets.EXPO_PUBLIC_API_URL }}" ]; then echo "✓ EXPO_PUBLIC_API_URL is set"; else echo "✗ EXPO_PUBLIC_API_URL is MISSING"; fi
 
       - name: Create .env file
         working-directory: mobile
         run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}" >> .env
-          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}" >> .env
-
-      - name: Restore prebuild cache
-        id: prebuild-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: mobile/ios
-          key: ios-prebuild-${{ hashFiles('mobile/package-lock.json', 'mobile/app.json') }}
-          restore-keys: ios-prebuild-
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}" >> .env
 
       - name: Expo prebuild (generate native iOS project)
-        if: steps.prebuild-cache.outputs.cache-hit != 'true'
         working-directory: mobile
         env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
         run: npx expo prebuild --platform ios --clean
 
-      - name: Save prebuild cache
-        if: steps.prebuild-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: mobile/ios
-          key: ios-prebuild-${{ hashFiles('mobile/package-lock.json', 'mobile/app.json') }}
+      - name: Install CocoaPods
+        working-directory: mobile/ios
+        run: pod install
 
       - name: Identify workspace and scheme
         id: xcode_info
@@ -118,7 +100,6 @@ jobs:
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             SWIFT_VERSION=5.10 \
             SWIFT_STRICT_CONCURRENCY=minimal \
-            OTHER_SWIFT_FLAGS="-Xfrontend -disable-strict-concurrency-checking" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
