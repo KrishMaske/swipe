@@ -302,11 +302,11 @@ export const api = {
   /** Create a new budget */
   createBudget: (budget: Omit<Budget, 'id' | 'user_id' | 'created_at' | 'updated_at'>) =>
     apiPost<{ status: string }>('/api/transactions/budgets', budget),
-    
+
   /** Update an existing budget */
   updateBudget: (budgetId: string, budget: Partial<Budget>) =>
     apiPatch<{ status: string }>(`/api/transactions/budgets/${budgetId}`, budget),
-    
+
   /** Delete a budget */
   deleteBudget: (budgetId: string) =>
     apiDelete<{ status: string }>(`/api/transactions/budgets/${budgetId}`),

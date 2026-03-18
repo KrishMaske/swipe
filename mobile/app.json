@@ -54,6 +54,7 @@
     },
     "plugins": [
       "expo-asset",
+      "expo-glass-effect",
       [
         "expo-location",
         {

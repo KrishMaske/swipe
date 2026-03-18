@@ -125,10 +125,10 @@ export function useLocationTracking(enabled = true) {
         if (!isTrackingActive) {
           await Location.startLocationUpdatesAsync(MERCHANT_SEED_TASK, {
             accuracy: Location.Accuracy.Balanced,
-            distanceInterval: 150,
-            deferredUpdatesDistance: 150,
+            distanceInterval: 500, // Increased threshold to save battery (500m)
+            deferredUpdatesDistance: 500,
             pausesUpdatesAutomatically: true,
-            showsBackgroundLocationIndicator: Platform.OS === 'ios',
+            showsBackgroundLocationIndicator: false, // Disables blue arrow indicator on iOS
             foregroundService: {
               notificationTitle: 'SwipeSmart Smart Suggestions',
               notificationBody: 'Location tracking is active for card recommendations.',

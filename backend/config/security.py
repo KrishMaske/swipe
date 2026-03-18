@@ -1,7 +1,8 @@
 import os
 import httpx
 import time
-from jose import jwt, JWTError
+import jwt
+from jwt.algorithms import get_default_algorithms
 from fastapi import HTTPException, Request, Depends
 from supabase import create_client, Client, ClientOptions
 from config.settings import jwks_url, supabase_url, supabase_key
@@ -49,16 +50,30 @@ async def get_user_context(token: str = Depends(get_token)) -> dict:
     """Verifies the JWT and returns a user-scoped Supabase client."""
     try:
         jwks = await _get_jwks()
+        
+        # PyJWT requires manual selection of the key from the JWKS
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+        if not kid:
+            raise jwt.InvalidTokenError("Missing kid in JWT header")
+            
+        jwk = next((k for k in jwks if k.get("kid") == kid), None)
+        if not jwk:
+            raise jwt.InvalidTokenError("Key not found in JWKS")
+            
+        # Hardened ECDSA validation using cryptography backend via PyJWT
+        key = get_default_algorithms()["ES256"].from_jwk(jwk)
+        
         payload = jwt.decode(
             token,
-            jwks,
+            key,
             algorithms=["ES256"],
             audience="authenticated",
             options={"verify_exp": True},
         )
         user_id = payload["sub"]
         
-    except JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     options = ClientOptions(headers={"Authorization": f"Bearer {token}"})

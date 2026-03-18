@@ -50,19 +50,16 @@ export function GlassBackground({
     if (preferLiquidGlass) {
       try {
         // Use require to avoid top-level native module loading issues
-        GlassEffect = require("expo-glass-effect");
+        const mod = require("expo-glass-effect");
+        
+        // Consortium of availability checks. 
+        // In release builds, sometimes the module is present but the native side failed to link.
+        if (mod && mod.GlassView) {
+          const isApiAvailable = typeof mod.isGlassEffectAPIAvailable === "function" ? mod.isGlassEffectAPIAvailable() : true;
+          const isLiquidAvailable = typeof mod.isLiquidGlassAvailable === "function" ? mod.isLiquidGlassAvailable() : true;
 
-        // Prefer true Liquid Glass on iOS 26+ when the API is available.
-        // We check both the module existence and its API availability methods.
-        if (
-          GlassEffect &&
-          typeof GlassEffect.isGlassEffectAPIAvailable === "function" &&
-          GlassEffect.isGlassEffectAPIAvailable() &&
-          typeof GlassEffect.isLiquidGlassAvailable === "function" &&
-          GlassEffect.isLiquidGlassAvailable()
-        ) {
-          const { GlassView } = GlassEffect;
-          if (GlassView) {
+          if (isApiAvailable && isLiquidAvailable) {
+            const { GlassView } = mod;
             return (
               <GlassView
                 style={style}
@@ -74,8 +71,10 @@ export function GlassBackground({
           }
         }
       } catch (e: any) {
-        // Library or native module not available, fall back gracefully
-        console.warn("[GlassBackground] Liquid Glass not available, falling back to BlurView:", e?.message || e);
+        // Silent catch for production, warned in dev
+        if (__DEV__) {
+          console.warn("[GlassBackground] Module error:", e?.message);
+        }
       }
     }
 

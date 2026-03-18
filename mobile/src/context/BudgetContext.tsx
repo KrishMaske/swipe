@@ -154,6 +154,14 @@ export function BudgetProvider({ children, checkForScheduledSync, transactionsCa
     setBudgetTransactions(transactionsByBudget);
   }, []);
 
+  React.useEffect(() => {
+    if (budgetsCache) {
+      // Flatten all transactions from different accounts into a single list for budget matching
+      const allTxns = Object.values(transactionsCache).flat();
+      calculateBudgetSpending(budgetsCache, allTxns);
+    }
+  }, [budgetsCache, transactionsCache, calculateBudgetSpending]);
+
   const fetchBudgets = useCallback(async (forceRefresh = false) => {
     const isInitialLoad = budgetsCache === null;
 
