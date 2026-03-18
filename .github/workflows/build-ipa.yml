@@ -57,8 +57,11 @@ jobs:
       - name: Patch Podfile for Swift 6
         working-directory: mobile/ios
         run: |
-          echo "Forcing Swift 6 for all targets in Podfile..."
-          printf "\npost_install do |installer|\n  installer.pods_project.targets.each do |target|\n    target.build_configurations.each do |config|\n      config.build_settings['SWIFT_VERSION'] = '6.0'\n    end\n  end\nend\n" >> Podfile
+          echo "Injecting Swift 6.0 setting into existing post_install block..."
+          # Use sed to insert the Swift version setting after the post_install line
+          sed -i '' '/post_install do |installer|/a\
+            installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings["SWIFT_VERSION"] = "6.0" } }' Podfile
+          echo "Podfile patched successfully."
 
       - name: Install CocoaPods
         working-directory: mobile/ios
