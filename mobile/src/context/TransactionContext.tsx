@@ -6,7 +6,6 @@ interface TransactionContextType {
   transactionsCache: Record<string, Transaction[]>;
   transactionsLoading: Record<string, boolean>;
   fetchTransactions: (accId: string, forceRefresh?: boolean) => Promise<void>;
-  transactionsCacheRef: React.MutableRefObject<Record<string, Transaction[]>>;
 }
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
@@ -80,7 +79,7 @@ export function TransactionProvider({ children, checkForScheduledSync, syncTrigg
   }, [checkForScheduledSync]);
 
   return (
-    <TransactionContext.Provider value={{ transactionsCache, transactionsLoading, fetchTransactions, transactionsCacheRef }}>
+    <TransactionContext.Provider value={{ transactionsCache, transactionsLoading, fetchTransactions }}>
       {children}
     </TransactionContext.Provider>
   );

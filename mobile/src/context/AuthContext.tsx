@@ -133,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    api.clearCardsCache();
     await supabase.auth.signOut();
   };
 
@@ -142,6 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const verifyCurrentPassword = async (password: string) => {
+    // SECURITY NOTE: This uses signInWithPassword to verify the current password.
+    // While effective, it generates a new session which handles the 'verification'.
+    // This is a common pattern when a dedicated 'verify password' API is unavailable.
     const email = session?.user?.email?.trim();
 
     if (!email) {
