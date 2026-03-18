@@ -8,11 +8,9 @@ on:
 jobs:
   ios-build:
     name: iOS Build (Sideloading)
-    runs-on: macos-15
+    runs-on: macos-15  # Using macOS 15 (Sequoia) for Xcode 16
     permissions:
       contents: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -25,9 +23,7 @@ jobs:
 
       - name: Install Node dependencies
         working-directory: mobile
-        env:
-          HUSKY: 0
-        run: npm install
+        run: npm install  # More resilient than npm ci in some environments
 
       - name: "Diagnostic: Check Secret Presence"
         run: |
@@ -39,12 +35,23 @@ jobs:
           check_secret "${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}${{ secrets.SUPABASE_KEY }}${{ secrets.SUPABASE_ANON_KEY }}" "SUPABASE_ANON_KEY (any form)"
           check_secret "${{ secrets.EXPO_PUBLIC_API_URL }}${{ secrets.API_URL }}" "API_URL (any form)"
 
-      - name: Create .env file
-        working-directory: mobile
+      - name: Validate required Expo environment variables
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
         run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}" >> .env
-          echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}" >> .env
+          MISSING=0
+          for VAR_NAME in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_API_URL; do
+            if [ -z "${!VAR_NAME}" ]; then
+              echo "::error::Missing required GitHub secret: ${VAR_NAME}"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            echo "One or more required EXPO_PUBLIC variables are missing."
+            exit 1
+          fi
 
       - name: Expo prebuild (generate native iOS project)
         working-directory: mobile
@@ -59,6 +66,7 @@ jobs:
         run: |
           echo "Injecting Swift 6.0 setting into existing post_install block..."
           # Use sed to insert the Swift version setting after the post_install line
+          # This avoids the "multiple post_install hooks" error
           sed -i '' '/post_install do |installer|/a\
             installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings["SWIFT_VERSION"] = "6.0" } }' Podfile
           echo "Podfile patched successfully."
@@ -87,47 +95,38 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$INFO_PLIST"
           echo "Build number set to ${{ github.run_number }}"
 
-      - name: Restore Xcode build cache
-        uses: irgaly/xcode-cache@v1.9.2
-        with:
-          key: ios-xcode-${{ hashFiles('mobile/package-lock.json', 'mobile/app.json') }}
-          restore-keys: ios-xcode-
-          deriveddata-directory: ${{ github.workspace }}/build
-
-      - name: Build with xcodebuild
+      - name: Build with xcodebuild (Debug, no code signing)
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
         run: |
-          xcodebuild -resolvePackageDependencies \
+          xcodebuild \
+            -resolvePackageDependencies \
             -workspace "${{ steps.xcode_info.outputs.workspace }}" \
             -scheme "${{ steps.xcode_info.outputs.scheme }}"
-
-          xcodebuild build \
+          
+          xcodebuild \
             -workspace "${{ steps.xcode_info.outputs.workspace }}" \
             -scheme "${{ steps.xcode_info.outputs.scheme }}" \
-            -configuration Release \
+            -configuration Debug \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
-            SWIFT_VERSION=6.0 \
-            SWIFT_STRICT_CONCURRENCY=minimal \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
 
       - name: Package app as IPA
         run: |
           SCHEME="${{ steps.xcode_info.outputs.scheme }}"
-          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          APP_PATH=$(find build/Build/Products/Debug-iphoneos -maxdepth 1 -name "*.app" | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "Error: No .app bundle found in build/Build/Products/Release-iphoneos" >&2
+            echo "Error: No .app bundle found in build/Build/Products/Debug-iphoneos" >&2
             exit 1
           fi
-          
-          # Apply ad-hoc signature for sideloading tool compatibility
-          echo "Applying ad-hoc signature..."
-          codesign -s - -f --deep "$APP_PATH"
           
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
@@ -150,10 +149,11 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${{ steps.release_info.outputs.tag }}" "${{ steps.xcode_info.outputs.scheme }}.ipa" \
-            --title "${{ steps.release_info.outputs.name }}" \
-            --generate-notes \
-            --prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: ${{ steps.release_info.outputs.name }}
+          generate_release_notes: true
+          prerelease: true
+          files: ${{ steps.xcode_info.outputs.scheme }}.ipa
+          token: ${{ secrets.GITHUB_TOKEN }}
