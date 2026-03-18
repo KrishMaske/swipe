@@ -2,6 +2,15 @@ import React from "react";
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { BlurView, BlurTint } from "expo-blur";
 
+// Use a top-level import to ensure the module is tracked by the bundler in release builds.
+// We still use optional chaining and checks because it might be missing in some environments.
+let GlassEffect: any = null;
+try {
+  GlassEffect = require("expo-glass-effect");
+} catch {
+  // Silent fallback to BlurView
+}
+
 export interface GlassBackgroundProps {
   style?: StyleProp<ViewStyle>;
   /**
@@ -44,37 +53,25 @@ export function GlassBackground({
   preferLiquidGlass = true,
 }: Readonly<GlassBackgroundProps>) {
   if (Platform.OS === "ios") {
-    let GlassEffect: any = null;
-    let isApplied = false;
+    if (preferLiquidGlass && GlassEffect?.GlassView) {
+      // Direct availability checks provided by the module
+      const isApiAvailable = typeof GlassEffect.isGlassEffectAPIAvailable === "function" 
+        ? GlassEffect.isGlassEffectAPIAvailable() 
+        : true;
+      const isLiquidAvailable = typeof GlassEffect.isLiquidGlassAvailable === "function" 
+        ? GlassEffect.isLiquidGlassAvailable() 
+        : true;
 
-    if (preferLiquidGlass) {
-      try {
-        // Use require to avoid top-level native module loading issues
-        const mod = require("expo-glass-effect");
-        
-        // Consortium of availability checks. 
-        // In release builds, sometimes the module is present but the native side failed to link.
-        if (mod && mod.GlassView) {
-          const isApiAvailable = typeof mod.isGlassEffectAPIAvailable === "function" ? mod.isGlassEffectAPIAvailable() : true;
-          const isLiquidAvailable = typeof mod.isLiquidGlassAvailable === "function" ? mod.isLiquidGlassAvailable() : true;
-
-          if (isApiAvailable && isLiquidAvailable) {
-            const { GlassView } = mod;
-            return (
-              <GlassView
-                style={style}
-                colorScheme="dark"
-                glassEffectStyle={glassStyle}
-                tintColor={tintColor || undefined}
-              />
-            );
-          }
-        }
-      } catch (e: any) {
-        // Silent catch for production, warned in dev
-        if (__DEV__) {
-          console.warn("[GlassBackground] Module error:", e?.message);
-        }
+      if (isApiAvailable && isLiquidAvailable) {
+        const { GlassView } = GlassEffect;
+        return (
+          <GlassView
+            style={style}
+            colorScheme="dark"
+            glassEffectStyle={glassStyle}
+            tintColor={tintColor || undefined}
+          />
+        );
       }
     }
 
