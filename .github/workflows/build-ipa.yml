@@ -8,7 +8,7 @@ name: iOS Build (Sideloading)
 jobs:
   ios-build:
     name: iOS Build (Sideloading)
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions:
       contents: write
 
@@ -16,13 +16,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: latest
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
@@ -30,33 +27,7 @@ jobs:
         working-directory: mobile
         run: npm ci
 
-      - name: Align Expo package versions for current SDK
-        working-directory: mobile
-        env:
-          CI: 1
-        run: |
-          npx expo install --fix
-          npx expo install expo-modules-core
-
-      - name: Show Expo and React Native versions
-        working-directory: mobile
-        run: |
-          npx expo --version
-          node -p "require('./package.json').dependencies.expo"
-          node -p "require('./package.json').dependencies['expo-modules-core']"
-          node -p "require('./package.json').dependencies['react-native']"
-
-      - name: Apply ExpoModulesCore Swift hotfixes
-        working-directory: mobile
-        run: |
-          set -e
-          perl -i -pe "s/extension UIView: @MainActor AnyArgument \{/\@MainActor extension UIView: AnyArgument {/" node_modules/expo-modules-core/ios/Core/Views/ViewDefinition.swift || true
-          perl -i -pe "s/extension ExpoSwiftUI\\.SwiftUIVirtualView: @MainActor ExpoSwiftUI\\.ViewWrapper \{/extension ExpoSwiftUI.SwiftUIVirtualView: ExpoSwiftUI.ViewWrapper {/" node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIVirtualView.swift || true
-          perl -i -pe "s/let completionHandler: \(URLSession\\.AuthChallengeDisposition, URLCredential\\?\) -> Void/let completionHandler: @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void/" node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift || true
-          perl -i -pe "s/init\(completionHandler: @escaping \(URLSession\\.AuthChallengeDisposition, URLCredential\\?\) -> Void\)/init(completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void)/" node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift || true
-          perl -i -pe "s/public final class URLSessionSessionDelegateProxy: NSObject, URLSessionDataDelegate \{/public final class URLSessionSessionDelegateProxy: NSObject, URLSessionDataDelegate, @unchecked Sendable {/" node_modules/expo-modules-core/ios/DevTools/URLSessionSessionDelegateProxy.swift || true
-
-      - name: Validate required environment variables
+      - name: Validate required Expo environment variables
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
@@ -70,7 +41,7 @@ jobs:
             fi
           done
           if [ "$MISSING" -ne 0 ]; then
-            echo "One or more required variables are missing."
+            echo "One or more required EXPO_PUBLIC variables are missing."
             exit 1
           fi
 
@@ -81,34 +52,13 @@ jobs:
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
           echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}" >> .env
 
-      - name: Expo prebuild
+      - name: Expo prebuild (generate native iOS project)
         working-directory: mobile
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
         run: npx expo prebuild --platform ios --clean
-
-      - name: Patch Podfile for Xcode 16 compatibility
-        working-directory: mobile/ios
-        run: |
-          node -e "
-          const fs = require('fs');
-          let content = fs.readFileSync('Podfile', 'utf8');
-          const patch = \`
-            # Xcode 16 compatibility patch
-            installer.pods_project.targets.each do |target|
-              target.build_configurations.each do |config|
-                config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
-                config.build_settings['SWIFT_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
-                config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
-              end
-            end
-          \`;
-          content = content.replace('post_install do |installer|', 'post_install do |installer|' + patch);
-          fs.writeFileSync('Podfile', content);
-          console.log('Podfile patched successfully');
-          "
 
       - name: Install CocoaPods
         working-directory: mobile/ios
@@ -134,33 +84,34 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$INFO_PLIST"
           echo "Build number set to ${{ github.run_number }}"
 
-      - name: Build with xcodebuild
+      - name: Build with xcodebuild (Debug, no code signing)
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
         run: |
           xcodebuild \
             -resolvePackageDependencies \
             -workspace "${{ steps.xcode_info.outputs.workspace }}" \
             -scheme "${{ steps.xcode_info.outputs.scheme }}"
-
           xcodebuild \
             -workspace "${{ steps.xcode_info.outputs.workspace }}" \
             -scheme "${{ steps.xcode_info.outputs.scheme }}" \
-            -configuration Release \
+            -configuration Debug \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            SWIFT_STRICT_CONCURRENCY=minimal \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=NO
+            PROVISIONING_PROFILE_SPECIFIER=""
 
       - name: Package app as IPA
         run: |
           SCHEME="${{ steps.xcode_info.outputs.scheme }}"
-          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          APP_PATH=$(find build/Build/Products/Debug-iphoneos -maxdepth 1 -name "*.app" | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "Error: No .app bundle found" >&2
+            echo "Error: No .app bundle found in build/Build/Products/Debug-iphoneos" >&2
             exit 1
           fi
           mkdir -p Payload
@@ -168,9 +119,26 @@ jobs:
           zip -r "${SCHEME}.ipa" Payload/
           echo "Created ${SCHEME}.ipa"
 
+      - name: Prepare release metadata
+        id: release_info
+        run: |
+          TAG="ios-build-${{ github.run_number }}"
+          NAME="iOS Sideloading Build ${{ github.run_number }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SwipeSmart-${{ github.run_number }}
+          name: ${{ steps.xcode_info.outputs.scheme }}-${{ github.run_number }}
           path: ${{ steps.xcode_info.outputs.scheme }}.ipa
           retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: ${{ steps.release_info.outputs.name }}
+          generate_release_notes: true
+          prerelease: true
+          files: ${{ steps.xcode_info.outputs.scheme }}.ipa
