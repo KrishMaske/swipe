@@ -8,7 +8,7 @@ on:
 jobs:
   ios-build:
     name: iOS Build (Sideloading)
-    runs-on: macos-15  # Using macOS 15 (Sequoia) for Xcode 16
+    runs-on: macos-15  # Use Xcode 16, but force Swift 5.10 for Expo bare mods
     permissions:
       contents: write
 
@@ -23,7 +23,7 @@ jobs:
 
       - name: Install Node dependencies
         working-directory: mobile
-        run: npm install  # More resilient than npm ci in some environments
+        run: npm install
 
       - name: "Diagnostic: Check Secret Presence"
         run: |
@@ -61,6 +61,7 @@ jobs:
           EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || secrets.API_URL }}
         run: npx expo prebuild --platform ios --clean
 
+      # PATCH: Ensure Podfile enforces Swift 5.10 during migration period
       - name: Patch Podfile for Swift 5.10
         working-directory: mobile/ios
         run: |
@@ -68,9 +69,7 @@ jobs:
           cat <<EOF > patch_podfile.rb
           content = File.read('Podfile')
           # Inject Swift 5.10 setting into the existing post_install block
-          # We insert it right after the block start
-          # Swift 5.10 is more compatible with current Expo modules than 6.0
-          patched = content.gsub(/post_install do \|installer\|/, "post_install do |installer|\n  installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['SWIFT_VERSION'] = '5.10' } }")
+          patched = content.gsub(/post_install do \\|installer\\|/, "post_install do |installer|\\n  installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['SWIFT_VERSION'] = '5.10' } }")
           File.write('Podfile', patched)
           EOF
           echo "Applying Ruby patch..."
@@ -86,8 +85,8 @@ jobs:
         run: |
           WORKSPACE=$(find mobile/ios -maxdepth 1 -name "*.xcworkspace" | head -1)
           if [ -z "$WORKSPACE" ]; then
-            echo "Error: No .xcworkspace found in mobile/ios" >&2
-            exit 1
+              echo "Error: No .xcworkspace found in mobile/ios" >&2
+              exit 1
           fi
           SCHEME=$(basename "$WORKSPACE" .xcworkspace)
           echo "workspace=$WORKSPACE" >> "$GITHUB_OUTPUT"
@@ -111,7 +110,7 @@ jobs:
             -resolvePackageDependencies \
             -workspace "${{ steps.xcode_info.outputs.workspace }}" \
             -scheme "${{ steps.xcode_info.outputs.scheme }}"
-          
+
           xcodebuild \
             -workspace "${{ steps.xcode_info.outputs.workspace }}" \
             -scheme "${{ steps.xcode_info.outputs.scheme }}" \
@@ -136,7 +135,6 @@ jobs:
             echo "Error: No .app bundle found in build/Build/Products/Debug-iphoneos" >&2
             exit 1
           fi
-          
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r "${SCHEME}.ipa" Payload/
@@ -156,13 +154,3 @@ jobs:
           name: ${{ steps.xcode_info.outputs.scheme }}-${{ github.run_number }}
           path: ${{ steps.xcode_info.outputs.scheme }}.ipa
           retention-days: 30
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release_info.outputs.tag }}
-          name: ${{ steps.release_info.outputs.name }}
-          generate_release_notes: true
-          prerelease: true
-          files: ${{ steps.xcode_info.outputs.scheme }}.ipa
-          token: ${{ secrets.GITHUB_TOKEN }}
