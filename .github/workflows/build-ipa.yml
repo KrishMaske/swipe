@@ -27,7 +27,7 @@ jobs:
         working-directory: mobile
         env:
           HUSKY: 0
-        run: npm ci
+        run: npm install
 
       - name: Validate required environment variables
         env:
