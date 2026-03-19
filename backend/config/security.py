@@ -42,8 +42,12 @@ async def _get_jwks():
 def get_token(request: Request) -> str:
     """Extracts the Bearer token from the request header."""
     auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    if not auth_header:
+        print("[debug-auth] Missing Authorization header")
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    if not auth_header.startswith("Bearer "):
+        print(f"[debug-auth] Invalid Authorization header format: {auth_header[:15]}...")
+        raise HTTPException(status_code=401, detail="Invalid Authorization header format")
     return auth_header.replace("Bearer ", "")
 
 async def get_user_context(token: str = Depends(get_token)) -> dict:
@@ -72,9 +76,17 @@ async def get_user_context(token: str = Depends(get_token)) -> dict:
             options={"verify_exp": True},
         )
         user_id = payload["sub"]
+        print(f"[debug-auth] Successfully verified token for user {user_id}")
         
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except jwt.ExpiredSignatureError:
+        print("[debug-auth] Token has expired")
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError as e:
+        print(f"[debug-auth] Invalid token: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+    except Exception as e:
+        print(f"[debug-auth] Unexpected auth error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
     options = ClientOptions(headers={"Authorization": f"Bearer {token}"})
     user_client = create_client(supabase_url, supabase_key, options=options)
