@@ -22,6 +22,7 @@ import Animated, {
   withSpring,
   withTiming,
   interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import { GlassBackground } from '../components/GlassBackground';
 import { useFocusEffect } from '@react-navigation/native';
@@ -86,17 +87,6 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [newBudget, setNewBudget] = useState({
-    name: '',
-    amount: '',
-    category: 'Food & Dining',
-    period: 'monthly',
-  });
-  const [creatingBudget, setCreatingBudget] = useState(false);
-  const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
-
-  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [contextMenuBudget, setContextMenuBudget] = useState<Budget | null>(null);
   const [failedLogoProviders, setFailedLogoProviders] = useState<Record<string, boolean>>({});
   
@@ -218,52 +208,8 @@ export default function DashboardScreen() {
     await runBackendSync();
   };
 
-  const handleCreateBudget = async () => {
-    if (!newBudget.name || !newBudget.amount || !newBudget.category) {
-      Alert.alert('Error', 'Please fill in all fields.');
-      return;
-    }
-
-    const amountNum = parseFloat(newBudget.amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount greater than 0.');
-      return;
-    }
-
-    setCreatingBudget(true);
-    try {
-      if (editingBudgetId) {
-        await api.updateBudget(editingBudgetId, {
-          name: newBudget.name,
-          amount: amountNum,
-          category: newBudget.category,
-          period: newBudget.period,
-        });
-      } else {
-        await api.createBudget({
-          name: newBudget.name,
-          amount: amountNum,
-          category: newBudget.category,
-          period: newBudget.period,
-        });
-      }
-      setBudgetModalVisible(false);
-      setEditingBudgetId(null);
-      setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
-      setCategoryDropdownVisible(false);
-      await fetchBudgets(true);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save budget.');
-    } finally {
-      setCreatingBudget(false);
-    }
-  };
-
-  const handleDeleteBudget = async (id?: string | any) => {
-    const targetId = typeof id === 'string' ? id : editingBudgetId;
-    if (!targetId) return;
-
-    Alert.alert('Delete Budget', 'Are you sure you want to delete this budget?', [
+  const handleDeleteBudget = async (id: string) => {
+    Alert.alert('Delete Budget', 'Are you sure you want to delete this budget and its transaction tracking?', [
       { 
         text: 'Cancel', 
         style: 'cancel',
@@ -275,18 +221,12 @@ export default function DashboardScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          setCreatingBudget(true);
           try {
-            await api.deleteBudget(targetId);
-            setBudgetModalVisible(false);
-            setEditingBudgetId(null);
+            await api.deleteBudget(id);
             setContextMenuBudget?.(null);
-            setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
             await fetchBudgets(true);
           } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to delete budget.');
-          } finally {
-            setCreatingBudget(false);
           }
         },
       },
@@ -404,10 +344,7 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Budgets</Text>
           <ScalePressable
             onPress={() => {
-              setEditingBudgetId(null);
-              setNewBudget({ name: '', amount: '', category: 'Food & Dining', period: 'monthly' });
-              setCategoryDropdownVisible(false);
-              setBudgetModalVisible(true);
+              router.push('/dashboard/budget/create');
             }}
           >
             <Ionicons name="add-circle" size={26} color={Colors.accentBlueBright} />
@@ -577,7 +514,7 @@ export default function DashboardScreen() {
             );
           })
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       <Modal visible={!!contextMenuBudget} transparent animationType="fade">
         <View style={styles.centeredCardOverlay}>
@@ -586,15 +523,20 @@ export default function DashboardScreen() {
             <ScalePressable
               style={styles.contextMenuItem}
               onPress={() => {
-                 setEditingBudgetId(contextMenuBudget.id!);
-                 setNewBudget({
-                   name: contextMenuBudget.name,
-                   amount: contextMenuBudget.amount.toString(),
-                   category: contextMenuBudget.category,
-                   period: contextMenuBudget.period,
-                 });
-                 setBudgetModalVisible(true);
-                 setContextMenuBudget(null);
+                const budgetId = contextMenuBudget?.id;
+                if (!budgetId) return;
+                setContextMenuBudget(null);
+                router.push({
+                  pathname: '/dashboard/budget/[id]',
+                  params: { 
+                    id: budgetId, 
+                    budgetName: contextMenuBudget?.name,
+                    edit: 'true',
+                    amount: contextMenuBudget?.amount.toString(),
+                    category: contextMenuBudget?.category,
+                    period: contextMenuBudget?.period 
+                  }
+                });
               }}
             >
               <Ionicons name="pencil" size={20} color={Colors.textPrimary} />
@@ -604,8 +546,10 @@ export default function DashboardScreen() {
             <ScalePressable
               style={styles.contextMenuItem}
               onPress={() => {
-                const idToDel = contextMenuBudget.id!;
-                handleDeleteBudget(idToDel);
+                const idToDel = contextMenuBudget?.id;
+                if (idToDel) {
+                  handleDeleteBudget(idToDel);
+                }
               }}
             >
               <Ionicons name="trash-outline" size={20} color={Colors.negative} />
@@ -613,125 +557,6 @@ export default function DashboardScreen() {
             </ScalePressable>
           </GlassBackground>
         </View>
-      </Modal>
-
-      <Modal visible={budgetModalVisible} transparent animationType="fade">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.centeredCardOverlay}
-        >
-          <Pressable
-            style={styles.sheetBackdrop}
-            onPress={() => {
-              setBudgetModalVisible(false);
-              setEditingBudgetId(null);
-            }}
-          />
-          <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={styles.staticSquareCard}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{editingBudgetId ? 'Edit Budget' : 'Create Budget'}</Text>
-              <View style={styles.modalActionsRow}>
-                <ScalePressable
-                  onPress={() => {
-                    setBudgetModalVisible(false);
-                    setEditingBudgetId(null);
-                  }}
-                  style={{ marginRight: 16 }}
-                >
-                  <Ionicons name="close" size={26} color={Colors.textMuted} />
-                </ScalePressable>
-                <ScalePressable onPress={handleCreateBudget} disabled={creatingBudget}>
-                  {creatingBudget ? (
-                    <ActivityIndicator color={Colors.accentBlueBright} size="small" />
-                  ) : (
-                    <Ionicons name="checkmark" size={26} color={Colors.accentBlueBright} />
-                  )}
-                </ScalePressable>
-              </View>
-            </View>
-
-            <Text style={styles.inputLabel}>Budget Name</Text>
-            <TextInput
-              style={styles.sheetInput}
-              placeholder="e.g., Grocery Limit"
-              placeholderTextColor={Colors.textMuted}
-              value={newBudget.name}
-              onChangeText={(text) => setNewBudget({ ...newBudget, name: text })}
-            />
-
-            <Text style={styles.inputLabel}>Category</Text>
-            <View style={styles.dropdownContainer}>
-              <ScalePressable
-                style={styles.dropdownButton}
-                onPress={() => setCategoryDropdownVisible(!categoryDropdownVisible)}
-              >
-                <Text style={styles.dropdownButtonText}>{newBudget.category || 'Select a Category'}</Text>
-                <Ionicons
-                  name={categoryDropdownVisible ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color={Colors.textMuted}
-                />
-              </ScalePressable>
-
-              {categoryDropdownVisible && (
-                <View style={styles.dropdownList}>
-                  <ScrollView nestedScrollEnabled style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
-                    {CATEGORIES.map((cat) => (
-                      <ScalePressable
-                        key={cat}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setNewBudget({ ...newBudget, category: cat });
-                          setCategoryDropdownVisible(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownItemText,
-                            newBudget.category === cat && styles.dropdownItemTextSelected,
-                          ]}
-                        >
-                          {cat}
-                        </Text>
-                        {newBudget.category === cat && (
-                          <Ionicons name="checkmark" size={18} color={Colors.accentBlueBright} />
-                        )}
-                      </ScalePressable>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-
-            <Text style={styles.inputLabel}>Amount Limit ($)</Text>
-            <TextInput
-              style={styles.sheetInput}
-              placeholder="e.g., 500"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="numeric"
-              value={newBudget.amount}
-              onChangeText={(text) => setNewBudget({ ...newBudget, amount: text })}
-            />
-
-            <Text style={styles.inputLabel}>Period</Text>
-            <View style={styles.segmentedRail}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segmentedInner}>
-                {PERIOD_OPTIONS.map((period) => {
-                  const active = newBudget.period === period;
-                  return (
-                    <ScalePressable
-                      key={period}
-                      style={[styles.segmentChip, active && styles.segmentChipActive]}
-                      onPress={() => setNewBudget({ ...newBudget, period })}
-                    >
-                      <Text style={[styles.segmentChipText, active && styles.segmentChipTextActive]}>{period}</Text>
-                    </ScalePressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          </GlassBackground>
-        </KeyboardAvoidingView>
       </Modal>
 
     </View>
@@ -957,6 +782,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 6,
+  },
+  accountRowSkeleton: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 22,
+    backgroundColor: Colors.navGlassBackground,
+    borderWidth: 1,
+    borderColor: Colors.navGlassBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   accountLeft: {
     flexDirection: 'row',

@@ -26,8 +26,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
-import { Typography } from '../theme/typography';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
+import { useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
+import { Skeleton } from '../components/Skeleton';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -112,6 +114,30 @@ export default function AccountDetailScreen() {
   const [editState, setEditState] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const scrollY = useSharedValue(0);
+  const REFRESH_THRESHOLD = 80;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(handleRefresh)();
+      }
+    },
+  });
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchTransactions(accId, true);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const transactions = transactionsCache[accId] || [];
   const loading = transactionsLoading[accId] && transactions.length === 0;
@@ -339,8 +365,22 @@ export default function AccountDetailScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.accentBlue} />
+      <View style={styles.container}>
+        <StarField />
+        <View style={styles.header}>
+           <Skeleton width={120} height={28} borderRadius={6} />
+           <Skeleton width={80} height={14} borderRadius={4} style={{ marginTop: 8 }} />
+           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+             <Skeleton width={50} height={30} borderRadius={15} />
+             <Skeleton width={50} height={30} borderRadius={15} />
+             <Skeleton width={50} height={30} borderRadius={15} />
+           </View>
+        </View>
+        <View style={styles.list}>
+          {[0, 1, 2, 3, 4].map(i => (
+            <Skeleton key={i} width="100%" height={80} borderRadius={20} style={{ marginBottom: 12 }} />
+          ))}
+        </View>
       </View>
     );
   }
@@ -498,6 +538,8 @@ export default function AccountDetailScreen() {
         </ScrollView>
       </GlassBackground>
 
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
       {filteredTransactions.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
@@ -507,11 +549,13 @@ export default function AccountDetailScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           data={filteredTransactions}
           keyExtractor={(item) => item.txn_id}
           renderItem={renderTransaction}
           contentContainerStyle={styles.list}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
         />
       )}

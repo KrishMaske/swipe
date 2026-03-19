@@ -10,6 +10,7 @@ import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { AuthNavigationProp } from '../types/navigation';
 import StarField from '../components/StarField';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useRouter } from 'expo-router';
 
@@ -28,52 +29,61 @@ export default function AuthLandingScreen() {
 
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 26 }]}> 
         <View style={[styles.hero, { marginTop: heroTop }]}> 
-          <Image
-            source={require('../../images/AppIcons/swipelogo_transparent.png')}
-            style={[styles.logoImage, { width: logoSize, height: logoSize }]}
-            resizeMode="contain"
-          />
+          <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <Image
+              source={require('../../images/AppIcons/swipelogo_transparent.png')}
+              style={[styles.logoImage, { width: logoSize, height: logoSize }]}
+              resizeMode="contain"
+            />
+          </Animated.View>
 
-          <Text style={styles.title}>SWIPE</Text>
-          <Text style={[styles.subtitle, { maxWidth: subtitleMaxWidth }]}>A smart payments system. One secure connection.</Text>
+          <Animated.View entering={FadeInDown.delay(200).springify()}>
+            <Text style={styles.title}>SWIPE</Text>
+          </Animated.View>
+          
+          <Animated.View entering={FadeInDown.delay(300).springify()}>
+            <Text style={[styles.subtitle, { maxWidth: subtitleMaxWidth }]}>A smart payments system. One secure connection.</Text>
+          </Animated.View>
         </View>
 
-        <GlassBackground
-          blurIntensity={26}
-          blurTint="systemChromeMaterialDark"
-          style={styles.cardContainer}
-          fallbackColor="rgba(15, 15, 18, 0.98)"
-          tintColor="rgba(255,255,255,0.02)"
-        >
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Get Started</Text>
-            <Text style={styles.cardBody}>
-              Join a smart scanning payments system. Access your premium finance dashboard and scan for security vulnerabilities.
-            </Text>
+        <Animated.View entering={FadeInDown.delay(400).springify()} style={{ width: '100%' }}>
+          <GlassBackground
+            blurIntensity={26}
+            blurTint="systemChromeMaterialDark"
+            style={styles.cardContainer}
+            fallbackColor="rgba(15, 15, 18, 0.98)"
+            tintColor="rgba(255,255,255,0.02)"
+          >
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Get Started</Text>
+              <Text style={styles.cardBody}>
+                Join a smart scanning payments system. Access your premium finance dashboard and scan for security vulnerabilities.
+              </Text>
 
-            <ScalePressable
-              onPress={() => router.replace('/auth/login')}
-              style={styles.actionButtonWrap}
-            >
-              <LinearGradient
-                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-                style={styles.primaryButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+              <ScalePressable
+                onPress={() => router.replace('/auth/login')}
+                style={styles.actionButtonWrap}
               >
-                <Text style={styles.primaryButtonText}>Sign In</Text>
-              </LinearGradient>
-            </ScalePressable>
+                <LinearGradient
+                  colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                  style={styles.primaryButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.primaryButtonText}>Sign In</Text>
+                </LinearGradient>
+              </ScalePressable>
 
-            <ScalePressable
-              onPress={() => router.replace('/auth/signup')}
-              style={styles.secondaryButton}
-            >
-              <Ionicons name="person-add-outline" size={18} color={Colors.textPrimary} />
-              <Text style={styles.secondaryButtonText}>Create Account</Text>
-            </ScalePressable>
-          </View>
-        </GlassBackground>
+              <ScalePressable
+                onPress={() => router.replace('/auth/signup')}
+                style={styles.secondaryButton}
+              >
+                <Ionicons name="person-add-outline" size={18} color={Colors.textPrimary} />
+                <Text style={styles.secondaryButtonText}>Create Account</Text>
+              </ScalePressable>
+            </View>
+          </GlassBackground>
+        </Animated.View>
       </View>
     </View>
   );

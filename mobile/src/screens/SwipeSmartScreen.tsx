@@ -321,7 +321,11 @@ export default function SwipeSmartScreen() {
                 </ScalePressable>
                 <ScalePressable onPress={handleSaveWallet} disabled={saving}>
                   {saving
-                    ? <ActivityIndicator color={Colors.accentBlueBright} size="small" />
+                    ? (
+                      <View style={{ width: 26, height: 26, borderRadius: 13, overflow: 'hidden' }}>
+                        <Skeleton width={26} height={26} borderRadius={13} />
+                      </View>
+                    )
                     : <Ionicons name="checkmark" size={26} color={Colors.accentBlueBright} />
                   }
                 </ScalePressable>

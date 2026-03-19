@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   StyleSheet as RNStyleSheet,
 } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { Ionicons } from '@expo/vector-icons';
@@ -291,7 +291,7 @@ export default function SettingsScreen() {
       >
         {/* Removed redundant custom header - now using native header from AppNavigator */}
 
-        <View style={styles.card}>
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.card}>
           <View style={styles.profileRow}>
             <LinearGradient
               colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
@@ -311,131 +311,137 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Account Security</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Change Email</Text>
-          <Text style={styles.cardDesc}>Update your login email. You may need to confirm via email.</Text>
-          <ScalePressable
-            onPress={() => openModal('email')}
-            disabled={emailLoading}
-            style={styles.actionButtonWrap}
-          >
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.primaryButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {emailLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="mail-outline" size={17} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Change Email</Text>
-                </>
-              )}
-            </LinearGradient>
-          </ScalePressable>
-
-          <View style={styles.inlineDivider} />
-
-          <Text style={styles.cardTitle}>Change Password</Text>
-          <Text style={styles.cardDesc}>Enter your current password, then choose a different new password.</Text>
-          <ScalePressable
-            onPress={() => openModal('password')}
-            disabled={passwordLoading}
-            style={styles.actionButtonWrap}
-          >
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.primaryButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {passwordLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="key-outline" size={17} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Change Password</Text>
-                </>
-              )}
-            </LinearGradient>
-          </ScalePressable>
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>SimpleFIN Connection</Text>
-        </View>
-        <View style={styles.card}>
-          <View style={styles.statusRow}>
-            <Text style={styles.cardTitle}>Connection Status</Text>
-            <View
-              style={[
-                styles.statusPill,
-                { backgroundColor: simplefinLinked ? 'rgba(46,230,166,0.16)' : 'rgba(248,113,113,0.16)' },
-              ]}
-            >
-              <Text style={[styles.statusPillText, { color: simplefinLinked ? Colors.accentEmerald : Colors.negative }]}> 
-                {simplefinLinked ? 'Enabled' : 'Disabled'}
-              </Text>
-            </View>
+        <Animated.View entering={FadeInDown.delay(200).springify()}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Account Security</Text>
           </View>
-
-          <Text style={styles.cardDesc}>How to enable SimpleFIN:</Text>
-          <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and create/link your token.</Text>
-          <Text style={styles.instructionText}>2. If your status is disabled, sign out and sign back in.</Text>
-          <Text style={styles.instructionText}>3. The app will send you to required SimpleFIN onboarding.</Text>
-
-          <Text style={[styles.cardDesc, { marginTop: 10 }]}>How to disable SimpleFIN:</Text>
-          <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and revoke/disable your token there.</Text>
-          <Text style={styles.instructionText}>2. Next app sign-in will require reconnecting before access.</Text>
-
-          <ScalePressable onPress={openSimplefinBridge} activeOpacity={0.85} style={styles.actionButtonWrap}>
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.primaryButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Change Email</Text>
+            <Text style={styles.cardDesc}>Update your login email. You may need to confirm via email.</Text>
+            <ScalePressable
+              onPress={() => openModal('email')}
+              disabled={emailLoading}
+              style={styles.actionButtonWrap}
             >
-              <Ionicons name="open-outline" size={17} color="#fff" />
-              <Text style={styles.primaryButtonText}>Open SimpleFIN Bridge</Text>
-            </LinearGradient>
-          </ScalePressable>
+              <LinearGradient
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                style={styles.primaryButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {emailLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="mail-outline" size={17} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Change Email</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </ScalePressable>
 
-          <ScalePressable onPress={signOut} activeOpacity={0.8} style={styles.secondaryButton}>
-            <Ionicons name="refresh-outline" size={16} color={Colors.textPrimary} />
-            <Text style={styles.secondaryButtonText}>Sign Out to Reconnect</Text>
-          </ScalePressable>
-        </View>
+            <View style={styles.inlineDivider} />
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Danger Zone</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardDesc}>
-            Permanently delete your account and all Swipe data. Enter your password to continue. This cannot be undone.
-          </Text>
-          <ScalePressable
-            style={styles.deleteAccountButton}
-            onPress={() => openModal('delete')}
-            activeOpacity={0.8}
-            disabled={deleteLoading}
-          >
-            {deleteLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="trash-outline" size={18} color="#fff" />
-                <Text style={styles.deleteAccountText}>Delete Account</Text>
-              </>
-            )}
-          </ScalePressable>
-        </View>
+            <Text style={styles.cardTitle}>Change Password</Text>
+            <Text style={styles.cardDesc}>Enter your current password, then choose a different new password.</Text>
+            <ScalePressable
+              onPress={() => openModal('password')}
+              disabled={passwordLoading}
+              style={styles.actionButtonWrap}
+            >
+              <LinearGradient
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                style={styles.primaryButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {passwordLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="key-outline" size={17} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Change Password</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </ScalePressable>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(300).springify()}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>SimpleFIN Connection</Text>
+          </View>
+          <View style={styles.card}>
+            <View style={styles.statusRow}>
+              <Text style={styles.cardTitle}>Connection Status</Text>
+              <View
+                style={[
+                  styles.statusPill,
+                  { backgroundColor: simplefinLinked ? 'rgba(46,230,166,0.16)' : 'rgba(248,113,113,0.16)' },
+                ]}
+              >
+                <Text style={[styles.statusPillText, { color: simplefinLinked ? Colors.accentEmerald : Colors.negative }]}> 
+                  {simplefinLinked ? 'Enabled' : 'Disabled'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.cardDesc}>How to enable SimpleFIN:</Text>
+            <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and create/link your token.</Text>
+            <Text style={styles.instructionText}>2. If your status is disabled, sign out and sign back in.</Text>
+            <Text style={styles.instructionText}>3. The app will send you to required SimpleFIN onboarding.</Text>
+
+            <Text style={[styles.cardDesc, { marginTop: 10 }]}>How to disable SimpleFIN:</Text>
+            <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and revoke/disable your token there.</Text>
+            <Text style={styles.instructionText}>2. Next app sign-in will require reconnecting before access.</Text>
+
+            <ScalePressable onPress={openSimplefinBridge} activeOpacity={0.85} style={styles.actionButtonWrap}>
+              <LinearGradient
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                style={styles.primaryButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="open-outline" size={17} color="#fff" />
+                <Text style={styles.primaryButtonText}>Open SimpleFIN Bridge</Text>
+              </LinearGradient>
+            </ScalePressable>
+
+            <ScalePressable onPress={signOut} activeOpacity={0.8} style={styles.secondaryButton}>
+              <Ionicons name="refresh-outline" size={16} color={Colors.textPrimary} />
+              <Text style={styles.secondaryButtonText}>Sign Out to Reconnect</Text>
+            </ScalePressable>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(400).springify()}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Danger Zone</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardDesc}>
+              Permanently delete your account and all Swipe data. Enter your password to continue. This cannot be undone.
+            </Text>
+            <ScalePressable
+              style={styles.deleteAccountButton}
+              onPress={() => openModal('delete')}
+              activeOpacity={0.8}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={18} color="#fff" />
+                  <Text style={styles.deleteAccountText}>Delete Account</Text>
+                </>
+              )}
+            </ScalePressable>
+          </View>
+        </Animated.View>
 
         <ScalePressable style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={18} color={Colors.negative} />

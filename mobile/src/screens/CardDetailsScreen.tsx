@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScalePressable } from '../components/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassBackground } from '../components/GlassBackground';
@@ -36,28 +37,34 @@ export default function CardDetailsScreen() {
     <View style={styles.container}>
       <StarField />
 
-      <GlassBackground
-        blurIntensity={38}
-        blurTint="systemChromeMaterialDark"
-        style={[styles.header, { marginTop: insets.top + 8 }]}
-        tintColor="rgba(0,0,0,0.4)"
-        tintOpacity={0.6}
-      >
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Card Details</Text>
-            <Text style={styles.headerProvider}>{card.card_name || 'Unknown Card'}</Text>
+      <Animated.View entering={FadeInDown.delay(100).springify()}>
+        <GlassBackground
+          blurIntensity={38}
+          blurTint="systemChromeMaterialDark"
+          style={[styles.header, { marginTop: insets.top + 8 }]}
+          tintColor="rgba(0,0,0,0.4)"
+          tintOpacity={0.6}
+        >
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerTitle}>Card Details</Text>
+              <Text style={styles.headerProvider}>{card.card_name || 'Unknown Card'}</Text>
+            </View>
+            <ScalePressable
+              onPress={() => router.back()}
+              style={styles.closeBtn}
+            >
+              <Ionicons name="close" size={20} color={Colors.textPrimary} />
+            </ScalePressable>
           </View>
-          <ScalePressable
-            onPress={() => router.back()}
-            style={styles.closeBtn}
-          >
-            <Ionicons name="close" size={20} color={Colors.textPrimary} />
-          </ScalePressable>
-        </View>
-      </GlassBackground>
+        </GlassBackground>
+      </Animated.View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        entering={FadeInDown.delay(200).springify()}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <GlassBackground
           blurIntensity={28}
           blurTint="systemChromeMaterialDark"
@@ -97,7 +104,7 @@ export default function CardDetailsScreen() {
               </View>
             ))}
         </GlassBackground>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

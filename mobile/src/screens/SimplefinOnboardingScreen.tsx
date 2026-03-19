@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScalePressable } from '../components/ScalePressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
@@ -116,7 +117,7 @@ export default function SimplefinOnboardingScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.heroRow}>
+          <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.heroRow}>
             <View style={styles.iconWrap}>
               <Ionicons name="link-outline" size={26} color="#fff" />
             </View>
@@ -124,14 +125,16 @@ export default function SimplefinOnboardingScreen() {
               <Text style={styles.eyebrow}>Required Setup</Text>
               <Text style={styles.title}>Connect Your Bank with SimpleFIN</Text>
             </View>
-          </View>
+          </Animated.View>
 
-          <Text style={styles.subtitle}>
-            To protect your privacy, Swipe never asks for your bank password. You connect through SimpleFIN,
-            then paste a one-time setup token here.
-          </Text>
+          <Animated.View entering={FadeInDown.delay(200).springify()}>
+            <Text style={styles.subtitle}>
+              To protect your privacy, Swipe never asks for your bank password. You connect through SimpleFIN,
+              then paste a one-time setup token here.
+            </Text>
+          </Animated.View>
 
-          <View style={styles.panel}>
+          <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.panel}>
             <Text style={styles.sectionTitle}>Step 1: Get your setup token</Text>
             <Text style={styles.sectionBody}>
               Open SimpleFIN Bridge and sign in to your bank there. After linking, SimpleFIN shows a long token
@@ -149,9 +152,9 @@ export default function SimplefinOnboardingScreen() {
               </LinearGradient>
             </ScalePressable>
             <Text style={styles.urlText}>{SIMPLEFIN_CREATE_URL}</Text>
-          </View>
+          </Animated.View>
 
-          <View style={styles.panel}>
+          <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.panel}>
             <Text style={styles.sectionTitle}>Step 2: Paste token and connect</Text>
             <Text style={styles.sectionBody}>
               Paste the token below and tap Connect. This token works once, so if it fails, generate a new one
@@ -195,7 +198,7 @@ export default function SimplefinOnboardingScreen() {
                 )}
               </LinearGradient>
             </ScalePressable>
-          </View>
+          </Animated.View>
 
           <View style={styles.noteRow}>
             <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,10 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Animated,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackground } from '../components/GlassBackground';
 import StarField from '../components/StarField';
@@ -36,24 +36,6 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const handleSignup = async () => {
     if (!email.trim() || !password) {
@@ -93,8 +75,6 @@ export default function SignupScreen() {
             {
               paddingTop: insets.top + 20,
               paddingBottom: insets.bottom + 26,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
             },
           ]}
         >
@@ -113,120 +93,122 @@ export default function SignupScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.topTextWrap}>
+              <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.topTextWrap}>
                 <View style={styles.logoBadge}>
                   <Ionicons name="flash" size={20} color={Colors.accentBlueBright} />
                 </View>
                 <Text style={styles.pageEyebrow}>Swipe</Text>
                 <Text style={styles.pageTitle}>Create Account</Text>
-              </View>
+              </Animated.View>
 
-              <View style={styles.header}>
+              <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.header}>
                 <Text style={styles.subtitle}>Join Swipe. Access your premium finance dashboard and scan for security vulnerabilities.</Text>
-              </View>
+              </Animated.View>
 
-              <GlassBackground
-                blurIntensity={26}
-                blurTint="systemChromeMaterialDark"
-                style={styles.cardContainer}
-                fallbackColor="rgba(15, 15, 18, 0.98)"
-                tintColor="rgba(255,255,255,0.02)"
-              >
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Account Details</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={Colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View style={styles.passwordInputWrap}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Min. 6 characters"
-                  placeholderTextColor={Colors.textMuted}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!passwordVisible}
-                />
-                <ScalePressable
-                  onPress={() => setPasswordVisible((prev) => !prev)}
-                  style={styles.eyeButton}
+              <Animated.View entering={FadeInDown.delay(300).springify()}>
+                <GlassBackground
+                  blurIntensity={26}
+                  blurTint="systemChromeMaterialDark"
+                  style={styles.cardContainer}
+                  fallbackColor="rgba(15, 15, 18, 0.98)"
+                  tintColor="rgba(255,255,255,0.02)"
                 >
-                  <Ionicons
-                    name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
-                </ScalePressable>
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm Password</Text>
-              <View style={styles.passwordInputWrap}>
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Account Details</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Email</Text>
                 <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Re-enter password"
+                  style={styles.input}
+                  placeholder="you@example.com"
                   placeholderTextColor={Colors.textMuted}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!confirmPasswordVisible}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
-                <ScalePressable
-                  onPress={() => setConfirmPasswordVisible((prev) => !prev)}
-                  style={styles.eyeButton}
-                >
-                  <Ionicons
-                    name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
-                </ScalePressable>
               </View>
-            </View>
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {success ? <Text style={styles.successText}>{success}</Text> : null}
-
-            <ScalePressable
-              onPress={handleSignup}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-                style={styles.button}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.buttonText}>Create Account</Text>
-                )}
-              </LinearGradient>
-            </ScalePressable>
-
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.passwordInputWrap}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Min. 6 characters"
+                    placeholderTextColor={Colors.textMuted}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!passwordVisible}
+                  />
                   <ScalePressable
-                    onPress={() => router.replace('/auth/login')}
-                    style={styles.switchButton}
+                    onPress={() => setPasswordVisible((prev) => !prev)}
+                    style={styles.eyeButton}
                   >
-                    <Text style={styles.switchText}>
-                      Already with Swipe? <Text style={styles.switchHighlight}>Sign In</Text>
-                    </Text>
+                    <Ionicons
+                      name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
                   </ScalePressable>
                 </View>
-              </GlassBackground>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirm Password</Text>
+                <View style={styles.passwordInputWrap}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Re-enter password"
+                    placeholderTextColor={Colors.textMuted}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!confirmPasswordVisible}
+                  />
+                  <ScalePressable
+                    onPress={() => setConfirmPasswordVisible((prev) => !prev)}
+                    style={styles.eyeButton}
+                  >
+                    <Ionicons
+                      name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </ScalePressable>
+                </View>
+              </View>
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {success ? <Text style={styles.successText}>{success}</Text> : null}
+
+              <ScalePressable
+                onPress={handleSignup}
+                disabled={loading}
+              >
+                <LinearGradient
+                  colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                  style={styles.button}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.buttonText}>Create Account</Text>
+                  )}
+                </LinearGradient>
+              </ScalePressable>
+
+                    <ScalePressable
+                      onPress={() => router.replace('/auth/login')}
+                      style={styles.switchButton}
+                    >
+                      <Text style={styles.switchText}>
+                        Already with Swipe? <Text style={styles.switchHighlight}>Sign In</Text>
+                      </Text>
+                    </ScalePressable>
+                  </View>
+                </GlassBackground>
+              </Animated.View>
             </ScrollView>
           </View>
         </Animated.View>

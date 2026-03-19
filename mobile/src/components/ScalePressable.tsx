@@ -19,6 +19,7 @@ interface ScalePressableProps {
   activeScale?: number;
   haptic?: boolean;
   disabled?: boolean;
+  destructive?: boolean;
 }
 
 export function ScalePressable({
@@ -30,6 +31,7 @@ export function ScalePressable({
   activeScale = 0.96,
   haptic = true,
   disabled = false,
+  destructive = false,
 }: ScalePressableProps) {
   const scale = useSharedValue(1);
   const pressed = useSharedValue(0);
@@ -46,7 +48,7 @@ export function ScalePressable({
     ],
     shadowOpacity: withTiming(interpolate(pressed.value, [0, 1], [0.15, 0.45]), { duration: 150 }),
     shadowRadius: withSpring(interpolate(pressed.value, [0, 1], [8, 18])),
-    shadowColor: Colors.accentBlueBright, // Using a consistent neon accent
+    shadowColor: destructive ? Colors.negative : Colors.accentBlueBright,
     shadowOffset: { width: 0, height: 4 },
     opacity: withTiming(disabled ? 0.5 : 1),
   }));
@@ -57,7 +59,9 @@ export function ScalePressable({
     pressed.value = 1;
     if (haptic) {
       if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Haptics.impactAsync(
+          destructive ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light
+        );
       }
     }
   };

@@ -1,10 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
-  FlatList,
   StyleSheet,
   Text,
   View,
+  TextInput,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
+import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +21,26 @@ import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScalePressable } from '../components/ScalePressable';
+import { Swipeable } from 'react-native-gesture-handler';
+import { api } from '../services/api';
+
+const CATEGORIES = [
+  'Food & Dining',
+  'Shopping',
+  'Housing',
+  'Transportation',
+  'Health & Fitness',
+  'Entertainment',
+  'Personal Care',
+  'Education',
+  'Gifts & Donations',
+  'Fees & Charges',
+  'Business Services',
+  'Taxes',
+  'Investment',
+];
+
+const PERIOD_OPTIONS = ['monthly', 'weekly', 'yearly'];
 
 function formatCurrency(amount: number): string {
   const abs = Math.abs(amount);
@@ -27,44 +53,215 @@ function formatCurrency(amount: number): string {
 
 export default function BudgetTransactionsScreen() {
   const router = useRouter();
-  const { id: budgetId, budgetName } = useLocalSearchParams<{ id: string; budgetName: string }>();
+  const { 
+    id: budgetId, 
+    budgetName, 
+    edit: editParam,
+    amount: amountParam,
+    category: categoryParam,
+    period: periodParam 
+  } = useLocalSearchParams<{ 
+    id: string; 
+    budgetName?: string; 
+    edit?: string;
+    amount?: string;
+    category?: string;
+    period?: string;
+  }>();
+  
   const insets = useSafeAreaInsets();
-  const { budgetTransactions } = useData();
+  const { budgetTransactions, fetchBudgets } = useData();
 
-  const transactions = useMemo(() => budgetTransactions[budgetId] || [], [budgetId, budgetTransactions]);
+  const isNew = budgetId === 'create' || budgetId === 'new';
+  const isEditing = editParam === 'true' || isNew;
+
+  const [formData, setFormData] = useState({
+    name: budgetName || '',
+    amount: amountParam || '',
+    category: categoryParam || 'Food & Dining',
+    period: (periodParam || 'monthly') as 'monthly' | 'weekly' | 'yearly',
+  });
+  const [saving, setSaving] = useState(false);
+  const [catDropdown, setCatDropdown] = useState(false);
+
+  const transactions = useMemo(() => 
+    budgetId && budgetTransactions[budgetId] ? budgetTransactions[budgetId] : []
+  , [budgetId, budgetTransactions]);
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.amount) {
+      Alert.alert('Missing Info', 'Please provide a name and amount.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (isNew) {
+        await api.createBudget({
+          name: formData.name,
+          category: formData.category,
+          amount: parseFloat(formData.amount),
+          period: formData.period,
+        });
+      } else {
+        await api.updateBudget(budgetId, {
+          name: formData.name,
+          category: formData.category,
+          amount: parseFloat(formData.amount),
+          period: formData.period,
+        });
+      }
+      await fetchBudgets(true);
+      router.back();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save budget');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderRightActions = () => (
+    <View style={styles.swipeActions}>
+      <ScalePressable style={styles.verifyBtn} haptic>
+        <Ionicons name="checkmark-circle" size={24} color="#fff" />
+        <Text style={styles.swipeActionText}>Verify</Text>
+      </ScalePressable>
+    </View>
+  );
+
+  if (isEditing) {
+    return (
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={styles.container}
+      >
+        <StarField />
+        <ScrollView contentContainerStyle={[styles.formScroll, { paddingTop: insets.top + 20 }]}>
+          <Animated.View entering={FadeInDown.springify()}>
+            <GlassBackground
+              blurIntensity={40}
+              blurTint="systemChromeMaterialDark"
+              style={styles.formCard}
+            >
+              <View style={styles.formHeader}>
+                <Text style={styles.formTitle}>{isNew ? 'New Budget' : 'Edit Budget'}</Text>
+                <ScalePressable onPress={() => router.back()}>
+                  <Ionicons name="close" size={24} color={Colors.textMuted} />
+                </ScalePressable>
+              </View>
+
+              <Text style={styles.label}>Budget Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Groceries"
+                placeholderTextColor={Colors.textMuted}
+                value={formData.name}
+                onChangeText={(t) => setFormData({ ...formData, name: t })}
+              />
+
+              <View style={styles.dropdownWrap}>
+                <Text style={styles.label}>Category</Text>
+                <ScalePressable 
+                  style={styles.dropdownBtn}
+                  onPress={() => setCatDropdown(!catDropdown)}
+                >
+                  <Text style={styles.dropdownBtnText}>{formData.category}</Text>
+                  <Ionicons name={catDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
+                </ScalePressable>
+                
+                {catDropdown && (
+                  <View style={styles.catList}>
+                    {CATEGORIES.map(cat => (
+                      <ScalePressable 
+                        key={cat} 
+                        style={styles.catItem}
+                        onPress={() => {
+                          setFormData({ ...formData, category: cat });
+                          setCatDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.catText}>{cat}</Text>
+                        {formData.category === cat && <Ionicons name="checkmark" size={16} color={Colors.accentBlueBright} />}
+                      </ScalePressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.label}>Amount ($)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0.00"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="decimal-pad"
+                value={formData.amount}
+                onChangeText={(t) => setFormData({ ...formData, amount: t })}
+              />
+
+              <Text style={styles.label}>Period</Text>
+              <View style={styles.periodRow}>
+                {PERIOD_OPTIONS.map(p => (
+                  <ScalePressable
+                    key={p}
+                    style={[styles.periodTab, formData.period === p && styles.periodTabActive]}
+                    onPress={() => setFormData({ ...formData, period: p as any })}
+                  >
+                    <Text style={[styles.periodTabText, formData.period === p && styles.periodTabTextActive]}>
+                      {p}
+                    </Text>
+                  </ScalePressable>
+                ))}
+              </View>
+
+              <ScalePressable
+                onPress={handleSave}
+                disabled={saving}
+                style={styles.saveBtn}
+              >
+                <LinearGradient colors={[Colors.accentBlueBright, Colors.accentBlue]} style={styles.saveBtnGradient}>
+                  {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
+                </LinearGradient>
+              </ScalePressable>
+            </GlassBackground>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <StarField />
 
-      <GlassBackground
-        blurIntensity={38}
-        blurTint="systemChromeMaterialDark"
-        style={[styles.header, { marginTop: insets.top + 8 }]}
-        tintColor="rgba(0, 0, 0, 0.4)"
-        tintOpacity={0.6}
-      >
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>{budgetName || 'Budget'}</Text>
-            <Text style={styles.headerProvider}>Transactions</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <View style={styles.headerCountPill}>
-              <Text style={styles.headerCount}>
-                {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-              </Text>
+      <Animated.View entering={FadeInDown.delay(100).springify()}>
+        <GlassBackground
+          blurIntensity={38}
+          blurTint="systemChromeMaterialDark"
+          style={[styles.header, { marginTop: insets.top + 8 }]}
+          tintColor="rgba(0, 0, 0, 0.4)"
+          tintOpacity={0.6}
+        >
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerTitle}>{budgetName || 'Budget'}</Text>
+              <Text style={styles.headerProvider}>Transactions</Text>
             </View>
-            <ScalePressable
-              onPress={() => router.back()}
-              style={styles.closeBtn}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={20} color={Colors.textPrimary} />
-            </ScalePressable>
+            <View style={styles.headerActions}>
+              <View style={styles.headerCountPill}>
+                <Text style={styles.headerCount}>
+                  {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+              <ScalePressable
+                onPress={() => router.back()}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color={Colors.textPrimary} />
+              </ScalePressable>
+            </View>
           </View>
-        </View>
-      </GlassBackground>
+        </GlassBackground>
+      </Animated.View>
 
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
@@ -72,42 +269,46 @@ export default function BudgetTransactionsScreen() {
           <Text style={styles.emptySubtext}>This budget has no matching transactions yet.</Text>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           data={transactions}
           keyExtractor={(item) => String(item.id)}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 80 }]}
-          renderItem={({ item }) => (
-            <GlassBackground
-              blurIntensity={38}
-              blurTint="systemChromeMaterialDark"
-              style={styles.txnCard}
-              tintColor="rgba(0, 0, 0, 0.4)"
-              tintOpacity={0.6}
-            >
-              <View
-                style={[
-                  styles.categoryDot,
-                  { backgroundColor: Number(item.amount) < 0 ? Colors.negative : Colors.positive },
-                ]}
-              />
-              <View style={styles.txnInfo}>
-                <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
-                <Text style={styles.txnDate}>
-                  {new Date(
-                    typeof item.txn_date === 'string' ? item.txn_date : item.txn_date * 1000
-                  ).toLocaleDateString()}
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.txnAmount,
-                  { color: Number(item.amount) < 0 ? Colors.negative : Colors.positive },
-                ]}
-              >
-                {formatCurrency(Number(item.amount) || 0)}
-              </Text>
-            </GlassBackground>
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.delay(200 + index * 50).springify()}>
+              <Swipeable renderRightActions={renderRightActions}>
+                <GlassBackground
+                  blurIntensity={38}
+                  blurTint="systemChromeMaterialDark"
+                  style={styles.txnCard}
+                  tintColor="rgba(0, 0, 0, 0.4)"
+                  tintOpacity={0.6}
+                >
+                  <View
+                    style={[
+                      styles.categoryDot,
+                      { backgroundColor: Number(item.amount) < 0 ? Colors.negative : Colors.positive },
+                    ]}
+                  />
+                  <View style={styles.txnInfo}>
+                    <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
+                    <Text style={styles.txnDate}>
+                      {new Date(
+                        typeof item.txn_date === 'string' ? item.txn_date : item.txn_date * 1000
+                      ).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.txnAmount,
+                      { color: Number(item.amount) < 0 ? Colors.negative : Colors.positive },
+                    ]}
+                  >
+                    {formatCurrency(Number(item.amount) || 0)}
+                  </Text>
+                </GlassBackground>
+              </Swipeable>
+            </Animated.View>
           )}
         />
       )}
@@ -248,4 +449,145 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-});
+  // Form Styles
+  formScroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  formCard: {
+    borderRadius: 28,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: Colors.navGlassBorder,
+    backgroundColor: Colors.navGlassBackground,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  formTitle: {
+    ...Typography.title3,
+    color: Colors.textPrimary,
+  },
+  label: {
+    ...Typography.caption1,
+    color: Colors.textMuted,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  input: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 18,
+  },
+  dropdownWrap: {
+    marginBottom: 18,
+    position: 'relative',
+    zIndex: 10,
+  },
+  dropdownBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dropdownBtnText: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+  },
+  catList: {
+    marginTop: 6,
+    borderRadius: 14,
+    maxHeight: 250,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  catItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  catText: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+  },
+  periodRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 28,
+  },
+  periodTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: 'rgba(10,10,12,0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  periodTabActive: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: Colors.accentBlueBright,
+  },
+  periodTabText: {
+    ...Typography.caption1,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  periodTabTextActive: {
+    color: Colors.accentBlueBright,
+  },
+  saveBtn: {
+    marginTop: 8,
+  },
+  saveBtnGradient: {
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    ...Typography.subhead,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  swipeActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: 90,
+    marginBottom: 12,
+  },
+  verifyBtn: {
+    backgroundColor: Colors.positive,
+    width: 80,
+    height: '100%',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  swipeActionText: {
+    ...Typography.caption2,
+    color: '#fff',
+    marginTop: 4,
+    fontWeight: '700',
+  },
+});

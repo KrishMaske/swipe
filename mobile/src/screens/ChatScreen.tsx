@@ -11,7 +11,15 @@ import {
   Keyboard,
   Image,
 } from 'react-native';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { 
+  FadeInDown, 
+  FadeInLeft, 
+  FadeInRight, 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withRepeat, 
+  withTiming 
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackground } from '../components/GlassBackground';
@@ -87,9 +95,13 @@ function MessageBubble({ item }: { item: DisplayMessage }) {
   }
 
   const isUser = item.role === 'user';
+  const animation = isUser 
+    ? FadeInRight.delay(50).springify().damping(18) 
+    : FadeInLeft.delay(50).springify().damping(18);
+
   return (
     <Animated.View 
-      entering={FadeInDown.duration(300)}
+      entering={animation}
       style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}
     > 
       {!isUser && (

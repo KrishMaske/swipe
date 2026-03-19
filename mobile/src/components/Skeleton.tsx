@@ -11,8 +11,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../theme/colors';
 
 interface SkeletonProps {
-  width?: number;
-  height?: number;
+  width?: DimensionValue;
+  height?: DimensionValue;
   borderRadius?: number;
   style?: StyleProp<ViewStyle>;
 }
@@ -29,7 +29,8 @@ export function Skeleton({ width = 100, height = 20, borderRadius = 8, style }: 
   }, [shimmer]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const translateX = interpolate(shimmer.value, [0, 1], [-width, width]);
+    const w = typeof width === 'number' ? width : 400;
+    const translateX = interpolate(shimmer.value, [0, 1], [-w, w]);
     return {
       transform: [{ translateX }],
     };

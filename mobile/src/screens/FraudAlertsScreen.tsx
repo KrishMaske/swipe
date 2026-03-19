@@ -187,20 +187,33 @@ export default function FraudAlertsScreen() {
     return (
       <View style={styles.container}>
         <StarField />
-        <View style={[styles.scroll, { paddingTop: insets.top + 8 }]}>
-          <Skeleton width={120} height={34} borderRadius={8} style={{ marginBottom: 20 }} />
-          <Skeleton width="100%" height={160} borderRadius={24} style={{ marginBottom: 14 }} />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+        <View style={[styles.headerRow, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
+          <View>
+            <Text style={styles.headerEyebrow}>Swipe</Text>
+            <Text style={styles.headerTitle}>Guard</Text>
+          </View>
+        </View>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <View style={[styles.statusCard, { height: 180, justifyContent: 'center' }]}>
+            <Skeleton width={100} height={100} borderRadius={50} />
+            <Skeleton width={140} height={20} borderRadius={10} style={{ marginTop: 15 }} />
+          </View>
+          <View style={styles.metricRow}>
             <Skeleton width="31%" height={80} borderRadius={16} />
             <Skeleton width="31%" height={80} borderRadius={16} />
             <Skeleton width="31%" height={80} borderRadius={16} />
           </View>
-          <Skeleton width={140} height={24} borderRadius={6} style={{ marginBottom: 10 }} />
-          <Skeleton width="100%" height={50} borderRadius={12} style={{ marginBottom: 10 }} />
-          <Skeleton width={120} height={24} borderRadius={6} style={{ marginBottom: 10 }} />
-          <Skeleton width="100%" height={120} borderRadius={18} style={{ marginBottom: 10 }} />
-          <Skeleton width="100%" height={120} borderRadius={18} style={{ marginBottom: 10 }} />
-        </View>
+          <Skeleton width={140} height={24} borderRadius={6} style={{ marginVertical: 10 }} />
+          {[0, 1, 2].map(i => (
+            <View key={i} style={styles.skeleAlertRow}>
+              <Skeleton width={44} height={44} borderRadius={22} />
+              <View style={styles.skeleInfo}>
+                <Skeleton width="100%" height={14} borderRadius={7} />
+                <Skeleton width="60%" height={14} borderRadius={7} style={{ marginTop: 6 }} />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   }
@@ -641,5 +654,19 @@ const styles = StyleSheet.create({
     ...Typography.footnote,
     color: Colors.textMuted,
     fontWeight: '600',
+  },
+  skeleAlertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: Colors.navGlassBackground,
+    borderWidth: 1,
+    borderColor: Colors.navGlassBorder,
+    marginBottom: 12,
+  },
+  skeleInfo: {
+    flex: 1,
+    marginLeft: 14,
   },
 });

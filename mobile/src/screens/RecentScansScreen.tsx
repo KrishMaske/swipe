@@ -18,7 +18,9 @@ import { useRouter } from 'expo-router';
 import { ScalePressable } from '../components/ScalePressable';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
+import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
+import { Skeleton } from '../components/Skeleton';
 import StarField from '../components/StarField';
 import { api, Transaction } from '../services/api';
 import { useData } from '../context/DataContext';
@@ -82,6 +84,32 @@ export default function RecentScansScreen() {
   const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
   const [selectedScanTxn, setSelectedScanTxn] = useState<Transaction | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const scrollY = useSharedValue(0);
+  const REFRESH_THRESHOLD = 80;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(handleRefresh)();
+      }
+    },
+  });
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchAccounts();
+      const loadedAccounts = accounts || [];
+      await Promise.all(loadedAccounts.map((acc) => fetchTransactions(acc.acc_id, true)));
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const allTransactions = useMemo(() => {
     return Object.values(transactionsCache)
@@ -186,22 +214,42 @@ export default function RecentScansScreen() {
         </ScrollView>
       </GlassBackground>
 
-      {loading ? (
-        <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator size="large" color={Colors.accentBlueBright} />
+     {loading ? (
+    <View style={styles.container}>
+        <StarField />
+        <View style={[styles.header, { marginTop: insets.top + 8 }]}>
+           <Skeleton width={160} height={28} borderRadius={6} />
+           <Skeleton width={100} height={14} borderRadius={4} style={{ marginTop: 8 }} />
+           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+             {[0, 1, 2, 3, 4, 5].map(i => (
+               <Skeleton key={i} width={40} height={26} borderRadius={13} />
+             ))}
+           </View>
         </View>
-      ) : recentScans.length === 0 ? (
+        <View style={styles.list}>
+          {[0, 1, 2, 3].map(i => (
+            <Skeleton key={i} width="100%" height={90} borderRadius={24} style={{ marginBottom: 12 }} />
+          ))}
+        </View>
+      </View>
+    ) : (
+      <>
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
+      {recentScans.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="shield-checkmark" size={44} color={Colors.accentEmerald} />
           <Text style={styles.emptyText}>No transactions found</Text>
           <Text style={styles.emptySubtext}>Try a different date range or sync your account for newer activity.</Text>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           data={recentScans}
           keyExtractor={(item) => item.txn_id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
           renderItem={({ item, index }) => (
             <ScalePressable onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
               <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
@@ -237,6 +285,8 @@ export default function RecentScansScreen() {
             </ScalePressable>
           )}
         />
+      )}
+      </>
       )}
 
       <Modal visible={selectedScanTxn !== null} transparent animationType="fade">
