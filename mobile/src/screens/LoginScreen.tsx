@@ -12,14 +12,12 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackground } from '../components/GlassBackground';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { AuthNavigationProp } from '../types/navigation';
 import { ScalePressable } from '../components/ScalePressable';
 
 import { useRouter } from 'expo-router';

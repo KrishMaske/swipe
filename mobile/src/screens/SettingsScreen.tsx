@@ -398,7 +398,7 @@ export default function SettingsScreen() {
             <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and revoke/disable your token there.</Text>
             <Text style={styles.instructionText}>2. Next app sign-in will require reconnecting before access.</Text>
 
-            <ScalePressable onPress={openSimplefinBridge} activeOpacity={0.85} style={styles.actionButtonWrap}>
+            <ScalePressable onPress={openSimplefinBridge} style={styles.actionButtonWrap}>
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                 style={styles.primaryButton}
@@ -410,7 +410,7 @@ export default function SettingsScreen() {
               </LinearGradient>
             </ScalePressable>
 
-            <ScalePressable onPress={signOut} activeOpacity={0.8} style={styles.secondaryButton}>
+            <ScalePressable onPress={signOut} style={styles.secondaryButton}>
               <Ionicons name="refresh-outline" size={16} color={Colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>Sign Out to Reconnect</Text>
             </ScalePressable>
@@ -428,7 +428,6 @@ export default function SettingsScreen() {
             <ScalePressable
               style={styles.deleteAccountButton}
               onPress={() => openModal('delete')}
-              activeOpacity={0.8}
               disabled={deleteLoading}
             >
               {deleteLoading ? (
@@ -443,7 +442,10 @@ export default function SettingsScreen() {
           </View>
         </Animated.View>
 
-        <ScalePressable style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.8}>
+                  <ScalePressable
+                    onPress={handleSignOut}
+                    style={styles.signOutButton}
+                  >
           <Ionicons name="log-out-outline" size={18} color={Colors.negative} />
           <Text style={styles.signOutText}>Sign Out</Text>
         </ScalePressable>
@@ -469,7 +471,7 @@ export default function SettingsScreen() {
                       ? 'Change Password'
                       : 'Delete Account'}
                 </Text>
-                <ScalePressable onPress={closeModal} activeOpacity={0.8} style={styles.modalCloseButton}>
+                <ScalePressable onPress={closeModal} style={styles.modalCloseButton}>
                   <Ionicons name="close" size={18} color={Colors.textPrimary} />
                 </ScalePressable>
               </View>
@@ -508,7 +510,6 @@ export default function SettingsScreen() {
                     <ScalePressable
                       onPress={() => setCurrentPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
-                      activeOpacity={0.75}
                     >
                       <Ionicons
                         name={currentPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
@@ -529,7 +530,6 @@ export default function SettingsScreen() {
                     <ScalePressable
                       onPress={() => setNewPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
-                      activeOpacity={0.75}
                     >
                       <Ionicons
                         name={newPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
@@ -550,7 +550,6 @@ export default function SettingsScreen() {
                     <ScalePressable
                       onPress={() => setConfirmPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
-                      activeOpacity={0.75}
                     >
                       <Ionicons
                         name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
@@ -575,7 +574,6 @@ export default function SettingsScreen() {
                   <ScalePressable
                     onPress={() => setDeletePasswordVisible((prev) => !prev)}
                     style={styles.eyeButton}
-                    activeOpacity={0.75}
                   >
                     <Ionicons
                       name={deletePasswordVisible ? 'eye-off-outline' : 'eye-outline'}
@@ -589,7 +587,7 @@ export default function SettingsScreen() {
               {modalError ? <Text style={styles.modalError}>{modalError}</Text> : null}
 
               <View style={styles.modalActions}>
-                <ScalePressable onPress={closeModal} activeOpacity={0.8} style={styles.modalSecondaryButton}>
+                <ScalePressable onPress={closeModal} style={styles.modalSecondaryButton}>
                   <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
                 </ScalePressable>
 
@@ -601,7 +599,6 @@ export default function SettingsScreen() {
                         ? handleUpdatePassword
                         : handleDeleteAccount
                   }
-                  activeOpacity={0.85}
                   style={styles.modalPrimaryWrap}
                   disabled={emailLoading || passwordLoading || deleteLoading}
                 >

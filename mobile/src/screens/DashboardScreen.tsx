@@ -356,7 +356,7 @@ export default function DashboardScreen() {
             <Text style={styles.emptySubtitle}>No budgets yet. Create one to track your spending flow.</Text>
           </View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.budgetList}>
+          <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.budgetList}>
             {budgets.map((budget, index) => {
               const spent = spendingByBudget[budget.id!] || 0;
               const progress = Math.min(spent / budget.amount, 1);
@@ -400,7 +400,7 @@ export default function DashboardScreen() {
                 </Animated.View>
               );
             })}
-          </ScrollView>
+          </Animated.ScrollView>
         )}
 
         <View style={styles.sectionHeader}>

@@ -248,10 +248,10 @@ export default function SwipeSmartScreen() {
                   </ScalePressable>
                 </Animated.View>
               );
-            })}
+          })}
           </ScrollView>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Long-press context menu */}
       <Modal visible={contextMenuCard !== null} transparent animationType="fade">

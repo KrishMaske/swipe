@@ -14,8 +14,9 @@ import {
   ScrollView,
   TextInput,
   Pressable,
+  Animated as RNAnimated,
 } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, FadeInDown } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, FadeInDown, SharedValue } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
 import { ScalePressable } from '../components/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
@@ -279,7 +281,7 @@ export default function AccountDetailScreen() {
     );
   };
 
-  const renderRightActions = (_prog: Animated.SharedValue<number>, _drag: Animated.SharedValue<number>, txn: Transaction) => {
+  const renderRightActions = (_prog: RNAnimated.AnimatedInterpolation<number | string>, _drag: RNAnimated.AnimatedInterpolation<number | string>, txn: Transaction) => {
     return (
       <ScalePressable
         style={styles.swipeActionRight}
@@ -293,7 +295,7 @@ export default function AccountDetailScreen() {
     );
   };
 
-  const renderLeftActions = (_prog: Animated.SharedValue<number>, _drag: Animated.SharedValue<number>, txn: Transaction) => {
+  const renderLeftActions = (_prog: RNAnimated.AnimatedInterpolation<number | string>, _drag: RNAnimated.AnimatedInterpolation<number | string>, txn: Transaction) => {
     return (
       <ScalePressable
         style={styles.swipeActionLeft}

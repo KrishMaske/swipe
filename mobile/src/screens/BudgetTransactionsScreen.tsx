@@ -136,7 +136,7 @@ export default function BudgetTransactionsScreen() {
         style={styles.container}
       >
         <StarField />
-        <ScrollView contentContainerStyle={[styles.formScroll, { paddingTop: insets.top + 20 }]}>
+        <Animated.ScrollView contentContainerStyle={[styles.formScroll, { paddingTop: insets.top + 20 }]}>
           <Animated.View entering={FadeInDown.springify()}>
             <GlassBackground
               blurIntensity={40}
@@ -224,7 +224,7 @@ export default function BudgetTransactionsScreen() {
               </ScalePressable>
             </GlassBackground>
           </Animated.View>
-        </ScrollView>
+        </Animated.ScrollView>
       </KeyboardAvoidingView>
     );
   }

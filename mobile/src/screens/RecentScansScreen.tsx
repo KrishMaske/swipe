@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  ScalePressable,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';

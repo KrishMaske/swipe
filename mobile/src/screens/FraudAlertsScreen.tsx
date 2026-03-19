@@ -331,7 +331,7 @@ export default function FraudAlertsScreen() {
           </>
         )}
 
-      </ScrollView>
+      </Animated.ScrollView>
 
     </View>
   );

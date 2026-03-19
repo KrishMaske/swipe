@@ -21,8 +21,6 @@ import { useRouter } from 'expo-router';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PermissionsStackParamList } from '../types/navigation';
 
 type StepKey = 'foreground' | 'background' | 'notifications';
 
