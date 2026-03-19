@@ -32,8 +32,6 @@ import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { Skeleton } from '../components/Skeleton';
 
 function formatDate(txnDate: any): string {
-// ... rest of helper functions ...
-function formatDate(txnDate: any): string {
   try {
     const d = new Date(txnDate);
     if (!Number.isNaN(d.getTime())) {
