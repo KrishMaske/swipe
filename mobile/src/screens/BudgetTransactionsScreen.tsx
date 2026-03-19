@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -23,6 +23,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScalePressable } from '../components/ScalePressable';
 import { Swipeable } from 'react-native-gesture-handler';
 import { api } from '../services/api';
+import { BudgetFormModal, BudgetData } from '../components/BudgetFormModal';
+import { Budget } from '../services/api';
 
 const CATEGORIES = [
   'Food & Dining',
@@ -83,36 +85,20 @@ export default function BudgetTransactionsScreen() {
   });
   const [saving, setSaving] = useState(false);
   const [catDropdown, setCatDropdown] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
 
   const transactions = useMemo(() => 
     budgetId && budgetTransactions[budgetId] ? budgetTransactions[budgetId] : []
   , [budgetId, budgetTransactions]);
 
-  const handleSave = async () => {
-    if (!formData.name || !formData.amount) {
-      Alert.alert('Missing Info', 'Please provide a name and amount.');
-      return;
-    }
-
+  const handleSave = async (data: BudgetData) => {
     setSaving(true);
     try {
-      if (isNew) {
-        await api.createBudget({
-          name: formData.name,
-          category: formData.category,
-          amount: parseFloat(formData.amount),
-          period: formData.period,
-        });
-      } else {
-        await api.updateBudget(budgetId, {
-          name: formData.name,
-          category: formData.category,
-          amount: parseFloat(formData.amount),
-          period: formData.period,
-        });
-      }
+      await api.updateBudget(budgetId, data);
       await fetchBudgets(true);
-      router.back();
+      setEditModalVisible(false);
+      // Update local name if changed
+      router.setParams({ budgetName: data.name });
     } catch (error) {
       Alert.alert('Error', 'Failed to save budget');
     } finally {
@@ -140,7 +126,7 @@ export default function BudgetTransactionsScreen() {
 
   const handleAction = (action: 'edit' | 'delete', txn: any) => {
     if (action === 'edit') {
-      Alert.alert('Edit', 'Editing transaction: ' + txn.merchant);
+      setEditModalVisible(true);
     } else {
       Alert.alert('Delete', 'Are you sure you want to delete this transaction?', [
         { text: 'Cancel', style: 'cancel' },
@@ -155,115 +141,15 @@ export default function BudgetTransactionsScreen() {
     }
   };
 
-  if (isEditing) {
-    return (
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        style={styles.container}
-      >
-        <StarField />
-        <Animated.ScrollView contentContainerStyle={[styles.formScroll, { paddingTop: insets.top + 20 }]}>
-          <Animated.View entering={FadeInDown.springify()}>
-            <GlassBackground
-              blurIntensity={40}
-              blurTint="systemChromeMaterialDark"
-              style={styles.formCard}
-            >
-              <View style={styles.formHeader}>
-                <Text style={styles.formTitle}>{isNew ? 'New Budget' : 'Edit Budget'}</Text>
-                <ScalePressable onPress={() => router.back()}>
-                  <Ionicons name="close" size={24} color={Colors.textMuted} />
-                </ScalePressable>
-              </View>
-
-              <Text style={styles.label}>Budget Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Groceries"
-                placeholderTextColor={Colors.textMuted}
-                value={formData.name}
-                onChangeText={(t) => setFormData({ ...formData, name: t })}
-              />
-
-              <View style={styles.dropdownWrap}>
-                <Text style={styles.label}>Category</Text>
-                <ScalePressable 
-                  style={styles.dropdownBtn}
-                  onPress={() => setCatDropdown(!catDropdown)}
-                >
-                  <Text style={styles.dropdownBtnText}>{formData.category}</Text>
-                  <Ionicons name={catDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
-                </ScalePressable>
-                
-                {catDropdown && (
-                  <View style={styles.catList}>
-                    {CATEGORIES.map(cat => (
-                      <ScalePressable 
-                        key={cat} 
-                        style={styles.catItem}
-                        onPress={() => {
-                          setFormData({ ...formData, category: cat });
-                          setCatDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.catText}>{cat}</Text>
-                        {formData.category === cat && <Ionicons name="checkmark" size={16} color={Colors.accentBlueBright} />}
-                      </ScalePressable>
-                    ))}
-                  </View>
-                )}
-              </View>
-
-              <Text style={styles.label}>Amount ($)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="decimal-pad"
-                value={formData.amount}
-                onChangeText={(t) => setFormData({ ...formData, amount: t })}
-              />
-
-              <Text style={styles.label}>Period</Text>
-              <View style={styles.periodRow}>
-                {PERIOD_OPTIONS.map(p => (
-                  <ScalePressable
-                    key={p}
-                    style={[styles.periodTab, formData.period === p && styles.periodTabActive]}
-                    onPress={() => setFormData({ ...formData, period: p as any })}
-                  >
-                    <Text style={[styles.periodTabText, formData.period === p && styles.periodTabTextActive]}>
-                      {p}
-                    </Text>
-                  </ScalePressable>
-                ))}
-              </View>
-
-              <ScalePressable
-                onPress={handleSave}
-                disabled={saving}
-                style={styles.saveBtn}
-              >
-                <LinearGradient colors={[Colors.accentBlueBright, Colors.accentBlue]} style={styles.saveBtnGradient}>
-                  {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
-                </LinearGradient>
-              </ScalePressable>
-            </GlassBackground>
-          </Animated.View>
-        </Animated.ScrollView>
-      </KeyboardAvoidingView>
-    );
-  }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StarField />
-
       <Animated.View entering={FadeInDown.delay(100).springify()}>
         <GlassBackground
           blurIntensity={38}
           blurTint="systemChromeMaterialDark"
-          style={[styles.header, { marginTop: insets.top + 8 }]}
+          style={styles.header}
           tintColor="rgba(0, 0, 0, 0.4)"
           tintOpacity={0.6}
         >
@@ -278,12 +164,6 @@ export default function BudgetTransactionsScreen() {
                   {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
                 </Text>
               </View>
-              <ScalePressable
-                onPress={() => router.back()}
-                style={styles.closeBtn}
-              >
-                <Ionicons name="close" size={20} color={Colors.textPrimary} />
-              </ScalePressable>
             </View>
           </View>
         </GlassBackground>
@@ -302,11 +182,6 @@ export default function BudgetTransactionsScreen() {
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 80 }]}
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInDown.delay(200 + index * 50).springify()}>
-              <Swipeable 
-                renderLeftActions={renderLeftActions}
-                renderRightActions={renderRightActions}
-                onSwipeableOpen={(direction) => handleAction(direction === 'left' ? 'edit' : 'delete', item)}
-              >
                 <GlassBackground
                   blurIntensity={38}
                   blurTint="systemChromeMaterialDark"
@@ -337,12 +212,26 @@ export default function BudgetTransactionsScreen() {
                     {formatCurrency(Number(item.amount) || 0)}
                   </Text>
                 </GlassBackground>
-              </Swipeable>
             </Animated.View>
           )}
         />
       )}
-    </View>
+      
+      <BudgetFormModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        onSave={handleSave}
+        initialData={{
+          id: budgetId,
+          name: budgetName || '',
+          amount: parseFloat(amountParam || '0'),
+          category: categoryParam || 'Food & Dining',
+          period: (periodParam || 'monthly') as any,
+          user_id: ''
+        }}
+        isSaving={saving}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -353,7 +242,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginHorizontal: 16,
-    marginTop: 36,
+    marginTop: 15,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 14,

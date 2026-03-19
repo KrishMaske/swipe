@@ -7,6 +7,8 @@ import Animated, {
   SharedValue,
   withSpring,
   useDerivedValue,
+  useAnimatedProps,
+  runOnJS,
 } from 'react-native-reanimated';
 import { GlassBackground } from './GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,6 +81,12 @@ export function GlassRefreshHeader({
     };
   });
 
+  const iconProps = useAnimatedProps(() => {
+    return {
+      name: (pullDistance.value > threshold - 5 ? 'refresh' : 'arrow-down') as any,
+    };
+  });
+
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
       <GlassBackground
@@ -93,22 +101,64 @@ export function GlassRefreshHeader({
           <ActivityIndicator color={Colors.accentBlueBright} size="small" />
         ) : (
           <Animated.View style={iconStyle}>
-            <Ionicons
-              name={pullDistance.value > threshold - 5 ? 'refresh' : 'arrow-down'}
+            <AnimatedIonicons
+              animatedProps={iconProps}
+              name="arrow-down"
               size={24}
               color={Colors.accentBlueBright}
             />
           </Animated.View>
         )}
-        <Text style={styles.text}>
-          {refreshing
-            ? 'Updating...'
-            : pullDistance.value > threshold - 5
-            ? 'Release to Sync'
-            : 'Pull to Refresh'}
-        </Text>
+        <AnimatedText
+          scrollY={scrollY}
+          refreshing={refreshing}
+          threshold={threshold}
+        />
       </View>
     </Animated.View>
+  );
+}
+
+const AnimatedIonicons = Animated.createAnimatedComponent(Ionicons);
+
+function AnimatedText({ 
+  scrollY, 
+  refreshing, 
+  threshold 
+}: { 
+  scrollY: SharedValue<number>;
+  refreshing: boolean;
+  threshold: number;
+}) {
+  const pullDistance = useDerivedValue(() => Math.max(0, -scrollY.value));
+  
+  // We use a small hack here: Reanimated's Animated.Text doesn't support 
+  // dynamic children well without useAnimatedProps for 'text' (only on some platforms).
+  // Better approach: use a state for the text but update it via runOnJS if needed,
+  // OR just use a simple sub-component that re-renders when refreshing changes,
+  // and for the "Pull" text, we'll just show it if not refreshing.
+  
+  if (refreshing) return <Text style={styles.text}>Updating...</Text>;
+
+  // To avoid render warnings, we can't use pullDistance.value here directly.
+  // Actually, for simple text that doesn't need to be per-frame animated based on scroll,
+  // we can just use a static message or a delayed state.
+  // But the user wants "Release to Sync" vs "Pull to Refresh".
+  
+  // Let's use a simple state that updates when threshold is crossed.
+  const [canRelease, setCanRelease] = React.useState(false);
+
+  useDerivedValue(() => {
+    const over = pullDistance.value > threshold - 5;
+    if (over !== canRelease) {
+      runOnJS(setCanRelease)(over);
+    }
+  });
+
+  return (
+    <Text style={styles.text}>
+      {canRelease ? 'Release to Sync' : 'Pull to Refresh'}
+    </Text>
   );
 }
 

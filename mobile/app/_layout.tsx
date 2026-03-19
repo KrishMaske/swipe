@@ -1,4 +1,5 @@
 import { Stack, useSegments, useRouter } from "expo-router";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "../src/context/AuthContext";
 import { DataProvider } from "../src/context/DataContext";
@@ -36,11 +37,9 @@ function InitialLayout() {
         options={{
           presentation: "formSheet",
           headerShown: false,
-          sheetAllowedDetents: [0.5, 0.95],
+          sheetAllowedDetents: [0.95],
           sheetGrabberVisible: true,
           sheetCornerRadius: 30,
-          sheetLargestUndimmedDetentIndex: 1,
-          sheetExpandsWhenScrolledToEdge: true,
           contentStyle: { backgroundColor: "#000000" },
         }}
       />
@@ -49,7 +48,7 @@ function InitialLayout() {
         options={{
           presentation: "formSheet",
           headerShown: false,
-          sheetAllowedDetents: [0.6, 0.95],
+          sheetAllowedDetents: [0.65, 0.95],
           sheetGrabberVisible: true,
           sheetCornerRadius: 30,
           contentStyle: { backgroundColor: "#000000" },
@@ -71,7 +70,7 @@ function InitialLayout() {
         options={{
           presentation: "formSheet",
           headerShown: false,
-          sheetAllowedDetents: [0.6, 0.95],
+          sheetAllowedDetents: [0.65, 0.95],
           sheetGrabberVisible: true,
           sheetCornerRadius: 30,
           contentStyle: { backgroundColor: "#000000" },
@@ -94,10 +93,12 @@ function InitialLayout() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <DataProvider>
-        <InitialLayout />
-      </DataProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <DataProvider>
+          <InitialLayout />
+        </DataProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

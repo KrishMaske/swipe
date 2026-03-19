@@ -41,6 +41,7 @@ import { ScalePressable } from '../components/ScalePressable';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { useAnimatedScrollHandler } from 'react-native-reanimated';
 import { Skeleton } from '../components/Skeleton';
+import { BudgetFormModal, BudgetData } from '../components/BudgetFormModal';
 
 const SIMPLEFIN_ACCOUNT_URL = 'https://beta-bridge.simplefin.org/my-account';
 
@@ -89,6 +90,8 @@ export default function DashboardScreen() {
 
   const [contextMenuBudget, setContextMenuBudget] = useState<Budget | null>(null);
   const [failedLogoProviders, setFailedLogoProviders] = useState<Record<string, boolean>>({});
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [creatingBudget, setCreatingBudget] = useState(false);
   
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler({
@@ -223,7 +226,6 @@ export default function DashboardScreen() {
         onPress: async () => {
           try {
             await api.deleteBudget(id);
-            setContextMenuBudget?.(null);
             await fetchBudgets(true);
           } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to delete budget.');
@@ -231,6 +233,19 @@ export default function DashboardScreen() {
         },
       },
     ]);
+  };
+
+  const handleCreateBudget = async (data: any) => {
+    setCreatingBudget(true);
+    try {
+      await api.createBudget(data);
+      setCreateModalVisible(false);
+      await fetchBudgets(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to create budget');
+    } finally {
+      setCreatingBudget(false);
+    }
   };
 
   const hasAvailableBalance = accounts.some((a) => a.available_balance !== null);
@@ -344,7 +359,7 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Budgets</Text>
           <ScalePressable
             onPress={() => {
-              router.push('/dashboard/budget/create');
+              setCreateModalVisible(true);
             }}
           >
             <Ionicons name="add-circle" size={26} color={Colors.accentBlueBright} />
@@ -373,7 +388,7 @@ export default function DashboardScreen() {
                     onPress={() =>
                       router.push({
                         pathname: '/dashboard/budget/[id]',
-                        params: { id: budget.id, budgetName: budget.name }
+                        params: { id: budget.id!, budgetName: budget.name }
                       })
                     }
                     onLongPress={() => setContextMenuBudget(budget)}
@@ -558,7 +573,12 @@ export default function DashboardScreen() {
           </GlassBackground>
         </View>
       </Modal>
-
+      <BudgetFormModal
+        visible={createModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+        onSave={handleCreateBudget}
+        isSaving={creatingBudget}
+      />
     </View>
   );
 }

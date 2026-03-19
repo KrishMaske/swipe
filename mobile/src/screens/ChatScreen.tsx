@@ -313,7 +313,7 @@ export default function ChatScreen() {
               </ScalePressable>
             </GlassBackground>
         </View>
-        <View style={{ height: keyboardVisible ? 16 : 100 }} />
+        <View style={{ height: keyboardVisible ? 32 : 100 }} />
       </KeyboardAvoidingView>
     </View>
   );
@@ -528,11 +528,11 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     paddingVertical: 7,
     gap: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.55,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 16,
+    shadowColor: Colors.accentBlueBright,
+    shadowOpacity: 0.65,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 20,
   },
   composerGlassOverlay: {
     backgroundColor: 'rgba(10, 10, 12, 0.35)',

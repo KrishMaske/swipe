@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScalePressable } from '../components/ScalePressable';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
@@ -194,7 +194,7 @@ export default function RecentScansScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StarField />
 
       <GlassBackground
@@ -348,7 +348,7 @@ export default function RecentScansScreen() {
           </GlassBackground>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -416,16 +416,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontWeight: '700',
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
   filterRow: {
     gap: 8,
     paddingTop: 12,
@@ -464,11 +454,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
+    borderColor: 'rgba(255, 107, 107, 0.45)', // Red glow border
     shadowColor: '#DC2626', // Red glow shadow
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
     elevation: 8,
     overflow: 'hidden',
   },

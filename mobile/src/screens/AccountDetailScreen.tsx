@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
@@ -32,6 +32,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
 import { Skeleton } from '../components/Skeleton';
+import { inlineStyles } from 'react-native-svg';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -126,18 +127,22 @@ export default function AccountDetailScreen() {
       scrollY.value = event.contentOffset.y;
     },
     onEndDrag: (event) => {
-      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
-        runOnJS(handleRefresh)();
+      if (event.contentOffset.y < -REFRESH_THRESHOLD) {
+        handleRefresh();
       }
     },
   });
 
   const handleRefresh = async () => {
-    setRefreshing(true);
+    'worklet';
+    if (refreshing) return;
+    runOnJS(setRefreshing)(true);
     try {
-      await fetchTransactions(accId, true);
+      await runOnJS(fetchTransactions)(accId, true);
+    } catch (e) {
+      console.error(e);
     } finally {
-      setRefreshing(false);
+      runOnJS(setRefreshing)(false);
     }
   };
 
@@ -270,16 +275,6 @@ export default function AccountDetailScreen() {
     }
   };
 
-  const handleAction = (txnId: string, isFlag: boolean) => {
-    Alert.alert(
-      isFlag ? 'Flag Transaction' : 'Verify Transaction',
-      `Are you sure you want to ${isFlag ? 'flag' : 'verify'} this transaction? (ID: ${txnId})`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'OK', onPress: () => console.log(`${isFlag ? 'Flagged' : 'Verified'} transaction ${txnId}`) },
-      ],
-    );
-  };
 
   const renderRightActions = (_prog: RNAnimated.AnimatedInterpolation<number | string>, _drag: RNAnimated.AnimatedInterpolation<number | string>, txn: Transaction) => {
     return (
@@ -317,7 +312,7 @@ export default function AccountDetailScreen() {
               tintColor="rgba(0, 0, 0, 0.4)"
               tintOpacity={0.6}
             >
-              <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive }]} />
+              <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive, shadowColor: isNegative ? Colors.negative : Colors.positive, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }]} />
               <View style={styles.txnInfo}>
                 <Text style={styles.txnMerchant} numberOfLines={1}>
                   {item.merchant || 'Unknown'}
@@ -373,7 +368,7 @@ export default function AccountDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StarField />
 
       <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>
@@ -527,26 +522,19 @@ export default function AccountDetailScreen() {
 
       <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
 
-      {filteredTransactions.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
-          <Text style={styles.emptyText}>No transactions found</Text>
-          <Text style={styles.emptySubtext}>
-            Try a different date range or sync your account for newer activity.
-          </Text>
-        </View>
-      ) : (
-        <Animated.FlatList
-          data={filteredTransactions}
-          keyExtractor={(item) => item.txn_id}
-          renderItem={renderTransaction}
-          contentContainerStyle={styles.list}
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-    </View>
+      <Animated.FlatList
+        data={filteredTransactions}
+        keyExtractor={(item) => item.txn_id}
+        renderItem={renderTransaction}
+        contentContainerStyle={[
+          styles.list,
+          { paddingTop: 10, paddingBottom: insets.bottom + 100 }
+        ]}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      />
+    </SafeAreaView>
   );
 }
 
