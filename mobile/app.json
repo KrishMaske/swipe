@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "swipe",
-    "slug": "swipe",
+    "name": "Swipe",
+    "slug": "Swipe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./images/AppIcons/playstore.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./images/AppIcons/Assets.xcassets/AppIcon.appiconset/1024.png",
+      "image": "./images/AppIcons/1024.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -21,9 +21,9 @@
           "location",
           "remote-notification"
         ],
-        "NSLocationWhenInUseUsageDescription": "SwipeSmart uses your location while the app is open to recommend the best card for nearby merchants.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "SwipeSmart uses your location in the background to suggest the best card when you arrive at stores, restaurants, and travel locations.",
-        "NSLocationAlwaysUsageDescription": "SwipeSmart uses your location in the background to suggest the best card when you arrive at stores, restaurants, and travel locations.",
+        "NSLocationWhenInUseUsageDescription": "Swipe uses your location while the app is open to recommend the best card for nearby merchants.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Swipe uses your location in the background to suggest the best card when you arrive at stores, restaurants, and travel locations.",
+        "NSLocationAlwaysUsageDescription": "Swipe uses your location in the background to suggest the best card when you arrive at stores, restaurants, and travel locations.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.krishmaske.swipe"
@@ -52,7 +52,7 @@
     "web": {
       "favicon": "./images/AppIcons/playstore.png"
     },
-    "scheme": "swipe",
+    "scheme": "Swipe",
     "experiments": {
       "typedRoutes": true
     },
@@ -62,8 +62,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "SwipeSmart uses your location while the app is open to recommend the best card for nearby merchants.",
-          "locationAlwaysAndWhenInUsePermission": "SwipeSmart uses your location in the background to recommend the best card when you arrive at merchants.",
+          "locationWhenInUsePermission": "Swipe uses your location while the app is open to recommend the best card for nearby merchants.",
+          "locationAlwaysAndWhenInUsePermission": "Swipe uses your location in the background to recommend the best card when you arrive at merchants.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
