@@ -21,8 +21,8 @@ export const useFraud = () => {
 
 export function FraudProvider({ children, checkForScheduledSync, syncTrigger }: {
   children: React.ReactNode,
-  checkForScheduledSync: () => Promise<boolean>,
-  syncTrigger: number
+  checkForScheduledSync: (force?: boolean) => Promise<boolean>,
+  syncTrigger: number 
 }) {
   const [fraudAlertsCache, setFraudAlertsCache] = useState<FraudTransaction[] | null>(null);
   const [fraudAlertsLoading, setFraudAlertsLoading] = useState(true);
@@ -60,9 +60,15 @@ export function FraudProvider({ children, checkForScheduledSync, syncTrigger }: 
   };
 
   const fetchFraudAlerts = useCallback(async (forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
+    const isInitialLoad = fraudAlertsCacheRef.current === null;
 
-    if (!forceRefresh && !detectedSync && fraudAlertsCacheRef.current) {
+    if (!forceRefresh && !isInitialLoad) {
+      setFraudAlertsLoading(false);
+      return;
+    }
+
+    const detectedSync = await checkForScheduledSync(forceRefresh);
+    if (!isInitialLoad && !detectedSync) {
       setFraudAlertsLoading(false);
       return;
     }
@@ -81,7 +87,7 @@ export function FraudProvider({ children, checkForScheduledSync, syncTrigger }: 
         setFraudAlertsCache(unresolved);
         unresolved.forEach(notifyFraud);
       } catch (err) {
-        Alert.alert("Error", "Could not fetch fraud alerts at this time.");
+        // Silent background failure
       } finally {
         setFraudAlertsLoading(false);
         fraudFetchInFlight.current = null;
@@ -99,8 +105,15 @@ export function FraudProvider({ children, checkForScheduledSync, syncTrigger }: 
     });
   }, []);
 
+  const value = React.useMemo(() => ({
+    fraudAlertsCache,
+    fraudAlertsLoading,
+    fetchFraudAlerts,
+    optimisticallyRemoveFraudAlert
+  }), [fraudAlertsCache, fraudAlertsLoading, fetchFraudAlerts, optimisticallyRemoveFraudAlert]);
+
   return (
-    <FraudContext.Provider value={{ fraudAlertsCache, fraudAlertsLoading, fetchFraudAlerts, optimisticallyRemoveFraudAlert }}>
+    <FraudContext.Provider value={value}>
       {children}
     </FraudContext.Provider>
   );

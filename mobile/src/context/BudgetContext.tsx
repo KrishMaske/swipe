@@ -22,7 +22,7 @@ export const useBudgets = () => {
 
 export function BudgetProvider({ children, checkForScheduledSync, transactionsCache, syncTrigger }: {
   children: React.ReactNode,
-  checkForScheduledSync: () => Promise<boolean>,
+  checkForScheduledSync: (force?: boolean) => Promise<boolean>,
   transactionsCache: Record<string, Transaction[]>,
   syncTrigger: number
 }) {
@@ -155,16 +155,23 @@ export function BudgetProvider({ children, checkForScheduledSync, transactionsCa
   }, []);
 
   React.useEffect(() => {
-    const allTxns = Object.values(transactionsCache).flatMap((c) => c);
-    if (budgetsCache && allTxns.length > 0) {
+    if (budgetsCache) {
+      // Flatten all transactions from different accounts into a single list for budget matching
+      const allTxns = Object.values(transactionsCache).flat();
       calculateBudgetSpending(budgetsCache, allTxns);
     }
-  }, [transactionsCache, budgetsCache, calculateBudgetSpending]);
+  }, [budgetsCache, transactionsCache, calculateBudgetSpending]);
 
   const fetchBudgets = useCallback(async (forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
+    const isInitialLoad = budgetsCache === null;
 
-    if (!forceRefresh && !detectedSync && budgetsCache) {
+    if (!forceRefresh && !isInitialLoad) {
+      setBudgetsLoading(false);
+      return;
+    }
+
+    const detectedSync = await checkForScheduledSync(forceRefresh);
+    if (!isInitialLoad && !detectedSync) {
       setBudgetsLoading(false);
       return;
     }
@@ -180,7 +187,7 @@ export function BudgetProvider({ children, checkForScheduledSync, transactionsCa
         const data = await api.getBudgets();
         setBudgetsCache(data || []);
       } catch (err) {
-        Alert.alert("Error", "Failed to load your budgets.");
+        // Budget sync error - silent
       } finally {
         setBudgetsLoading(false);
         budgetsFetchInFlight.current = null;
@@ -191,8 +198,16 @@ export function BudgetProvider({ children, checkForScheduledSync, transactionsCa
     await budgetsFetchInFlight.current;
   }, [checkForScheduledSync, budgetsCache]);
 
+  const value = React.useMemo(() => ({ 
+    budgetsCache, 
+    budgetsLoading, 
+    fetchBudgets, 
+    spendingByBudget, 
+    budgetTransactions 
+  }), [budgetsCache, budgetsLoading, fetchBudgets, spendingByBudget, budgetTransactions]);
+
   return (
-    <BudgetContext.Provider value={{ budgetsCache, budgetsLoading, fetchBudgets, spendingByBudget, budgetTransactions }}>
+    <BudgetContext.Provider value={value}>
       {children}
     </BudgetContext.Provider>
   );

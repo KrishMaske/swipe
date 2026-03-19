@@ -1,7 +1,8 @@
 import os
 import httpx
 import time
-from jose import jwt, JWTError
+import jwt
+from jwt.algorithms import get_default_algorithms
 from fastapi import HTTPException, Request, Depends
 from supabase import create_client, Client, ClientOptions
 from config.settings import jwks_url, supabase_url, supabase_key
@@ -41,25 +42,51 @@ async def _get_jwks():
 def get_token(request: Request) -> str:
     """Extracts the Bearer token from the request header."""
     auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    if not auth_header:
+        print("[debug-auth] Missing Authorization header")
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    if not auth_header.startswith("Bearer "):
+        print(f"[debug-auth] Invalid Authorization header format: {auth_header[:15]}...")
+        raise HTTPException(status_code=401, detail="Invalid Authorization header format")
     return auth_header.replace("Bearer ", "")
 
 async def get_user_context(token: str = Depends(get_token)) -> dict:
     """Verifies the JWT and returns a user-scoped Supabase client."""
     try:
         jwks = await _get_jwks()
+        
+        # PyJWT requires manual selection of the key from the JWKS
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+        if not kid:
+            raise jwt.InvalidTokenError("Missing kid in JWT header")
+            
+        jwk = next((k for k in jwks if k.get("kid") == kid), None)
+        if not jwk:
+            raise jwt.InvalidTokenError("Key not found in JWKS")
+            
+        # Hardened ECDSA validation using cryptography backend via PyJWT
+        key = get_default_algorithms()["ES256"].from_jwk(jwk)
+        
         payload = jwt.decode(
             token,
-            jwks,
+            key,
             algorithms=["ES256"],
             audience="authenticated",
             options={"verify_exp": True},
         )
         user_id = payload["sub"]
+        print(f"[debug-auth] Successfully verified token for user {user_id}")
         
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except jwt.ExpiredSignatureError:
+        print("[debug-auth] Token has expired")
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError as e:
+        print(f"[debug-auth] Invalid token: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+    except Exception as e:
+        print(f"[debug-auth] Unexpected auth error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
     options = ClientOptions(headers={"Authorization": f"Bearer {token}"})
     user_client = create_client(supabase_url, supabase_key, options=options)

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
@@ -11,18 +10,20 @@ import {
   Platform,
   TextInput,
   ActivityIndicator,
+  StyleSheet as RNStyleSheet,
 } from 'react-native';
+import Animated, { FadeIn, FadeOut, FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { AppStackParamList } from '../types/navigation';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ScalePressable } from '../components/ScalePressable';
 
 const SIMPLEFIN_BRIDGE_URL = 'https://bridge.simplefin.org/simplefin/create';
 
@@ -30,7 +31,7 @@ type SettingsModal = 'email' | 'password' | 'delete' | null;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const router = useRouter();
   const {
     user,
     signOut,
@@ -62,11 +63,12 @@ export default function SettingsScreen() {
     setEmailInput(user?.email || '');
   }, [user?.email]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      refreshUser();
-    }, [refreshUser])
-  );
+  // Removed focus refresh that might be causing immediate closing issues
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     refreshUser();
+  //   }, [refreshUser])
+  // );
 
   const userAny = user as any;
   const pendingEmailFromUser: string | null =
@@ -280,24 +282,13 @@ export default function SettingsScreen() {
       <View style={styles.bgGlowBottom} />
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingTop: insets.top + 8, paddingBottom: 110 + insets.bottom },
-        ]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 36, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerEyebrow}>Swipe</Text>
-            <Text style={styles.headerTitle}>Settings</Text>
-          </View>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
+        {/* Removed redundant custom header - now using native header from AppNavigator */}
 
-        <View style={styles.card}>
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.card}>
           <View style={styles.profileRow}>
             <LinearGradient
               colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
@@ -317,146 +308,152 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Account Security</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Change Email</Text>
-          <Text style={styles.cardDesc}>Update your login email. You may need to confirm via email.</Text>
-          <TouchableOpacity
-            onPress={() => openModal('email')}
-            disabled={emailLoading}
-            activeOpacity={0.85}
-            style={styles.actionButtonWrap}
-          >
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.primaryButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {emailLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="mail-outline" size={17} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Change Email</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.inlineDivider} />
-
-          <Text style={styles.cardTitle}>Change Password</Text>
-          <Text style={styles.cardDesc}>Enter your current password, then choose a different new password.</Text>
-          <TouchableOpacity
-            onPress={() => openModal('password')}
-            disabled={passwordLoading}
-            activeOpacity={0.85}
-            style={styles.actionButtonWrap}
-          >
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.primaryButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {passwordLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="key-outline" size={17} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Change Password</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>SimpleFIN Connection</Text>
-        </View>
-        <View style={styles.card}>
-          <View style={styles.statusRow}>
-            <Text style={styles.cardTitle}>Connection Status</Text>
-            <View
-              style={[
-                styles.statusPill,
-                { backgroundColor: simplefinLinked ? 'rgba(46,230,166,0.16)' : 'rgba(248,113,113,0.16)' },
-              ]}
-            >
-              <Text style={[styles.statusPillText, { color: simplefinLinked ? Colors.accentEmerald : Colors.negative }]}> 
-                {simplefinLinked ? 'Enabled' : 'Disabled'}
-              </Text>
-            </View>
+        <Animated.View entering={FadeInDown.delay(200).springify()}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Account Security</Text>
           </View>
-
-          <Text style={styles.cardDesc}>How to enable SimpleFIN:</Text>
-          <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and create/link your token.</Text>
-          <Text style={styles.instructionText}>2. If your status is disabled, sign out and sign back in.</Text>
-          <Text style={styles.instructionText}>3. The app will send you to required SimpleFIN onboarding.</Text>
-
-          <Text style={[styles.cardDesc, { marginTop: 10 }]}>How to disable SimpleFIN:</Text>
-          <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and revoke/disable your token there.</Text>
-          <Text style={styles.instructionText}>2. Next app sign-in will require reconnecting before access.</Text>
-
-          <TouchableOpacity onPress={openSimplefinBridge} activeOpacity={0.85} style={styles.actionButtonWrap}>
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.primaryButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Change Email</Text>
+            <Text style={styles.cardDesc}>Update your login email. You may need to confirm via email.</Text>
+            <ScalePressable
+              onPress={() => openModal('email')}
+              disabled={emailLoading}
+              style={styles.actionButtonWrap}
             >
-              <Ionicons name="open-outline" size={17} color="#fff" />
-              <Text style={styles.primaryButtonText}>Open SimpleFIN Bridge</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                style={styles.primaryButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {emailLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="mail-outline" size={17} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Change Email</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </ScalePressable>
 
-          <TouchableOpacity onPress={signOut} activeOpacity={0.8} style={styles.secondaryButton}>
-            <Ionicons name="refresh-outline" size={16} color={Colors.textPrimary} />
-            <Text style={styles.secondaryButtonText}>Sign Out to Reconnect</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.inlineDivider} />
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Danger Zone</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardDesc}>
-            Permanently delete your account and all Swipe data. Enter your password to continue. This cannot be undone.
-          </Text>
-          <TouchableOpacity
-            style={styles.deleteAccountButton}
-            onPress={() => openModal('delete')}
-            activeOpacity={0.8}
-            disabled={deleteLoading}
-          >
-            {deleteLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="trash-outline" size={18} color="#fff" />
-                <Text style={styles.deleteAccountText}>Delete Account</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+            <Text style={styles.cardTitle}>Change Password</Text>
+            <Text style={styles.cardDesc}>Enter your current password, then choose a different new password.</Text>
+            <ScalePressable
+              onPress={() => openModal('password')}
+              disabled={passwordLoading}
+              style={styles.actionButtonWrap}
+            >
+              <LinearGradient
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                style={styles.primaryButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {passwordLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="key-outline" size={17} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Change Password</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </ScalePressable>
+          </View>
+        </Animated.View>
 
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.8}>
+        <Animated.View entering={FadeInDown.delay(300).springify()}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>SimpleFIN Connection</Text>
+          </View>
+          <View style={styles.card}>
+            <View style={styles.statusRow}>
+              <Text style={styles.cardTitle}>Connection Status</Text>
+              <View
+                style={[
+                  styles.statusPill,
+                  { backgroundColor: simplefinLinked ? 'rgba(46,230,166,0.16)' : 'rgba(248,113,113,0.16)' },
+                ]}
+              >
+                <Text style={[styles.statusPillText, { color: simplefinLinked ? Colors.accentEmerald : Colors.negative }]}> 
+                  {simplefinLinked ? 'Enabled' : 'Disabled'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.cardDesc}>How to enable SimpleFIN:</Text>
+            <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and create/link your token.</Text>
+            <Text style={styles.instructionText}>2. If your status is disabled, sign out and sign back in.</Text>
+            <Text style={styles.instructionText}>3. The app will send you to required SimpleFIN onboarding.</Text>
+
+            <Text style={[styles.cardDesc, { marginTop: 10 }]}>How to disable SimpleFIN:</Text>
+            <Text style={styles.instructionText}>1. Open SimpleFIN Bridge and revoke/disable your token there.</Text>
+            <Text style={styles.instructionText}>2. Next app sign-in will require reconnecting before access.</Text>
+
+            <ScalePressable onPress={openSimplefinBridge} style={styles.actionButtonWrap}>
+              <LinearGradient
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                style={styles.primaryButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="open-outline" size={17} color="#fff" />
+                <Text style={styles.primaryButtonText}>Open SimpleFIN Bridge</Text>
+              </LinearGradient>
+            </ScalePressable>
+
+            <ScalePressable onPress={signOut} style={styles.secondaryButton}>
+              <Ionicons name="refresh-outline" size={16} color={Colors.textPrimary} />
+              <Text style={styles.secondaryButtonText}>Sign Out to Reconnect</Text>
+            </ScalePressable>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(400).springify()}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Danger Zone</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardDesc}>
+              Permanently delete your account and all Swipe data. Enter your password to continue. This cannot be undone.
+            </Text>
+            <ScalePressable
+              style={styles.deleteAccountButton}
+              onPress={() => openModal('delete')}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={18} color="#fff" />
+                  <Text style={styles.deleteAccountText}>Delete Account</Text>
+                </>
+              )}
+            </ScalePressable>
+          </View>
+        </Animated.View>
+
+                  <ScalePressable
+                    onPress={handleSignOut}
+                    style={styles.signOutButton}
+                  >
           <Ionicons name="log-out-outline" size={18} color={Colors.negative} />
           <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        </ScalePressable>
       </ScrollView>
 
-      <Modal
-        visible={activeModal !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeModal}
-      >
+      {activeModal !== null && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(200)}
+          style={StyleSheet.absoluteFill}
+        >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -471,9 +468,9 @@ export default function SettingsScreen() {
                       ? 'Change Password'
                       : 'Delete Account'}
                 </Text>
-                <TouchableOpacity onPress={closeModal} activeOpacity={0.8} style={styles.modalCloseButton}>
+                <ScalePressable onPress={closeModal} style={styles.modalCloseButton}>
                   <Ionicons name="close" size={18} color={Colors.textPrimary} />
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
 
               <Text style={styles.modalSubtitle}>
@@ -507,17 +504,16 @@ export default function SettingsScreen() {
                       placeholderTextColor={Colors.textMuted}
                       secureTextEntry={!currentPasswordVisible}
                     />
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => setCurrentPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
-                      activeOpacity={0.75}
                     >
                       <Ionicons
                         name={currentPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
                         size={20}
                         color={Colors.textMuted}
                       />
-                    </TouchableOpacity>
+                    </ScalePressable>
                   </View>
                   <View style={styles.passwordInputWrap}>
                     <TextInput
@@ -528,17 +524,16 @@ export default function SettingsScreen() {
                       placeholderTextColor={Colors.textMuted}
                       secureTextEntry={!newPasswordVisible}
                     />
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => setNewPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
-                      activeOpacity={0.75}
                     >
                       <Ionicons
                         name={newPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
                         size={20}
                         color={Colors.textMuted}
                       />
-                    </TouchableOpacity>
+                    </ScalePressable>
                   </View>
                   <View style={styles.passwordInputWrap}>
                     <TextInput
@@ -549,17 +544,16 @@ export default function SettingsScreen() {
                       placeholderTextColor={Colors.textMuted}
                       secureTextEntry={!confirmPasswordVisible}
                     />
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => setConfirmPasswordVisible((prev) => !prev)}
                       style={styles.eyeButton}
-                      activeOpacity={0.75}
                     >
                       <Ionicons
                         name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
                         size={20}
                         color={Colors.textMuted}
                       />
-                    </TouchableOpacity>
+                    </ScalePressable>
                   </View>
                 </>
               )}
@@ -574,28 +568,27 @@ export default function SettingsScreen() {
                     placeholderTextColor={Colors.textMuted}
                     secureTextEntry={!deletePasswordVisible}
                   />
-                  <TouchableOpacity
+                  <ScalePressable
                     onPress={() => setDeletePasswordVisible((prev) => !prev)}
                     style={styles.eyeButton}
-                    activeOpacity={0.75}
                   >
                     <Ionicons
                       name={deletePasswordVisible ? 'eye-off-outline' : 'eye-outline'}
                       size={20}
                       color={Colors.textMuted}
                     />
-                  </TouchableOpacity>
+                  </ScalePressable>
                 </View>
               )}
 
               {modalError ? <Text style={styles.modalError}>{modalError}</Text> : null}
 
               <View style={styles.modalActions}>
-                <TouchableOpacity onPress={closeModal} activeOpacity={0.8} style={styles.modalSecondaryButton}>
+                <ScalePressable onPress={closeModal} style={styles.modalSecondaryButton}>
                   <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
-                </TouchableOpacity>
+                </ScalePressable>
 
-                <TouchableOpacity
+                <ScalePressable
                   onPress={
                     activeModal === 'email'
                       ? handleUpdateEmail
@@ -603,7 +596,6 @@ export default function SettingsScreen() {
                         ? handleUpdatePassword
                         : handleDeleteAccount
                   }
-                  activeOpacity={0.85}
                   style={styles.modalPrimaryWrap}
                   disabled={emailLoading || passwordLoading || deleteLoading}
                 >
@@ -621,12 +613,13 @@ export default function SettingsScreen() {
                       </Text>
                     )}
                   </LinearGradient>
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
           </KeyboardAvoidingView>
         </View>
-      </Modal>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -868,20 +861,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     paddingHorizontal: 20,
+    zIndex: 1000,
   },
   modalKeyboardWrap: {
     width: '100%',
   },
   modalCard: {
-    backgroundColor: '#111111',
-    borderRadius: 22,
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: Colors.navGlassBackground,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
     padding: 18,
+    marginTop: 24,
   },
   modalHeader: {
     flexDirection: 'row',

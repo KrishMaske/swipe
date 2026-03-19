@@ -13,18 +13,26 @@ import {
   Platform,
   ScrollView,
   TextInput,
-  TouchableOpacity,
+  Pressable,
+  Animated as RNAnimated,
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, FadeInDown, SharedValue } from 'react-native-reanimated';
+import { Swipeable } from 'react-native-gesture-handler';
+import { ScalePressable } from '../components/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { api, Transaction, TransactionUpdate } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { DashboardNavigationProp, AccountDetailRouteProp } from '../types/navigation';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
+import { useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
+import { Skeleton } from '../components/Skeleton';
+import { inlineStyles } from 'react-native-svg';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -93,12 +101,10 @@ function formatAmount(amount: number): string {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TRANSACTION_MENU_WIDTH = 240;
 
-export default function AccountDetailScreen({ route, navigation }: {
-  route: AccountDetailRouteProp;
-  navigation: DashboardNavigationProp;
-}) {
+export default function AccountDetailScreen() {
+  const router = useRouter();
+  const { id: accId, accType, provider } = useLocalSearchParams<{ id: string; accType: string; provider: string }>();
   const insets = useSafeAreaInsets();
-  const { accId, accType, provider } = route.params;
   const { transactionsCache, transactionsLoading, fetchTransactions } = useData();
   const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
   const [transactionMenuTarget, setTransactionMenuTarget] = useState<Transaction | null>(null);
@@ -111,6 +117,34 @@ export default function AccountDetailScreen({ route, navigation }: {
   const [editState, setEditState] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const scrollY = useSharedValue(0);
+  const REFRESH_THRESHOLD = 80;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD) {
+        handleRefresh();
+      }
+    },
+  });
+
+  const handleRefresh = async () => {
+    'worklet';
+    if (refreshing) return;
+    runOnJS(setRefreshing)(true);
+    try {
+      await runOnJS(fetchTransactions)(accId, true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      runOnJS(setRefreshing)(false);
+    }
+  };
 
   const transactions = transactionsCache[accId] || [];
   const loading = transactionsLoading[accId] && transactions.length === 0;
@@ -140,11 +174,10 @@ export default function AccountDetailScreen({ route, navigation }: {
   }, [transactions, selectedRange]);
 
   useEffect(() => {
-    navigation.setOptions({
-      title: accType || 'Account',
-    });
+    // navigation.setOptions is removed as navigation prop is no longer passed
+    // If title needs to be set, it should be done via expo-router's _layout.tsx or screen options
     fetchTransactions(accId);
-  }, []);
+  }, [accId]); // Added accId to dependency array
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -242,68 +275,114 @@ export default function AccountDetailScreen({ route, navigation }: {
     }
   };
 
-  const renderTransaction = ({ item }: { item: Transaction }) => {
+
+  const renderRightActions = (_prog: RNAnimated.AnimatedInterpolation<number | string>, _drag: RNAnimated.AnimatedInterpolation<number | string>, txn: Transaction) => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionEdit}
+        onPress={() => openEditModal(txn)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="create-outline" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Edit</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
+  const renderTransaction = ({ item, index }: { item: Transaction; index: number }) => {
     const catColor = getCategoryColor(item.category);
     const isNegative = item.amount < 0;
 
     return (
-      <TouchableOpacity activeOpacity={0.9} onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1000}>
-        <BlurView intensity={38} tint="dark" style={styles.txnCard}>
-          <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive }]} />
-          <View style={styles.txnInfo}>
-            <Text style={styles.txnMerchant} numberOfLines={1}>
-              {item.merchant || 'Unknown'}
-            </Text>
-            <View style={styles.txnMeta}>
-              <Text style={styles.txnCategory}>{item.category}</Text>
-              {item.city && item.city !== 'REMOTE' && (
-                <>
-                  <Text style={styles.txnDot}>·</Text>
-                  <Text style={styles.txnLocation}>
-                    {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-                  </Text>
-                </>
-              )}
-            </View>
-            <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
-          </View>
-          <Text
-            style={[
-              styles.txnAmount,
-              { color: isNegative ? Colors.negative : Colors.positive },
-            ]}
-          >
-            {formatAmount(item.amount)}
-          </Text>
-        </BlurView>
-      </TouchableOpacity>
+      <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
+        <Swipeable
+          renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
+          friction={2}
+          enableTrackpadTwoFingerGesture
+          rightThreshold={40}
+          leftThreshold={40}
+          containerStyle={styles.swipeContainer}
+        >
+          <ScalePressable onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1000}>
+            <GlassBackground
+              blurIntensity={38}
+              blurTint="systemChromeMaterialDark"
+              style={styles.txnCard}
+              tintColor="rgba(0, 0, 0, 0.4)"
+              tintOpacity={0.6}
+            >
+              <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive, shadowColor: isNegative ? Colors.negative : Colors.positive, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }]} />
+              <View style={styles.txnInfo}>
+                <Text style={styles.txnMerchant} numberOfLines={1}>
+                  {item.merchant || 'Unknown'}
+                </Text>
+                <View style={styles.txnMeta}>
+                  <Text style={styles.txnCategory}>{item.category}</Text>
+                  {item.city && item.city !== 'REMOTE' && (
+                    <>
+                      <Text style={styles.txnDot}>·</Text>
+                      <Text style={styles.txnLocation}>
+                        {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
+                      </Text>
+                    </>
+                  )}
+                </View>
+                <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
+              </View>
+              <Text
+                style={[
+                  styles.txnAmount,
+                  { color: isNegative ? Colors.negative : Colors.positive },
+                ]}
+              >
+                {formatAmount(item.amount)}
+              </Text>
+            </GlassBackground>
+          </ScalePressable>
+        </Swipeable>
+      </Animated.View>
     );
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.accentBlue} />
+      <View style={styles.container}>
+        <StarField />
+        <View style={styles.header}>
+           <Skeleton width={120} height={28} borderRadius={6} />
+           <Skeleton width={80} height={14} borderRadius={4} style={{ marginTop: 8 }} />
+           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+             <Skeleton width={50} height={30} borderRadius={15} />
+             <Skeleton width={50} height={30} borderRadius={15} />
+             <Skeleton width={50} height={30} borderRadius={15} />
+           </View>
+        </View>
+        <View style={styles.list}>
+          {[0, 1, 2, 3, 4].map(i => (
+            <Skeleton key={i} width="100%" height={80} borderRadius={20} style={{ marginBottom: 12 }} />
+          ))}
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StarField />
 
       <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>
         <View style={styles.menuOverlay}>
-          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeTransactionMenu} />
-          <BlurView intensity={65} tint="dark" style={[styles.contextMenu, { left: transactionMenuPosition.x, top: transactionMenuPosition.y }]}>
-            <TouchableOpacity
+          <Pressable style={styles.sheetBackdrop} onPress={closeTransactionMenu} />
+          <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={[styles.contextMenu, { left: transactionMenuPosition.x, top: transactionMenuPosition.y }]}>
+            <ScalePressable
               style={styles.contextMenuItem}
               onPress={() => transactionMenuTarget && openEditModal(transactionMenuTarget)}
             >
               <Ionicons name="create-outline" size={20} color={Colors.textPrimary} />
               <Text style={styles.contextMenuText}>Edit Transaction</Text>
-            </TouchableOpacity>
-          </BlurView>
+            </ScalePressable>
+          </GlassBackground>
         </View>
       </Modal>
 
@@ -313,8 +392,14 @@ export default function AccountDetailScreen({ route, navigation }: {
           keyboardVerticalOffset={0}
           style={[styles.centeredCardOverlay, keyboardOpen && styles.keyboardOpenOverlay]}
         >
-          <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeEditModal} />
-          <BlurView intensity={65} tint="dark" style={styles.editModalCard}>
+          <Pressable style={styles.sheetBackdrop} onPress={closeEditModal} />
+          <GlassBackground
+            blurIntensity={65}
+            blurTint="systemChromeMaterialDark"
+            style={styles.editModalCard}
+            tintColor="rgba(0, 0, 0, 0.4)"
+            tintOpacity={0.6}
+          >
             <ScrollView
               contentContainerStyle={[styles.editModalScrollContent, { paddingBottom: insets.bottom + 6 }]}
               showsVerticalScrollIndicator={false}
@@ -323,9 +408,9 @@ export default function AccountDetailScreen({ route, navigation }: {
               <View style={styles.sheetHeader}>
                 <Text style={styles.sheetTitle}>Edit Transaction</Text>
                 <View style={styles.modalActionsRow}>
-                  <TouchableOpacity onPress={closeEditModal} disabled={savingEdit}>
+                  <ScalePressable onPress={closeEditModal} disabled={savingEdit}>
                     <Ionicons name="close" size={26} color={Colors.textMuted} />
-                  </TouchableOpacity>
+                  </ScalePressable>
                 </View>
               </View>
 
@@ -384,7 +469,7 @@ export default function AccountDetailScreen({ route, navigation }: {
                 </View>
               </View>
 
-              <TouchableOpacity onPress={saveTransactionEdit} disabled={savingEdit} activeOpacity={0.85}>
+              <ScalePressable onPress={saveTransactionEdit} disabled={savingEdit}>
                 <LinearGradient
                   colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                   style={styles.saveButton}
@@ -393,14 +478,14 @@ export default function AccountDetailScreen({ route, navigation }: {
                 >
                   {savingEdit ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
                 </LinearGradient>
-              </TouchableOpacity>
+              </ScalePressable>
             </ScrollView>
-          </BlurView>
+          </GlassBackground>
         </KeyboardAvoidingView>
       </Modal>
 
       {/* Account Header */}
-      <BlurView intensity={38} tint="dark" style={styles.header}>
+      <GlassBackground blurIntensity={38} blurTint="systemChromeMaterialDark" style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Transactions</Text>
@@ -421,39 +506,35 @@ export default function AccountDetailScreen({ route, navigation }: {
           {DATE_RANGE_OPTIONS.map((option) => {
             const active = selectedRange === option.value;
             return (
-              <TouchableOpacity
+              <ScalePressable
                 key={String(option.value)}
                 style={[styles.filterChip, active && styles.filterChipActive]}
                 onPress={() => setSelectedRange(option.value)}
-                activeOpacity={0.85}
               >
                 <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                   {option.label}
                 </Text>
-              </TouchableOpacity>
+              </ScalePressable>
             );
           })}
         </ScrollView>
-      </BlurView>
+      </GlassBackground>
 
-      {filteredTransactions.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
-          <Text style={styles.emptyText}>No transactions found</Text>
-          <Text style={styles.emptySubtext}>
-            Try a different date range or sync your account for newer activity.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredTransactions}
-          keyExtractor={(item) => item.txn_id}
-          renderItem={renderTransaction}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-    </View>
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
+      <Animated.FlatList
+        data={filteredTransactions}
+        keyExtractor={(item) => item.txn_id}
+        renderItem={renderTransaction}
+        contentContainerStyle={[
+          styles.list,
+          { paddingTop: 10, paddingBottom: insets.bottom + 100 }
+        ]}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -468,7 +549,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 36,
     marginBottom: 6,
     paddingHorizontal: 16,
     paddingTop: 14,
@@ -555,13 +636,36 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.navGlassBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 7,
+    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
+    shadowColor: '#DC2626', // Red glow shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
     overflow: 'hidden',
+  },
+  swipeContainer: {
+    borderRadius: 24,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  swipeActionEdit: {
+    backgroundColor: Colors.accentBlueBright,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    height: '100%',
+    borderRadius: 24,
+  },
+  swipeIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  swipeText: {
+    ...Typography.caption2,
+    color: '#fff',
+    fontWeight: '700',
   },
   categoryDot: {
     width: 10,

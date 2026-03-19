@@ -18,7 +18,7 @@ export const useTransactions = () => {
 
 export function TransactionProvider({ children, checkForScheduledSync, syncTrigger }: {
   children: React.ReactNode,
-  checkForScheduledSync: () => Promise<boolean>,
+  checkForScheduledSync: (force?: boolean) => Promise<boolean>,
   syncTrigger: number
 }) {
   const [transactionsCache, setTransactionsCache] = useState<Record<string, Transaction[]>>({});
@@ -38,10 +38,14 @@ export function TransactionProvider({ children, checkForScheduledSync, syncTrigg
   }, [transactionsCache]);
 
   const fetchTransactions = useCallback(async (accId: string, forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
-    const cached = transactionsCacheRef.current[accId];
+    const isInitialLoad = !transactionsCacheRef.current[accId];
 
-    if (!forceRefresh && !detectedSync && cached) {
+    if (!forceRefresh && !isInitialLoad) {
+      return;
+    }
+
+    const detectedSync = await checkForScheduledSync(forceRefresh);
+    if (!isInitialLoad && !detectedSync) {
       return;
     }
 
@@ -62,12 +66,12 @@ export function TransactionProvider({ children, checkForScheduledSync, syncTrigg
              return (val as number) * 1000;
            };
            return getTime(b.txn_date) - getTime(a.txn_date);
-        });
+         });
 
         transactionsCacheRef.current[accId] = sorted;
         setTransactionsCache({ ...transactionsCacheRef.current });
       } catch (err) {
-        Alert.alert("Sync Error", "Failed to load transactions for this account.");
+        // Silent failure for transactions to avoid spamming alerts on focus
       } finally {
         setTransactionsLoading((prev) => ({ ...prev, [accId]: false }));
         delete txFetchInFlight.current[accId];
@@ -78,8 +82,14 @@ export function TransactionProvider({ children, checkForScheduledSync, syncTrigg
     await txFetchInFlight.current[accId];
   }, [checkForScheduledSync]);
 
+  const value = React.useMemo(() => ({
+    transactionsCache,
+    transactionsLoading,
+    fetchTransactions
+  }), [transactionsCache, transactionsLoading, fetchTransactions]);
+
   return (
-    <TransactionContext.Provider value={{ transactionsCache, transactionsLoading, fetchTransactions }}>
+    <TransactionContext.Provider value={value}>
       {children}
     </TransactionContext.Provider>
   );

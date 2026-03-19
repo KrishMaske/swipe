@@ -5,22 +5,22 @@ import {
   AppStateStatus,
   Linking,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ScalePressable } from '../components/ScalePressable';
+import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PermissionsStackParamList } from '../types/navigation';
 
 type StepKey = 'foreground' | 'background' | 'notifications';
 
@@ -56,7 +56,8 @@ function resolveStepState(options: {
   return options.canAskAgain ? 'pending' : 'denied';
 }
 
-export default function PermissionsScreen({ navigation }: { navigation: NativeStackNavigationProp<PermissionsStackParamList> }) {
+export default function PermissionsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
@@ -145,6 +146,12 @@ export default function PermissionsScreen({ navigation }: { navigation: NativeSt
       sub.remove();
     };
   }, [refreshPermissionStates]);
+
+  useEffect(() => {
+    if (allGranted) {
+      router.replace('/onboarding/simplefin');
+    }
+  }, [allGranted, router]);
 
   const requestForeground = useCallback(async () => {
     setRequesting(true);
@@ -287,14 +294,14 @@ export default function PermissionsScreen({ navigation }: { navigation: NativeSt
     <View style={[styles.container, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }]}>
       <StarField />
 
-      <View style={styles.headerRow}>
+      <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.headerRow}>
         <View>
           <Text style={styles.headerEyebrow}>Swipe</Text>
           <Text style={styles.headerTitle}>Permissions</Text>
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.stepperRow}>
+      <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.stepperRow}>
         {(['foreground', 'background', 'notifications'] as StepKey[]).map((step, idx) => {
           const state = stepMeta[step].state;
           const isActive = currentStep === step;
@@ -312,70 +319,78 @@ export default function PermissionsScreen({ navigation }: { navigation: NativeSt
             </View>
           );
         })}
-      </View>
+      </Animated.View>
 
-      <BlurView intensity={35} tint="dark" style={styles.card}>
-        <View style={styles.iconWrap}>
-          <Ionicons name={active.icon} size={26} color={Colors.accentBlueBright} />
-        </View>
-
-        <Text style={styles.title}>{active.title}</Text>
-        <Text style={styles.subtitle}>{active.subtitle}</Text>
-
-        <View style={styles.listWrap}>
-          {active.why.map((line) => (
-            <View key={line} style={styles.bulletRow}>
-              <View style={styles.bullet} />
-              <Text style={styles.bulletText}>{line}</Text>
-            </View>
-          ))}
-        </View>
-
-        {active.state === 'denied' ? (
-          <>
-            <View style={styles.deniedBox}>
-              <Text style={styles.deniedTitle}>Permission blocked</Text>
-              {active.deniedFix.map((line) => (
-                <View key={line} style={styles.bulletRow}>
-                  <View style={[styles.bullet, styles.bulletMuted]} />
-                  <Text style={styles.fixText}>{line}</Text>
-                </View>
-              ))}
-            </View>
-            <Pressable onPress={openSettings} style={({ pressed }) => [styles.secondaryBtn, pressed && styles.btnPressed]}>
-              <Text style={styles.secondaryBtnText}>Open Settings</Text>
-            </Pressable>
-          </>
-        ) : active.state === 'granted' && allGranted ? (
-          <View style={styles.grantedRow}>
-            <Ionicons name="checkmark-circle" size={22} color={Colors.accentEmerald} />
-            <Text style={styles.grantedText}>All permissions granted. Redirecting...</Text>
+      <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
+        <GlassBackground
+          blurIntensity={35}
+          blurTint="systemChromeMaterialDark"
+          style={styles.card}
+          fallbackColor="rgba(15, 15, 18, 0.98)"
+          tintColor="rgba(255,255,255,0.02)"
+        >
+          <View style={styles.iconWrap}>
+            <Ionicons name={active.icon} size={26} color={Colors.accentBlueBright} />
           </View>
-        ) : (
-          <Pressable
-            disabled={!canAllow}
-            onPress={active.onAllow}
-            style={({ pressed }) => [styles.primaryBtn, (!canAllow || pressed) && styles.btnPressed]}
-          >
-            <LinearGradient
-              colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-              style={styles.primaryBtnGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {requesting ? (
-                <ActivityIndicator color={Colors.textPrimary} />
-              ) : (
-                <Text style={styles.primaryBtnText}>Allow Permission</Text>
-              )}
-            </LinearGradient>
-          </Pressable>
-        )}
 
-        <Text style={styles.hardGateText}>
-          SwipeSmart requires all 3 permissions to continue. Access to onboarding and the app remains locked until complete.
-        </Text>
-      </BlurView>
+          <Text style={styles.title}>{active.title}</Text>
+          <Text style={styles.subtitle}>{active.subtitle}</Text>
+
+          <View style={styles.listWrap}>
+            {active.why.map((line) => (
+              <View key={line} style={styles.bulletRow}>
+                <View style={styles.bullet} />
+                <Text style={styles.bulletText}>{line}</Text>
+              </View>
+            ))}
+          </View>
+
+          {active.state === 'denied' ? (
+            <>
+              <View style={styles.deniedBox}>
+                <Text style={styles.deniedTitle}>Permission blocked</Text>
+                {active.deniedFix.map((line) => (
+                  <View key={line} style={styles.bulletRow}>
+                    <View style={[styles.bullet, styles.bulletMuted]} />
+                    <Text style={styles.fixText}>{line}</Text>
+                  </View>
+                ))}
+              </View>
+              <ScalePressable onPress={openSettings} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>Open Settings</Text>
+              </ScalePressable>
+            </>
+          ) : active.state === 'granted' && allGranted ? (
+            <View style={styles.grantedRow}>
+              <Ionicons name="checkmark-circle" size={22} color={Colors.accentEmerald} />
+              <Text style={styles.grantedText}>All permissions granted. Redirecting...</Text>
+            </View>
+          ) : (
+            <ScalePressable
+              disabled={!canAllow}
+              onPress={active.onAllow}
+              style={styles.primaryBtn}
+            >
+              <LinearGradient
+                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                style={styles.primaryBtnGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {requesting ? (
+                  <ActivityIndicator color={Colors.textPrimary} />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Allow Permission</Text>
+                )}
+              </LinearGradient>
+            </ScalePressable>
+          )}
+
+          <Text style={styles.hardGateText}>
+            SwipeSmart requires all 3 permissions to continue. Access to onboarding and the app remains locked until complete.
+          </Text>
+        </GlassBackground>
+      </Animated.View>
     </View>
   );
 }

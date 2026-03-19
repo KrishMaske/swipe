@@ -21,7 +21,7 @@ export const useAccounts = () => {
 
 export function AccountProvider({ children, checkForScheduledSync, clearAllCaches, syncTrigger }: { 
   children: React.ReactNode, 
-  checkForScheduledSync: () => Promise<boolean>,
+  checkForScheduledSync: (force?: boolean) => Promise<boolean>,
   clearAllCaches: () => void,
   syncTrigger: number
 }) {
@@ -38,9 +38,19 @@ export function AccountProvider({ children, checkForScheduledSync, clearAllCache
   }, [syncTrigger]);
 
   const fetchAccounts = useCallback(async (forceRefresh = false) => {
-    const detectedSync = await checkForScheduledSync();
+    const isInitialLoad = !accountsLoaded.current;
+    
+    // If not a force refresh and we already have attempted load, skip.
+    if (!forceRefresh && !isInitialLoad) {
+      setAccountsLoading(false);
+      return;
+    }
 
-    if (!forceRefresh && !detectedSync && accountsLoaded.current) {
+    // Check for sync status. Pass forceRefresh to ignore the cooldown.
+    const detectedSync = await checkForScheduledSync(forceRefresh);
+
+    // Only fetch data if it's the first load OR if a sync was detected.
+    if (!isInitialLoad && !detectedSync) {
       setAccountsLoading(false);
       return;
     }
@@ -57,7 +67,7 @@ export function AccountProvider({ children, checkForScheduledSync, clearAllCache
         setAccounts(data || []);
         accountsLoaded.current = true;
       } catch (err: any) {
-        Alert.alert("Sync Error", "Failed to fetch your linked accounts. Please check your connection.");
+        Alert.alert("Sync Error", "Failed to fetch accounts. Using cached data.");
       } finally {
         setAccountsLoading(false);
         fetchInFlight.current = null;
@@ -74,8 +84,16 @@ export function AccountProvider({ children, checkForScheduledSync, clearAllCache
     setAccounts([]);
   }, [clearAllCaches]);
 
+  const contextValue = React.useMemo(() => ({
+    accounts,
+    accountsLoading,
+    fetchAccounts,
+    invalidateAccounts,
+    checkForScheduledSync
+  }), [accounts, accountsLoading, fetchAccounts, invalidateAccounts, checkForScheduledSync]);
+
   return (
-    <AccountContext.Provider value={{ accounts, accountsLoading, fetchAccounts, invalidateAccounts, checkForScheduledSync }}>
+    <AccountContext.Provider value={contextValue}>
       {children}
     </AccountContext.Provider>
   );

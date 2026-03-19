@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -8,19 +7,27 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
   Keyboard,
   Image,
 } from 'react-native';
+import Animated, { 
+  FadeInDown, 
+  FadeInLeft, 
+  FadeInRight, 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withRepeat, 
+  withTiming 
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useRouter } from 'expo-router';
+import { ScalePressable } from '../components/ScalePressable';
 import { api, ChatMessage } from '../services/api';
-import { AppStackParamList } from '../types/navigation';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -40,29 +47,22 @@ const QUICK_PROMPTS = [
 ];
 
 function TypingIndicator() {
-  const pulse = useRef(new Animated.Value(0.35)).current;
+  const opacity = useSharedValue(0.35);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0.35,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ])
+    opacity.value = withRepeat(
+      withTiming(1, { duration: 700 }),
+      -1,
+      true
     );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
+  }, [opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   return (
-    <Animated.View style={[styles.typingRow, { opacity: pulse }]}> 
+    <Animated.View style={[styles.typingRow, animatedStyle]}> 
       <View style={styles.typingDot} />
       <View style={styles.typingDot} />
       <View style={styles.typingDot} />
@@ -71,49 +71,39 @@ function TypingIndicator() {
 }
 
 function MessageBubble({ item }: { item: DisplayMessage }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const y = useRef(new Animated.Value(10)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-      Animated.timing(y, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [opacity, y]);
 
   if (item.role === 'typing') {
     return (
-      <Animated.View style={[styles.messageRow, styles.assistantRow, { opacity, transform: [{ translateY: y }] }]}> 
+    <Animated.View 
+      entering={FadeInDown.duration(300)}
+      style={[styles.messageRow, styles.assistantRow]}
+    > 
         <View style={styles.assistantAvatar}>
           <Ionicons name="sparkles" size={13} color="#0D1116" />
         </View>
-        <View style={[styles.bubble, styles.assistantBubble]}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              Platform.OS === 'android' ? styles.bubbleAndroidOverlay : styles.bubbleGlassOverlay,
-            ]}
-          />
+        <GlassBackground
+          style={[styles.bubble, styles.assistantBubble]}
+          blurIntensity={82}
+          blurTint="systemChromeMaterialDark"
+          tintColor={Platform.OS === 'ios' ? 'rgba(10, 10, 12, 0.35)' : undefined}
+          fallbackColor="rgba(8, 8, 10, 0.92)"
+        >
           <TypingIndicator />
-        </View>
+        </GlassBackground>
       </Animated.View>
     );
   }
 
   const isUser = item.role === 'user';
+  const animation = isUser 
+    ? FadeInRight.delay(50).springify().damping(18) 
+    : FadeInLeft.delay(50).springify().damping(18);
+
   return (
-    <Animated.View style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow, { opacity, transform: [{ translateY: y }] }]}> 
+    <Animated.View 
+      entering={animation}
+      style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}
+    > 
       {!isUser && (
         <View style={styles.assistantAvatar}>
           <Image source={require('../../images/osho_chat.png')} style={styles.avatarImage} />
@@ -121,39 +111,32 @@ function MessageBubble({ item }: { item: DisplayMessage }) {
       )}
 
       {isUser ? (
-        <View style={[styles.bubble, styles.userBubble]}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              Platform.OS === 'android' ? styles.userBubbleAndroidOverlay : styles.userBubbleGlassOverlay,
-            ]}
-          />
+        <GlassBackground
+          style={[styles.bubble, styles.userBubble]}
+          blurIntensity={82}
+          blurTint="systemChromeMaterialDark"
+          tintColor={Platform.OS === 'ios' ? 'rgba(248, 113, 113, 0.22)' : undefined}
+          fallbackColor="rgba(78, 18, 24, 0.9)"
+        >
           <Text style={styles.userText}>{item.content}</Text>
-        </View>
+        </GlassBackground>
       ) : (
-        <View style={[styles.bubble, styles.assistantBubble]}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={82} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              Platform.OS === 'android' ? styles.bubbleAndroidOverlay : styles.bubbleGlassOverlay,
-            ]}
-          />
+        <GlassBackground
+          style={[styles.bubble, styles.assistantBubble]}
+          blurIntensity={82}
+          blurTint="systemChromeMaterialDark"
+          tintColor={Platform.OS === 'ios' ? 'rgba(10, 10, 12, 0.35)' : undefined}
+          fallbackColor="rgba(8, 8, 10, 0.92)"
+        >
           <Markdown style={markdownStyles}>{item.content}</Markdown>
-        </View>
+        </GlassBackground>
       )}
     </Animated.View>
   );
 }
 
-type NavigationProp = NativeStackNavigationProp<AppStackParamList>;
-
-export default function ChatScreen({ navigation }: { navigation: NavigationProp }) {
+export default function ChatScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [history, setHistory] = useState<ChatMessage[]>([]);
@@ -252,9 +235,9 @@ export default function ChatScreen({ navigation }: { navigation: NavigationProp 
           <Text style={styles.headerTitle}>Chat</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={handleClearChat} style={styles.clearBtn} activeOpacity={0.7}>
+          <ScalePressable onPress={handleClearChat} style={styles.clearBtn}>
             <Ionicons name="trash-outline" size={20} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
       </View>
 
@@ -294,18 +277,13 @@ export default function ChatScreen({ navigation }: { navigation: NavigationProp 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.composerWrap}>
-            <View style={styles.composerInner}>
-              {Platform.OS === 'ios' ? (
-                <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFill} />
-              ) : null}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  Platform.OS === 'android'
-                    ? styles.composerAndroidOverlay
-                    : styles.composerGlassOverlay,
-                ]}
-              />
+            <GlassBackground
+              style={styles.composerInner}
+              blurIntensity={85}
+              blurTint="systemChromeMaterialDark"
+              tintColor={Platform.OS === 'ios' ? 'rgba(10, 10, 12, 0.35)' : undefined}
+              fallbackColor="rgba(8, 8, 10, 0.92)"
+            >
               <TextInput
                 value={input}
                 onChangeText={setInput}
@@ -319,10 +297,9 @@ export default function ChatScreen({ navigation }: { navigation: NavigationProp 
                 returnKeyType="send"
                 onSubmitEditing={handleSend}
               />
-              <TouchableOpacity
+              <ScalePressable
                 onPress={handleSend}
                 disabled={!canSend}
-                activeOpacity={0.85}
                 style={styles.sendTapTarget}
               >
                 <View
@@ -333,10 +310,10 @@ export default function ChatScreen({ navigation }: { navigation: NavigationProp 
                 >
                   <Ionicons name="arrow-up" size={20} color={canSend ? '#FFF' : Colors.textMuted} />
                 </View>
-              </TouchableOpacity>
-            </View>
+              </ScalePressable>
+            </GlassBackground>
         </View>
-        <View style={{ height: keyboardVisible ? 0 : 100 }} />
+        <View style={{ height: keyboardVisible ? 32 : 100 }} />
       </KeyboardAvoidingView>
     </View>
   );
@@ -551,11 +528,11 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     paddingVertical: 7,
     gap: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.55,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 16,
+    shadowColor: Colors.accentBlueBright,
+    shadowOpacity: 0.65,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 20,
   },
   composerGlassOverlay: {
     backgroundColor: 'rgba(10, 10, 12, 0.35)',

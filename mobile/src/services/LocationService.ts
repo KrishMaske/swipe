@@ -16,7 +16,7 @@ export const MERCHANT_SEED_TASK = 'MERCHANT_SEED_TASK';
 export const GEOFENCE_ENTER_TASK = 'GEOFENCE_ENTER_TASK';
 
 const LOCATION_NOTIFICATION_CHANNEL = 'smart-card-suggestions';
-const LAST_SUGGESTION_KEY = 'swipesmart:last-suggestion';
+const LAST_SUGGESTION_KEY = 'swipesmart.last-suggestion';
 const SUGGESTION_COOLDOWN_MS = 20 * 60 * 1000;
 const GEOFENCE_RADIUS_M = 80;  // ~store footprint
 const MAX_GEOFENCES = 18;       // iOS caps at 20; keep a buffer

@@ -16,7 +16,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const SYNC_STATUS_POLL_COOLDOWN_MS = 60_000;
+const SYNC_STATUS_POLL_COOLDOWN_MS = 1_800_000; // 30 minutes cooldown
 
 // DataContext now just serves as a way to access all contexts via useData()
 export const useData = () => {
@@ -39,9 +39,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const lastSyncStatusCheckAt = useRef<number>(0);
   const [syncTrigger, setSyncTrigger] = React.useState(0);
 
-  const checkForScheduledSync = useCallback(async (): Promise<boolean> => {
+  const checkForScheduledSync = useCallback(async (force = false): Promise<boolean> => {
     const now = Date.now();
-    if (now - lastSyncStatusCheckAt.current < SYNC_STATUS_POLL_COOLDOWN_MS) {
+    if (!force && (now - lastSyncStatusCheckAt.current < SYNC_STATUS_POLL_COOLDOWN_MS)) {
       return false;
     }
     if (syncCheckInFlight.current) {

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
-const LOCATION_TRACKING_KEY = 'settings:location-tracking-enabled';
+const LOCATION_TRACKING_KEY = 'settings.location-tracking-enabled';
 
 interface SettingsContextType {
   locationTrackingEnabled: boolean;

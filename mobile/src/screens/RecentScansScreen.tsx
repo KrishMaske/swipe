@@ -4,26 +4,28 @@ import {
   Alert,
   FlatList,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { GlassBackground } from '../components/GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { ScalePressable } from '../components/ScalePressable';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
+import { Swipeable } from 'react-native-gesture-handler';
+import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
+import { Skeleton } from '../components/Skeleton';
 import StarField from '../components/StarField';
 import { api, Transaction } from '../services/api';
 import { useData } from '../context/DataContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { FraudNavigationProp } from '../types/navigation';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AppStackParamList } from '../types/navigation';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -66,7 +68,8 @@ function formatAmount(amount: number): string {
   return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
-export default function RecentScansScreen({ navigation }: { navigation: FraudNavigationProp }) {
+export default function RecentScansScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
     accounts,
@@ -81,6 +84,32 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
   const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
   const [selectedScanTxn, setSelectedScanTxn] = useState<Transaction | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const scrollY = useSharedValue(0);
+  const REFRESH_THRESHOLD = 80;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(handleRefresh)();
+      }
+    },
+  });
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchAccounts();
+      const loadedAccounts = accounts || [];
+      await Promise.all(loadedAccounts.map((acc) => fetchTransactions(acc.acc_id, true)));
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const allTransactions = useMemo(() => {
     return Object.values(transactionsCache)
@@ -136,11 +165,45 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
     }
   };
 
+  const renderLeftActions = (_prog: any, _drag: any, txn: Transaction) => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionSafe}
+        onPress={() => handleAction(txn.txn_id, false)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="checkmark-circle-outline" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Safe</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
+  const renderRightActions = (_prog: any, _drag: any, txn: Transaction) => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionFraud}
+        onPress={() => handleAction(txn.txn_id, true)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="alert-circle-outline" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Fraud</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StarField />
 
-      <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}> 
+      <GlassBackground
+        blurIntensity={38}
+        blurTint="systemChromeMaterialDark"
+        style={styles.header}
+        tintColor="rgba(0,0,0,0.4)"
+        tintOpacity={0.6}
+      >
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Recent Scans</Text>
@@ -159,100 +222,133 @@ export default function RecentScansScreen({ navigation }: { navigation: FraudNav
           {DATE_RANGE_OPTIONS.map((option) => {
             const active = selectedRange === option.value;
             return (
-              <TouchableOpacity
+              <ScalePressable
                 key={String(option.value)}
                 style={[styles.filterChip, active && styles.filterChipActive]}
                 onPress={() => setSelectedRange(option.value)}
-                activeOpacity={0.85}
               >
                 <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                   {option.label}
                 </Text>
-              </TouchableOpacity>
+              </ScalePressable>
             );
           })}
         </ScrollView>
-      </BlurView>
+      </GlassBackground>
 
-      {loading ? (
-        <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator size="large" color={Colors.accentBlueBright} />
+     {loading ? (
+    <View style={styles.container}>
+        <StarField />
+        <View style={styles.list}>
+          {[0, 1, 2, 3].map(i => (
+            <Skeleton key={i} width="100%" height={90} borderRadius={24} style={{ marginBottom: 12 }} />
+          ))}
         </View>
-      ) : recentScans.length === 0 ? (
+      </View>
+    ) : (
+      <>
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
+      {recentScans.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="shield-checkmark" size={44} color={Colors.accentEmerald} />
           <Text style={styles.emptyText}>No transactions found</Text>
           <Text style={styles.emptySubtext}>Try a different date range or sync your account for newer activity.</Text>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           data={recentScans}
           keyExtractor={(item) => item.txn_id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
           renderItem={({ item, index }) => (
-            <TouchableOpacity activeOpacity={0.9} onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
-              <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
-                <BlurView intensity={38} tint="dark" style={styles.txnCard}>
-                  <View style={[styles.categoryDot, { backgroundColor: item.amount < 0 ? Colors.negative : Colors.positive }]} />
-                  <View style={styles.txnInfo}>
-                    <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
-                    <View style={styles.txnMeta}>
-                      <Text style={styles.txnCategory}>{item.category || 'Uncategorized'}</Text>
-                      {item.city && item.city !== 'REMOTE' && (
-                        <>
-                          <Text style={styles.txnDot}>·</Text>
-                          <Text style={styles.txnLocation}>
-                            {item.city}
-                            {item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-                          </Text>
-                        </>
-                      )}
+            <Swipeable
+              renderLeftActions={(prog, drag) => renderLeftActions(prog, drag, item)}
+              renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
+              friction={2}
+              rightThreshold={40}
+              leftThreshold={40}
+              containerStyle={styles.swipeContainer}
+            >
+              <ScalePressable onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
+                <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
+                  <GlassBackground
+                    blurIntensity={38}
+                    blurTint="systemChromeMaterialDark"
+                    style={styles.txnCard}
+                    tintColor="rgba(0,0,0,0.4)"
+                    tintOpacity={0.6}
+                  >
+                    <View style={[styles.categoryDot, { backgroundColor: item.amount < 0 ? Colors.negative : Colors.positive }]} />
+                    <View style={styles.txnInfo}>
+                      <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
+                      <View style={styles.txnMeta}>
+                        <Text style={styles.txnCategory}>{item.category || 'Uncategorized'}</Text>
+                        {item.city && item.city !== 'REMOTE' && (
+                          <>
+                            <Text style={styles.txnDot}>·</Text>
+                            <Text style={styles.txnLocation}>
+                              {item.city}
+                              {item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                      <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
                     </View>
-                    <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
-                  </View>
-                  <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
-                    {formatAmount(item.amount)}
-                  </Text>
-                </BlurView>
-              </Animated.View>
-            </TouchableOpacity>
+                    <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
+                      {formatAmount(item.amount)}
+                    </Text>
+                  </GlassBackground>
+                </Animated.View>
+              </ScalePressable>
+            </Swipeable>
           )}
         />
+      )}
+      </>
       )}
 
       <Modal visible={selectedScanTxn !== null} transparent animationType="fade">
         <View style={styles.inlineActionOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setSelectedScanTxn(null)} />
-          <BlurView intensity={65} tint="dark" style={styles.scanActionCard}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setSelectedScanTxn(null)} />
+          <GlassBackground
+            blurIntensity={65}
+            blurTint="systemChromeMaterialDark"
+            style={styles.scanActionCard}
+            tintColor="rgba(0,0,0,0.4)"
+            tintOpacity={0.6}
+          >
             <Text style={styles.scanActionTitle} numberOfLines={2}>{selectedScanTxn?.merchant || 'Unknown Merchant'}</Text>
             <Text style={styles.scanActionMeta}>Update this transaction's fraud status.</Text>
 
-            <TouchableOpacity
+            <ScalePressable
               style={[styles.scanActionButton, styles.safeButton]}
               onPress={() => selectedScanTxn && handleAction(selectedScanTxn.txn_id, false)}
               disabled={!!selectedScanTxn && updating === selectedScanTxn.txn_id}
             >
               <Ionicons name="checkmark-circle-outline" size={18} color={Colors.textPrimary} />
               <Text style={[styles.actionText, { color: Colors.textPrimary }]}>Set as Safe</Text>
-            </TouchableOpacity>
+            </ScalePressable>
 
-            <TouchableOpacity
+            <ScalePressable
               style={[styles.scanActionButton, styles.fraudButton]}
               onPress={() => selectedScanTxn && handleAction(selectedScanTxn.txn_id, true)}
               disabled={!!selectedScanTxn && updating === selectedScanTxn.txn_id}
             >
               <Ionicons name="alert-circle-outline" size={18} color={Colors.negative} />
               <Text style={[styles.actionText, { color: Colors.negative }]}>Set as Fraud</Text>
-            </TouchableOpacity>
+            </ScalePressable>
 
-            <TouchableOpacity style={styles.scanActionCancel} onPress={() => setSelectedScanTxn(null)}>
+            <ScalePressable style={styles.scanActionCancel} onPress={() => setSelectedScanTxn(null)}>
               <Text style={styles.scanActionCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </BlurView>
+            </ScalePressable>
+          </GlassBackground>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -267,7 +363,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginHorizontal: 16,
-    marginBottom: 6,
+    marginTop: 36,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 14,
@@ -358,12 +454,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.navGlassBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
+    borderColor: 'rgba(255, 107, 107, 0.45)', // Red glow border
+    shadowColor: '#DC2626', // Red glow shadow
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
     shadowRadius: 18,
-    elevation: 7,
+    elevation: 8,
     overflow: 'hidden',
   },
   categoryDot: {
@@ -483,5 +579,36 @@ const styles = StyleSheet.create({
     ...Typography.footnote,
     color: Colors.textMuted,
     fontWeight: '600',
+  },
+  swipeContainer: {
+    borderRadius: 24,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  swipeActionSafe: {
+    backgroundColor: Colors.positive,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    height: '100%',
+    borderRadius: 24,
+  },
+  swipeActionFraud: {
+    backgroundColor: Colors.negative,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    height: '100%',
+    borderRadius: 24,
+  },
+  swipeIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  swipeText: {
+    ...Typography.caption2,
+    color: '#fff',
+    fontWeight: '700',
   },
 });

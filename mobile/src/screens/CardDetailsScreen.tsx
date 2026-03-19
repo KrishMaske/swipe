@@ -1,12 +1,16 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ScalePressable } from '../components/ScalePressable';
+import { Ionicons } from '@expo/vector-icons';
+import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { SwipeNavigationProp, CardDetailsRouteProp } from '../types/navigation';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { WalletCard } from '../services/api';
 
 function formatFee(amount: number) {
   if (!amount) {
@@ -15,12 +19,11 @@ function formatFee(amount: number) {
   return `$${amount.toLocaleString('en-US')}`;
 }
 
-export default function CardDetailsScreen({ route, navigation }: {
-  route: CardDetailsRouteProp;
-  navigation: SwipeNavigationProp;
-}) {
+export default function CardDetailsScreen() {
+  const router = useRouter();
+  const { card: cardJson } = useLocalSearchParams<{ card: string }>();
+  const card = cardJson ? (JSON.parse(cardJson) as WalletCard) : null;
   const insets = useSafeAreaInsets();
-  const { card } = route.params;
 
   if (!card) {
     return (
@@ -34,17 +37,41 @@ export default function CardDetailsScreen({ route, navigation }: {
     <View style={styles.container}>
       <StarField />
 
-      <BlurView intensity={38} tint="dark" style={[styles.header, { marginTop: insets.top + 8 }]}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Card Details</Text>
-            <Text style={styles.headerProvider}>{card.card_name || 'Unknown Card'}</Text>
+      <Animated.View entering={FadeInDown.delay(100).springify()}>
+        <GlassBackground
+          blurIntensity={38}
+          blurTint="systemChromeMaterialDark"
+          style={[styles.header, { marginTop: insets.top + 8 }]}
+          tintColor="rgba(0,0,0,0.4)"
+          tintOpacity={0.6}
+        >
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerTitle}>Card Details</Text>
+              <Text style={styles.headerProvider}>{card.card_name || 'Unknown Card'}</Text>
+            </View>
+            <ScalePressable
+              onPress={() => router.back()}
+              style={styles.closeBtn}
+            >
+              <Ionicons name="close" size={20} color={Colors.textPrimary} />
+            </ScalePressable>
           </View>
-        </View>
-      </BlurView>
+        </GlassBackground>
+      </Animated.View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        <BlurView intensity={28} tint="dark" style={styles.detailsCard}>
+      <Animated.ScrollView
+        entering={FadeInDown.delay(200).springify()}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <GlassBackground
+          blurIntensity={28}
+          blurTint="systemChromeMaterialDark"
+          style={styles.detailsCard}
+          tintColor="rgba(0,0,0,0.4)"
+          tintOpacity={0.5}
+        >
           <Image
             source={{ uri: card.card_image_url }}
             style={styles.detailsCardArt}
@@ -76,8 +103,8 @@ export default function CardDetailsScreen({ route, navigation }: {
                 <Text style={styles.multiplierValue}>{multiplier}x</Text>
               </View>
             ))}
-        </BlurView>
-      </ScrollView>
+        </GlassBackground>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -129,6 +156,16 @@ const styles = StyleSheet.create({
     ...Typography.caption1,
     color: Colors.textSecondary,
     marginTop: 4,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   scrollContent: {
     padding: 16,

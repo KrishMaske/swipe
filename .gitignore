@@ -25,4 +25,5 @@ mobile/.yarn/*
 !mobile/.yarn/releases
 !mobile/.yarn/sdks
 !mobile/.yarn/versions
-package-lock.json
+# package-lock.json is needed for CI
+!mobile/package-lock.json

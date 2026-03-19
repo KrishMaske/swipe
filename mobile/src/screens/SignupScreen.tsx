@@ -1,31 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Animated,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassBackground } from '../components/GlassBackground';
 import StarField from '../components/StarField';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { AuthNavigationProp } from '../types/navigation';
+import { ScalePressable } from '../components/ScalePressable';
 
-type Props = {
-  navigation: AuthNavigationProp;
-};
+import { useRouter } from 'expo-router';
 
-export default function SignupScreen({ navigation }: Props) {
+export default function SignupScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
   const [email, setEmail] = useState('');
@@ -36,24 +34,6 @@ export default function SignupScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const handleSignup = async () => {
     if (!email.trim() || !password) {
@@ -85,28 +65,24 @@ export default function SignupScreen({ navigation }: Props) {
       <StarField />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[
-          styles.keyboardView,
-          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 20 },
-        ]}
+        style={styles.keyboardView}
       >
         <Animated.View
           style={[
             styles.content,
             {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
+              paddingTop: insets.top + 20,
+              paddingBottom: insets.bottom + 26,
             },
           ]}
         >
           <View style={styles.topBar}>
-            <TouchableOpacity
-              onPress={() => navigation.replace('AuthLanding')}
+            <ScalePressable
+              onPress={() => router.back()}
               style={styles.backButton}
-              activeOpacity={0.8}
             >
-              <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
-            </TouchableOpacity>
+              <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
+            </ScalePressable>
           </View>
 
           <View style={styles.centerContent}>
@@ -115,112 +91,122 @@ export default function SignupScreen({ navigation }: Props) {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.topTextWrap}>
+              <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.topTextWrap}>
+                <View style={styles.logoBadge}>
+                  <Ionicons name="flash" size={20} color={Colors.accentBlueBright} />
+                </View>
                 <Text style={styles.pageEyebrow}>Swipe</Text>
                 <Text style={styles.pageTitle}>Create Account</Text>
-              </View>
+              </Animated.View>
 
-              <View style={styles.header}>
-                <Text style={styles.subtitle}>Set up your account to start your smart payments system onboarding.</Text>
-              </View>
+              <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.header}>
+                <Text style={styles.subtitle}>Join Swipe. Access your premium finance dashboard and scan for security vulnerabilities.</Text>
+              </Animated.View>
 
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Account Details</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={Colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View style={styles.passwordInputWrap}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Min. 6 characters"
-                  placeholderTextColor={Colors.textMuted}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!passwordVisible}
-                />
-                <TouchableOpacity
-                  onPress={() => setPasswordVisible((prev) => !prev)}
-                  style={styles.eyeButton}
-                  activeOpacity={0.75}
+              <Animated.View entering={FadeInDown.delay(300).springify()}>
+                <GlassBackground
+                  blurIntensity={26}
+                  blurTint="systemChromeMaterialDark"
+                  style={styles.cardContainer}
+                  fallbackColor="rgba(15, 15, 18, 0.98)"
+                  tintColor="rgba(255,255,255,0.02)"
                 >
-                  <Ionicons
-                    name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm Password</Text>
-              <View style={styles.passwordInputWrap}>
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Account Details</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Email</Text>
                 <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Re-enter password"
+                  style={styles.input}
+                  placeholder="you@example.com"
                   placeholderTextColor={Colors.textMuted}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!confirmPasswordVisible}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
-                <TouchableOpacity
-                  onPress={() => setConfirmPasswordVisible((prev) => !prev)}
-                  style={styles.eyeButton}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons
-                    name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
-                </TouchableOpacity>
               </View>
-            </View>
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {success ? <Text style={styles.successText}>{success}</Text> : null}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.passwordInputWrap}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Min. 6 characters"
+                    placeholderTextColor={Colors.textMuted}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!passwordVisible}
+                  />
+                  <ScalePressable
+                    onPress={() => setPasswordVisible((prev) => !prev)}
+                    style={styles.eyeButton}
+                  >
+                    <Ionicons
+                      name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </ScalePressable>
+                </View>
+              </View>
 
-            <TouchableOpacity
-              onPress={handleSignup}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-                style={styles.button}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirm Password</Text>
+                <View style={styles.passwordInputWrap}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Re-enter password"
+                    placeholderTextColor={Colors.textMuted}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!confirmPasswordVisible}
+                  />
+                  <ScalePressable
+                    onPress={() => setConfirmPasswordVisible((prev) => !prev)}
+                    style={styles.eyeButton}
+                  >
+                    <Ionicons
+                      name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </ScalePressable>
+                </View>
+              </View>
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {success ? <Text style={styles.successText}>{success}</Text> : null}
+
+              <ScalePressable
+                onPress={handleSignup}
+                disabled={loading}
               >
-                {loading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.buttonText}>Create Account</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => navigation.replace('Login')}
-                  style={styles.switchButton}
+                <LinearGradient
+                  colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                  style={styles.button}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.switchText}>
-                    Already registered? <Text style={styles.switchHighlight}>Sign in</Text>
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  {loading ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.buttonText}>Create Account</Text>
+                  )}
+                </LinearGradient>
+              </ScalePressable>
+
+                    <ScalePressable
+                      onPress={() => router.replace('/auth/login')}
+                      style={styles.switchButton}
+                    >
+                      <Text style={styles.switchText}>
+                        Already with Swipe? <Text style={styles.switchHighlight}>Sign In</Text>
+                      </Text>
+                    </ScalePressable>
+                  </View>
+                </GlassBackground>
+              </Animated.View>
             </ScrollView>
           </View>
         </Animated.View>
@@ -230,16 +216,20 @@ export default function SignupScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.bgPrimary,
+  },
   keyboardView: {
     flex: 1,
-    paddingHorizontal: 22,
   },
   content: {
-    width: '100%',
-    maxWidth: 400,
     flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
     alignSelf: 'center',
+    width: '100%',
+    maxWidth: 420,
   },
   topBar: {
     flexDirection: 'row',
@@ -254,10 +244,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
     alignItems: 'center',
@@ -265,72 +255,91 @@ const styles = StyleSheet.create({
   },
   topTextWrap: {
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  logoBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.25)',
   },
   pageEyebrow: {
     ...Typography.caption1,
     color: Colors.accentBlueBright,
     textTransform: 'uppercase',
-    letterSpacing: 0.7,
+    letterSpacing: 1.2,
+    fontWeight: '800',
   },
   pageTitle: {
     ...Typography.largeTitle,
     color: Colors.textPrimary,
+    fontSize: 40,
+    letterSpacing: -1,
   },
   header: {
-    marginTop: 14,
-    marginBottom: 14,
+    marginTop: 10,
+    marginBottom: 26,
     alignItems: 'center',
+    paddingHorizontal: 10,
   },
   subtitle: {
     ...Typography.footnote,
     color: Colors.textSecondary,
     lineHeight: 20,
     textAlign: 'center',
+    opacity: 0.85,
   },
-  card: {
+  cardContainer: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 24,
-    padding: 28,
+    borderRadius: 30,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.glassBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 16,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  card: {
+    padding: 26,
+  },
+  cardAndroid: {
+    backgroundColor: 'rgba(15, 15, 18, 0.98)',
   },
   cardTitle: {
-    ...Typography.title2,
+    ...Typography.title3,
     color: Colors.textPrimary,
-    marginBottom: 20,
+    marginBottom: 24,
+    fontWeight: '700',
   },
-  inputContainer: { marginBottom: 18 },
+  inputContainer: { marginBottom: 20 },
   inputLabel: {
-    ...Typography.footnote,
-    color: Colors.textSecondary,
-    marginBottom: 6,
-    fontWeight: '600',
+    ...Typography.caption2,
+    color: Colors.textMuted,
+    marginBottom: 8,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   input: {
-    backgroundColor: Colors.bgInput,
-    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
     padding: 16,
     color: Colors.textPrimary,
     ...Typography.body,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   passwordInputWrap: {
-    backgroundColor: Colors.bgInput,
-    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255,255,255,0.08)',
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 56,
+    minHeight: 58,
   },
   passwordInput: {
     flex: 1,
@@ -340,49 +349,55 @@ const styles = StyleSheet.create({
     ...Typography.body,
   },
   eyeButton: {
-    paddingHorizontal: 14,
-    height: 56,
+    paddingHorizontal: 16,
+    height: 58,
     alignItems: 'center',
     justifyContent: 'center',
   },
   errorText: {
     ...Typography.footnote,
-    color: Colors.error,
+    color: Colors.negative,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    fontWeight: '600',
   },
   successText: {
     ...Typography.footnote,
-    color: Colors.success,
+    color: Colors.positive,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    fontWeight: '600',
   },
   button: {
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 4,
     shadowColor: Colors.accentEmerald,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
     elevation: 8,
   },
   buttonText: {
     ...Typography.headline,
     color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   switchButton: {
-    marginTop: 20,
+    marginTop: 24,
     alignItems: 'center',
   },
   switchText: {
     ...Typography.footnote,
     color: Colors.textSecondary,
+    fontWeight: '500',
   },
   switchHighlight: {
     color: Colors.accentBlueBright,
-    fontWeight: '600',
+    fontWeight: '800',
   },
 });
