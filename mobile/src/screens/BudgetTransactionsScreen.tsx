@@ -40,7 +40,7 @@ const CATEGORIES = [
   'Investment',
 ];
 
-const PERIOD_OPTIONS = ['monthly', 'weekly', 'yearly'];
+const PERIOD_OPTIONS = ['monthly', 'weekly', 'biweekly', 'yearly'];
 
 function formatCurrency(amount: number): string {
   const abs = Math.abs(amount);
@@ -120,14 +120,40 @@ export default function BudgetTransactionsScreen() {
     }
   };
 
-  const renderRightActions = () => (
-    <View style={styles.swipeActions}>
-      <ScalePressable style={styles.verifyBtn} haptic>
-        <Ionicons name="checkmark-circle" size={24} color="#fff" />
-        <Text style={styles.swipeActionText}>Verify</Text>
-      </ScalePressable>
+  const renderLeftActions = () => (
+    <View style={styles.swipeActionEdit}>
+      <View style={styles.swipeIconWrap}>
+        <Ionicons name="pencil" size={20} color="#fff" />
+        <Text style={styles.swipeText}>Edit</Text>
+      </View>
     </View>
   );
+
+  const renderRightActions = () => (
+    <View style={styles.swipeActionDelete}>
+      <View style={styles.swipeIconWrap}>
+        <Ionicons name="trash" size={20} color="#fff" />
+        <Text style={styles.swipeText}>Delete</Text>
+      </View>
+    </View>
+  );
+
+  const handleAction = (action: 'edit' | 'delete', txn: any) => {
+    if (action === 'edit') {
+      Alert.alert('Edit', 'Editing transaction: ' + txn.merchant);
+    } else {
+      Alert.alert('Delete', 'Are you sure you want to delete this transaction?', [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            Alert.alert('Delete', 'Transaction deletion for budgets is not yet implemented.');
+          } 
+        },
+      ]);
+    }
+  };
 
   if (isEditing) {
     return (
@@ -276,7 +302,11 @@ export default function BudgetTransactionsScreen() {
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 80 }]}
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInDown.delay(200 + index * 50).springify()}>
-              <Swipeable renderRightActions={renderRightActions}>
+              <Swipeable 
+                renderLeftActions={renderLeftActions}
+                renderRightActions={renderRightActions}
+                onSwipeableOpen={(direction) => handleAction(direction === 'left' ? 'edit' : 'delete', item)}
+              >
                 <GlassBackground
                   blurIntensity={38}
                   blurTint="systemChromeMaterialDark"
@@ -323,7 +353,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginHorizontal: 16,
-    marginBottom: 6,
+    marginTop: 36,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 14,
@@ -399,12 +429,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.navGlassBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 7,
+    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
+    shadowColor: '#DC2626', // Red glow shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
     overflow: 'hidden',
   },
   categoryDot: {
@@ -590,4 +620,32 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '700',
   },
-});
+  swipeActionEdit: {
+    backgroundColor: Colors.accentBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '100%',
+    borderRadius: 24,
+    marginBottom: 12,
+  },
+  swipeActionDelete: {
+    backgroundColor: Colors.negative,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '100%',
+    borderRadius: 24,
+    marginBottom: 12,
+  },
+  swipeIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  swipeText: {
+    ...Typography.caption2,
+    color: '#fff',
+    fontWeight: '700',
+  },
+});

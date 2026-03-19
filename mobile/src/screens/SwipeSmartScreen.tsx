@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.navGlassBorder,
     backgroundColor: Colors.navGlassBackground,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 44,
     paddingBottom: 12,
   },
   modalHeader: {
@@ -647,11 +647,18 @@ const styles = StyleSheet.create({
   modalCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.glassBorder,
+    backgroundColor: Colors.navGlassBackground,
+    padding: 16,
+    borderRadius: 24,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
+    shadowColor: '#DC2626', // Red glow shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+    overflow: 'hidden',
   },
   modalCardRowSelected: { backgroundColor: 'rgba(46,230,166,0.06)' },
   modalCardArt: {

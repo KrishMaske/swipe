@@ -282,10 +282,7 @@ export default function SettingsScreen() {
       <View style={styles.bgGlowBottom} />
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: 110 + insets.bottom },
-        ]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 36, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -874,11 +871,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   modalCard: {
-    backgroundColor: '#111111',
-    borderRadius: 22,
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: Colors.navGlassBackground,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
     padding: 18,
+    marginTop: 24,
   },
   modalHeader: {
     flexDirection: 'row',

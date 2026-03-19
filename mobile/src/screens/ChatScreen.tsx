@@ -313,7 +313,7 @@ export default function ChatScreen() {
               </ScalePressable>
             </GlassBackground>
         </View>
-        <View style={{ height: keyboardVisible ? 0 : 100 }} />
+        <View style={{ height: keyboardVisible ? 16 : 100 }} />
       </KeyboardAvoidingView>
     </View>
   );

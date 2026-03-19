@@ -18,6 +18,7 @@ import { ScalePressable } from '../components/ScalePressable';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
+import { Swipeable } from 'react-native-gesture-handler';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { Skeleton } from '../components/Skeleton';
 import StarField from '../components/StarField';
@@ -164,6 +165,34 @@ export default function RecentScansScreen() {
     }
   };
 
+  const renderLeftActions = (_prog: any, _drag: any, txn: Transaction) => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionSafe}
+        onPress={() => handleAction(txn.txn_id, false)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="checkmark-circle-outline" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Safe</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
+  const renderRightActions = (_prog: any, _drag: any, txn: Transaction) => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionFraud}
+        onPress={() => handleAction(txn.txn_id, true)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="alert-circle-outline" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Fraud</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StarField />
@@ -171,7 +200,7 @@ export default function RecentScansScreen() {
       <GlassBackground
         blurIntensity={38}
         blurTint="systemChromeMaterialDark"
-        style={[styles.header, { marginTop: insets.top + 8 }]}
+        style={styles.header}
         tintColor="rgba(0,0,0,0.4)"
         tintOpacity={0.6}
       >
@@ -186,12 +215,6 @@ export default function RecentScansScreen() {
                 {recentScans.length} transaction{recentScans.length !== 1 ? 's' : ''}
               </Text>
             </View>
-            <ScalePressable
-              onPress={() => router.back()}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={20} color={Colors.textPrimary} />
-            </ScalePressable>
           </View>
         </View>
 
@@ -216,15 +239,6 @@ export default function RecentScansScreen() {
      {loading ? (
     <View style={styles.container}>
         <StarField />
-        <View style={[styles.header, { marginTop: insets.top + 8 }]}>
-           <Skeleton width={160} height={28} borderRadius={6} />
-           <Skeleton width={100} height={14} borderRadius={4} style={{ marginTop: 8 }} />
-           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-             {[0, 1, 2, 3, 4, 5].map(i => (
-               <Skeleton key={i} width={40} height={26} borderRadius={13} />
-             ))}
-           </View>
-        </View>
         <View style={styles.list}>
           {[0, 1, 2, 3].map(i => (
             <Skeleton key={i} width="100%" height={90} borderRadius={24} style={{ marginBottom: 12 }} />
@@ -250,38 +264,47 @@ export default function RecentScansScreen() {
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           renderItem={({ item, index }) => (
-            <ScalePressable onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
-              <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
-                <GlassBackground
-                  blurIntensity={38}
-                  blurTint="systemChromeMaterialDark"
-                  style={styles.txnCard}
-                  tintColor="rgba(0,0,0,0.4)"
-                  tintOpacity={0.6}
-                >
-                  <View style={[styles.categoryDot, { backgroundColor: item.amount < 0 ? Colors.negative : Colors.positive }]} />
-                  <View style={styles.txnInfo}>
-                    <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
-                    <View style={styles.txnMeta}>
-                      <Text style={styles.txnCategory}>{item.category || 'Uncategorized'}</Text>
-                      {item.city && item.city !== 'REMOTE' && (
-                        <>
-                          <Text style={styles.txnDot}>·</Text>
-                          <Text style={styles.txnLocation}>
-                            {item.city}
-                            {item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-                          </Text>
-                        </>
-                      )}
+            <Swipeable
+              renderLeftActions={(prog, drag) => renderLeftActions(prog, drag, item)}
+              renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
+              friction={2}
+              rightThreshold={40}
+              leftThreshold={40}
+              containerStyle={styles.swipeContainer}
+            >
+              <ScalePressable onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
+                <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
+                  <GlassBackground
+                    blurIntensity={38}
+                    blurTint="systemChromeMaterialDark"
+                    style={styles.txnCard}
+                    tintColor="rgba(0,0,0,0.4)"
+                    tintOpacity={0.6}
+                  >
+                    <View style={[styles.categoryDot, { backgroundColor: item.amount < 0 ? Colors.negative : Colors.positive }]} />
+                    <View style={styles.txnInfo}>
+                      <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
+                      <View style={styles.txnMeta}>
+                        <Text style={styles.txnCategory}>{item.category || 'Uncategorized'}</Text>
+                        {item.city && item.city !== 'REMOTE' && (
+                          <>
+                            <Text style={styles.txnDot}>·</Text>
+                            <Text style={styles.txnLocation}>
+                              {item.city}
+                              {item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                      <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
                     </View>
-                    <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
-                  </View>
-                  <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
-                    {formatAmount(item.amount)}
-                  </Text>
-                </GlassBackground>
-              </Animated.View>
-            </ScalePressable>
+                    <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
+                      {formatAmount(item.amount)}
+                    </Text>
+                  </GlassBackground>
+                </Animated.View>
+              </ScalePressable>
+            </Swipeable>
           )}
         />
       )}
@@ -340,7 +363,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginHorizontal: 16,
-    marginBottom: 6,
+    marginTop: 36,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 14,
@@ -441,12 +464,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.navGlassBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 7,
+    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
+    shadowColor: '#DC2626', // Red glow shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
     overflow: 'hidden',
   },
   categoryDot: {
@@ -566,5 +589,36 @@ const styles = StyleSheet.create({
     ...Typography.footnote,
     color: Colors.textMuted,
     fontWeight: '600',
+  },
+  swipeContainer: {
+    borderRadius: 24,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  swipeActionSafe: {
+    backgroundColor: Colors.positive,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    height: '100%',
+    borderRadius: 24,
+  },
+  swipeActionFraud: {
+    backgroundColor: Colors.negative,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    height: '100%',
+    borderRadius: 24,
+  },
+  swipeIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  swipeText: {
+    ...Typography.caption2,
+    color: '#fff',
+    fontWeight: '700',
   },
 });

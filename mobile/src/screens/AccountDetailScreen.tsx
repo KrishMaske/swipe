@@ -284,26 +284,12 @@ export default function AccountDetailScreen() {
   const renderRightActions = (_prog: RNAnimated.AnimatedInterpolation<number | string>, _drag: RNAnimated.AnimatedInterpolation<number | string>, txn: Transaction) => {
     return (
       <ScalePressable
-        style={styles.swipeActionRight}
-        onPress={() => handleAction(txn.txn_id, true)}
+        style={styles.swipeActionEdit}
+        onPress={() => openEditModal(txn)}
       >
         <View style={styles.swipeIconWrap}>
-          <Ionicons name="alert-circle" size={24} color="#fff" />
-          <Text style={styles.swipeText}>Flag</Text>
-        </View>
-      </ScalePressable>
-    );
-  };
-
-  const renderLeftActions = (_prog: RNAnimated.AnimatedInterpolation<number | string>, _drag: RNAnimated.AnimatedInterpolation<number | string>, txn: Transaction) => {
-    return (
-      <ScalePressable
-        style={styles.swipeActionLeft}
-        onPress={() => handleAction(txn.txn_id, false)}
-      >
-        <View style={styles.swipeIconWrap}>
-          <Ionicons name="checkmark-circle" size={24} color="#fff" />
-          <Text style={styles.swipeText}>Verify</Text>
+          <Ionicons name="create-outline" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Edit</Text>
         </View>
       </ScalePressable>
     );
@@ -316,7 +302,6 @@ export default function AccountDetailScreen() {
     return (
       <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
         <Swipeable
-          renderLeftActions={(prog, drag) => renderLeftActions(prog, drag, item)}
           renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
           friction={2}
           enableTrackpadTwoFingerGesture
@@ -576,7 +561,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 36,
     marginBottom: 6,
     paddingHorizontal: 16,
     paddingTop: 14,
@@ -660,43 +645,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.navGlassBackground,
     padding: 16,
-    borderRadius: 20,
-    marginBottom: 0, // Removed for swipe container gap
+    borderRadius: 24,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 7,
+    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
+    shadowColor: '#DC2626', // Red glow shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
     overflow: 'hidden',
   },
   swipeContainer: {
+    borderRadius: 24,
     marginBottom: 12,
-    borderRadius: 20,
     overflow: 'hidden',
   },
-  swipeActionLeft: {
-    backgroundColor: Colors.positive,
-    width: 90,
-    height: '100%',
+  swipeActionEdit: {
+    backgroundColor: Colors.accentBlueBright,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  swipeActionRight: {
-    backgroundColor: Colors.negative,
     width: 90,
     height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 24,
   },
   swipeIconWrap: {
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
   },
   swipeText: {
+    ...Typography.caption2,
     color: '#fff',
-    fontSize: 12,
     fontWeight: '700',
   },
   categoryDot: {

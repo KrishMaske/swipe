@@ -7,7 +7,7 @@
     "icon": "./images/AppIcons/playstore.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./images/AppIcons/Assets.xcassets/AppIcon.appiconset/1024.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
