@@ -19,7 +19,7 @@ async def lifespan(_: FastAPI):
         stop_scheduler()
 
 
-app = FastAPI(title="Swipe API",lifespan=lifespan)
+app = FastAPI(title="Swipe API", openapi_url="/swipe/api/openapi.json", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
