@@ -94,13 +94,19 @@ export function BudgetFormModal({
             blurTint="systemChromeMaterialDark"
             style={styles.card}
             tintColor="rgba(0, 0, 0, 0.4)"
-            tintOpacity={0.7}
+            tintOpacity={.7}
           >
             <View style={styles.header}>
               <Text style={styles.title}>{initialData ? 'Edit Budget' : 'New Budget'}</Text>
-              <ScalePressable onPress={onClose}>
-                <Ionicons name="close" size={24} color={Colors.textMuted} />
-              </ScalePressable>
+              <View style={styles.headerActions}>
+                <ScalePressable onPress={onClose} style={styles.actionBtn}>
+                  <Ionicons name="close" size={24} color={Colors.textMuted} />
+                </ScalePressable>
+                <ScalePressable onPress={handleSave} style={[styles.actionBtn, styles.actionBtnSpacing]}>
+                  <Ionicons name="checkmark" size={24} color={Colors.textMuted} />
+                </ScalePressable>
+              </View>
+
             </View>
 
             <ScrollView 
@@ -172,25 +178,6 @@ export function BudgetFormModal({
                   </ScalePressable>
                 ))}
               </ScrollView>
-
-              <ScalePressable
-                onPress={handleSave}
-                disabled={isSaving || !name || !amount}
-                style={styles.saveBtnWrap}
-              >
-                <LinearGradient
-                  colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-                  style={styles.saveBtn}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>{initialData ? 'Save Changes' : 'Create Budget'}</Text>
-                  )}
-                </LinearGradient>
-              </ScalePressable>
             </ScrollView>
           </GlassBackground>
         </KeyboardAvoidingView>
@@ -213,12 +200,13 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxHeight: '85%',
+    maxHeight: '90%',
     borderRadius: 28,
     borderWidth: 1,
     borderColor: Colors.navGlassBorder,
     overflow: 'hidden',
     paddingTop: 24,
+    paddingBottom: 28,
   },
   header: {
     flexDirection: 'row',
@@ -226,6 +214,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     marginBottom: 20,
+  },
+  headerActions: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  actionBtn: { 
+    
+  },
+  actionBtnSpacing: { 
+    marginLeft: 20 
   },
   title: {
     ...Typography.title3,

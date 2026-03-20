@@ -92,6 +92,9 @@ export default function DashboardScreen() {
   const [failedLogoProviders, setFailedLogoProviders] = useState<Record<string, boolean>>({});
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [creatingBudget, setCreatingBudget] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [updatingBudget, setUpdatingBudget] = useState(false);
   
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler({
@@ -245,6 +248,21 @@ export default function DashboardScreen() {
       Alert.alert('Error', err.message || 'Failed to create budget');
     } finally {
       setCreatingBudget(false);
+    }
+  };
+
+  const handleUpdateBudget = async (data: any) => {
+    if (!editingBudget?.id) return;
+    setUpdatingBudget(true);
+    try {
+      await api.updateBudget(editingBudget.id, data);
+      setEditModalVisible(false);
+      setEditingBudget(null);
+      await fetchBudgets(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update budget');
+    } finally {
+      setUpdatingBudget(false);
     }
   };
 
@@ -538,20 +556,11 @@ export default function DashboardScreen() {
             <ScalePressable
               style={styles.contextMenuItem}
               onPress={() => {
-                const budgetId = contextMenuBudget?.id;
-                if (!budgetId) return;
+                const budget = contextMenuBudget;
+                if (!budget) return;
                 setContextMenuBudget(null);
-                router.push({
-                  pathname: '/dashboard/budget/[id]',
-                  params: { 
-                    id: budgetId, 
-                    budgetName: contextMenuBudget?.name,
-                    edit: 'true',
-                    amount: contextMenuBudget?.amount.toString(),
-                    category: contextMenuBudget?.category,
-                    period: contextMenuBudget?.period 
-                  }
-                });
+                setEditingBudget(budget);
+                setEditModalVisible(true);
               }}
             >
               <Ionicons name="pencil" size={20} color={Colors.textPrimary} />
@@ -563,6 +572,7 @@ export default function DashboardScreen() {
               onPress={() => {
                 const idToDel = contextMenuBudget?.id;
                 if (idToDel) {
+                  setContextMenuBudget(null);
                   handleDeleteBudget(idToDel);
                 }
               }}
@@ -573,12 +583,25 @@ export default function DashboardScreen() {
           </GlassBackground>
         </View>
       </Modal>
+
       <BudgetFormModal
         visible={createModalVisible}
         onClose={() => setCreateModalVisible(false)}
         onSave={handleCreateBudget}
         isSaving={creatingBudget}
       />
+
+      <BudgetFormModal
+        visible={editModalVisible}
+        onClose={() => {
+          setEditModalVisible(false);
+          setEditingBudget(null);
+        }}
+        onSave={handleUpdateBudget}
+        initialData={editingBudget ?? undefined}
+        isSaving={updatingBudget}
+      />
+
     </View>
   );
 }
