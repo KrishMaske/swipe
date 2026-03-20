@@ -4,7 +4,7 @@ from utils.simplefin_service import exchange_setup
 from database.db import create_simplefin_connection, has_simplefin_connection
 from config.security import get_user_context
 
-router = APIRouter()
+router = APIRouter(tags=["Token Exchange"])
 
 class SimplefinPayload(BaseModel):
     setup_token: str

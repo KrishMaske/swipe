@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 from utils.simplefin_service import retrieve_accounts
 from typing import Optional
@@ -20,6 +20,7 @@ from database.db import (
     update_transaction
 )
 from config.security import get_user_context
+from config.rate_limit import limiter
 from utils.date_service import ninety_days, epoch_to_date
 
 class BudgetCreateRequest(BaseModel):
@@ -42,10 +43,11 @@ class TransactionUpdateRequest(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
 
-router = APIRouter()
+router = APIRouter(tags=["Bank Account Management"])
 
 @router.post("/api/accounts/sync")
-async def sync_accounts_handler(background_tasks: BackgroundTasks, context: dict = Depends(get_user_context)):
+@limiter.limit("3/hour")
+async def sync_accounts_handler(request: Request, background_tasks: BackgroundTasks, context: dict = Depends(get_user_context)):
     """Standardized to POST: triggers a bank transaction sync."""
     try:
         data = get_access_url(context)
@@ -117,4 +119,4 @@ async def update_budget_handler(budget_id: str, budget: BudgetUpdateRequest, con
 
 @router.delete("/api/transactions/budgets/{budget_id}")
 async def delete_budget_handler(budget_id: str, context: dict = Depends(get_user_context)):
-    return delete_budget(context, budget_id)
+    return delete_budget(context, budget_id)

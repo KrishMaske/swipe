@@ -5,13 +5,7 @@ from contextlib import asynccontextmanager
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from config.rate_limit import limiter
-
-from routes.token_exchange import router as token_exchange
-from routes.bank_routes import router as bank_routes
-from routes.card_routes import router as card_routes
-from routes.chatbot_routes import router as chatbot_routes
-from routes.model_routes import router as model_routes
-from routes.account_routes import router as account_routes
+from routes import token_exchange, bank_routes, card_routes, chatbot_routes, model_routes, account_routes
 from scheduler import start_scheduler, stop_scheduler
 
 
@@ -25,7 +19,7 @@ async def lifespan(_: FastAPI):
         stop_scheduler()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(title="Swipe API",lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -53,12 +47,12 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-app.include_router(token_exchange)
-app.include_router(bank_routes)
-app.include_router(card_routes)
-app.include_router(chatbot_routes)
-app.include_router(model_routes)
-app.include_router(account_routes)
+app.include_router(token_exchange.router)
+app.include_router(bank_routes.router)
+app.include_router(card_routes.router)
+app.include_router(chatbot_routes.router)
+app.include_router(model_routes.router)
+app.include_router(account_routes.router)
 
 @app.get("/health")
 def health():

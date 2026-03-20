@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from database.db import get_saved_user_cards, replace_user_cards
 from config.security import get_user_context
+from config.rate_limit import limiter
 from utils.location_evaluator import evaluate_best_card, resolve_place_details, get_nearby_merchants
 
 
@@ -24,11 +25,12 @@ class LocationEvaluateRequest(BaseModel):
     longitude: float
 
 
-router = APIRouter()
+router = APIRouter(tags=["Card Management"])
 
 
 @router.get("/api/user/cards")
-async def get_user_cards_endpoint(context: dict = Depends(get_user_context)):
+@limiter.limit("5/hour")
+async def get_user_cards_endpoint(request: Request, context: dict = Depends(get_user_context)):
     return get_saved_user_cards(context)
 
 

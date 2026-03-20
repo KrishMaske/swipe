@@ -5,7 +5,7 @@ from database.db import get_all_non_fraudulent_transactions
 from config.security import get_user_context, require_admin_context
 from models.fraud_detector import train_global_fraud_detector, score_transaction
 
-router = APIRouter()
+router = APIRouter(tags=["Fraud Detection"])
 
 class TransactionScoreRequest(BaseModel):
     txn_id: str

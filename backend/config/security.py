@@ -4,12 +4,15 @@ import time
 import jwt
 from jwt.algorithms import get_default_algorithms
 from fastapi import HTTPException, Request, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client, ClientOptions
 from config.settings import jwks_url, supabase_url, supabase_key
 
 _jwks = None
 _jwks_last_fetched = 0
 JWKS_TTL = 3600  # 1 hour
+
+reusable_oauth2 = HTTPBearer()
 
 def _is_admin_from_payload(payload: dict) -> bool:
     role = str(payload.get("role") or "").lower()
@@ -39,16 +42,9 @@ async def _get_jwks():
             _jwks_last_fetched = now
     return _jwks
 
-def get_token(request: Request) -> str:
+def get_token(auth: HTTPAuthorizationCredentials = Depends(reusable_oauth2)) -> str:
     """Extracts the Bearer token from the request header."""
-    auth_header = request.headers.get("Authorization")
-    if not auth_header:
-        print("[debug-auth] Missing Authorization header")
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    if not auth_header.startswith("Bearer "):
-        print(f"[debug-auth] Invalid Authorization header format: {auth_header[:15]}...")
-        raise HTTPException(status_code=401, detail="Invalid Authorization header format")
-    return auth_header.replace("Bearer ", "")
+    return auth.credentials
 
 async def get_user_context(token: str = Depends(get_token)) -> dict:
     """Verifies the JWT and returns a user-scoped Supabase client."""
@@ -79,13 +75,10 @@ async def get_user_context(token: str = Depends(get_token)) -> dict:
         print(f"[debug-auth] Successfully verified token for user {user_id}")
         
     except jwt.ExpiredSignatureError:
-        print("[debug-auth] Token has expired")
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError as e:
-        print(f"[debug-auth] Invalid token: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
     except Exception as e:
-        print(f"[debug-auth] Unexpected auth error: {str(e)}")
         raise HTTPException(status_code=401, detail="Authentication failed")
 
     options = ClientOptions(headers={"Authorization": f"Bearer {token}"})
@@ -103,4 +96,4 @@ async def require_admin_context(context: dict = Depends(get_user_context)) -> di
     """Ensures the caller has an admin role claim before allowing privileged actions."""
     if not context.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin role required")
-    return context
+    return context

@@ -3,7 +3,7 @@ from models.chatbot import ChatRequest, ChatResponse, ask_financial_assistant
 from config.security import get_user_context
 from config.rate_limit import limiter
 
-router = APIRouter()
+router = APIRouter(tags=["Chatbot Interaction"])
 
 @router.post("/api/ask", response_model=ChatResponse)
 @limiter.limit("5/minute")
