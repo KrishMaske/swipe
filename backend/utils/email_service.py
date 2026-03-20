@@ -2,10 +2,10 @@ import asyncio
 import html
 import resend
 import logging
-from config.settings import resend, target_email, sender
+from config.settings import resend_api_key, target_email, sender
 
 logger = logging.getLogger(__name__)
-resend.api_key = resend
+resend.api_key = resend_api_key
 
 def _send_sync(subject: str, html_body: str, to_email: str) -> None:
     if not resend.api_key:

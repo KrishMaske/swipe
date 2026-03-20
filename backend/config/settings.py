@@ -33,7 +33,7 @@ jwks_url = os.getenv("SUPABASE_JWK")
 FERNET_KEY = os.getenv("FERNET_KEY")
 fernet = Fernet(FERNET_KEY)
 
-resend = os.getenv("RESEND_API_KEY")
+resend_api_key = os.getenv("RESEND_API_KEY")
 target_email = os.getenv("TARGET_EMAIL")
 sender = os.getenv("RESEND_FROM_EMAIL")
 
