@@ -18,6 +18,7 @@ REQUIRED_VARS = [
     "SUPABASE_SERVICE_KEY",
     "SUPABASE_JWK",
     "FERNET_KEY",
+    "RESEND_API_KEY",
 ]
 missing = [v for v in REQUIRED_VARS if not os.getenv(v)]
 if missing:
@@ -31,6 +32,10 @@ jwks_url = os.getenv("SUPABASE_JWK")
 
 FERNET_KEY = os.getenv("FERNET_KEY")
 fernet = Fernet(FERNET_KEY)
+
+resend = os.getenv("RESEND_API_KEY")
+target_email = os.getenv("TARGET_EMAIL")
+sender = os.getenv("RESEND_FROM_EMAIL")
 
 @lru_cache()
 def get_groq_client():

@@ -1,37 +1,27 @@
 import asyncio
 import html
-import os
-import smtplib
-from email.message import EmailMessage
+import resend
+import logging
+from config.settings import resend, target_email, sender
 
-TARGET_EMAIL = os.getenv("TARGET_EMAIL", "KRISHM.IMP@GMAIL.COM")
-
+logger = logging.getLogger(__name__)
+resend.api_key = resend
 
 def _send_sync(subject: str, html_body: str, to_email: str) -> None:
-    sender = os.getenv("SMTP_EMAIL")
-    password = os.getenv("SMTP_PASSWORD")
-    if not sender or not password:
-        raise RuntimeError("SMTP_EMAIL and SMTP_PASSWORD must be set")
-
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = to_email
-
-    text_fallback = "Automated scheduler notification. Please view this email in HTML mode."
-    msg.set_content(text_fallback)
-    msg.add_alternative(html_body, subtype="html")
-
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-        server.starttls()
-        server.login(sender, password)
-        server.send_message(msg)
+    if not resend.api_key:
+        raise RuntimeError("RESEND_API_KEY must be set in your environment variables.")
+    
+    params = {
+        "from": f"Scheduler Alerts <{sender}>",
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+    }
+    
+    resend.Emails.send(params)
 
 
-async def send_html_email(subject: str, html_body: str, to_email: str = TARGET_EMAIL) -> bool:
+async def send_html_email(subject: str, html_body: str, to_email: str = target_email) -> bool:
     """Send an HTML email without blocking the event loop."""
     try:
         await asyncio.to_thread(_send_sync, subject, html_body, to_email)
