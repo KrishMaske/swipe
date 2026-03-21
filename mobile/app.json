@@ -75,7 +75,9 @@
       [
         "@sentry/react-native/expo",
         {
-          "url": "https://sentry.io/"
+          "url": "https://sentry.io/",
+          "organization": "swipe-yb",
+          "project": "swipe"
         }
       ]
     ],
