@@ -33,9 +33,7 @@ export function TransactionProvider({ children, checkForScheduledSync, syncTrigg
     }
   }, [syncTrigger]);
 
-  React.useEffect(() => {
-    transactionsCacheRef.current = transactionsCache;
-  }, [transactionsCache]);
+
 
   const fetchTransactions = useCallback(async (accId: string, forceRefresh = false) => {
     const isInitialLoad = !transactionsCacheRef.current[accId];
@@ -56,24 +54,40 @@ export function TransactionProvider({ children, checkForScheduledSync, syncTrigg
 
     const doFetch = async () => {
       try {
-        setTransactionsLoading((prev) => ({ ...prev, [accId]: true }));
-        const data = await api.getTransactions(accId);
-         const sorted = (data || []).sort((a, b) => {
-           const getTime = (val: unknown) => {
-             if (typeof val === 'string') {
-               return new Date((val as string).includes(' ') ? (val as string).replace(' ', 'T') : (val as string)).getTime();
-             }
-             return (val as number) * 1000;
-           };
-           return getTime(b.txn_date) - getTime(a.txn_date);
-         });
+        setTransactionsLoading((prev) => {
+          if (prev[accId]) return prev;
+          return { ...prev, [accId]: true };
+        });
 
-        transactionsCacheRef.current[accId] = sorted;
-        setTransactionsCache({ ...transactionsCacheRef.current });
+        const data = await api.getTransactions(accId);
+        const sorted = (data || []).sort((a, b) => {
+          const getTime = (val: unknown) => {
+            if (typeof val === 'string') {
+              return new Date((val as string).includes(' ') ? (val as string).replace(' ', 'T') : (val as string)).getTime();
+            }
+            return (val as number) * 1000;
+          };
+          return getTime(b.txn_date) - getTime(a.txn_date);
+        });
+
+        setTransactionsCache((prev) => {
+          const existing = prev[accId];
+          if (existing && existing.length === sorted.length && JSON.stringify(existing[0]) === JSON.stringify(sorted[0])) {
+            return prev;
+          }
+          const next = { ...prev, [accId]: sorted };
+          transactionsCacheRef.current = next;
+          return next;
+        });
       } catch (err) {
         // Silent failure for transactions to avoid spamming alerts on focus
       } finally {
-        setTransactionsLoading((prev) => ({ ...prev, [accId]: false }));
+        setTransactionsLoading((prev) => {
+          if (!prev[accId]) return prev;
+          const next = { ...prev };
+          delete next[accId];
+          return next;
+        });
         delete txFetchInFlight.current[accId];
       }
     };

@@ -1,11 +1,17 @@
 import React from "react";
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { BlurView, BlurTint } from "expo-blur";
-import {
-  GlassView,
-  isGlassEffectAPIAvailable,
-  isLiquidGlassAvailable,
-} from "expo-glass-effect";
+
+let LiquidGlassView: any = null;
+let isLiquidGlassSupported = false;
+
+try {
+  const LiquidGlassModule = require('@callstack/liquid-glass');
+  LiquidGlassView = LiquidGlassModule.LiquidGlassView;
+  isLiquidGlassSupported = LiquidGlassModule.isLiquidGlassSupported;
+} catch (e) {
+  console.warn("Liquid Glass native module not found. Did you rebuild the native app? Falling back to standard glass.");
+}
 
 export interface GlassBackgroundProps {
   style?: StyleProp<ViewStyle>;
@@ -40,6 +46,11 @@ export interface GlassBackgroundProps {
    * Content to render inside the glass background.
    */
   children?: React.ReactNode;
+  /**
+   * Whether the view is collapsable. 
+   * Useful for RNScreens to identify header slots.
+   */
+  collapsable?: boolean;
 }
 
 export function GlassBackground({
@@ -52,20 +63,20 @@ export function GlassBackground({
   tintOpacity = 0.5,
   preferLiquidGlass = true,
   children,
+  collapsable,
 }: Readonly<GlassBackgroundProps>) {
   if (Platform.OS === "ios") {
-    // Prefer true Liquid Glass on iOS 26+ when the API is available.
+    // Prefer true Liquid Glass on supported iOS versions when API is available.
     if (
       preferLiquidGlass &&
-      isGlassEffectAPIAvailable() &&
-      isLiquidGlassAvailable()
+      isLiquidGlassSupported
     ) {
       return (
-        <View style={style}>
-          <GlassView
+        <View style={style} collapsable={collapsable}>
+          <LiquidGlassView
             style={StyleSheet.absoluteFill}
             colorScheme="dark"
-            glassEffectStyle={glassStyle}
+            effect={glassStyle}
             tintColor={tintColor}
           />
           {children}
@@ -76,7 +87,7 @@ export function GlassBackground({
     // Fallback to traditional frosted blur on older iOS or when Liquid Glass
     // is disabled by system / accessibility settings.
     return (
-      <View style={style}>
+      <View style={style} collapsable={collapsable}>
         <BlurView
           intensity={blurIntensity}
           tint={blurTint as any}
@@ -98,7 +109,7 @@ export function GlassBackground({
   // Android / other platforms: solid, slightly translucent surface that matches
   // our existing design language.
   return (
-    <View style={[{ backgroundColor: fallbackColor }, style]}>
+    <View style={[{ backgroundColor: fallbackColor }, style]} collapsable={collapsable}>
       {tintColor && (
         <View
           style={[

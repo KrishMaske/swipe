@@ -1,10 +1,9 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, StyleSheet as RNStyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScalePressable } from '../components/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassBackground } from '../components/GlassBackground';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StarField from '../components/StarField';
 import { Colors } from '../theme/colors';
@@ -13,9 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WalletCard } from '../services/api';
 
 function formatFee(amount: number) {
-  if (!amount) {
-    return '$0';
-  }
+  if (!amount) return '$0';
   return `$${amount.toLocaleString('en-US')}`;
 }
 
@@ -35,36 +32,14 @@ export default function CardDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <StarField />
-
-      <Animated.View entering={FadeInDown.delay(100).springify()}>
-        <GlassBackground
-          blurIntensity={38}
-          blurTint="systemChromeMaterialDark"
-          style={[styles.header, { marginTop: insets.top + 8 }]}
-          tintColor="rgba(0,0,0,0.4)"
-          tintOpacity={0.6}
-        >
-          <View style={styles.headerTopRow}>
-            <View style={styles.headerTitleWrap}>
-              <Text style={styles.headerTitle}>Card Details</Text>
-              <Text style={styles.headerProvider}>{card.card_name || 'Unknown Card'}</Text>
-            </View>
-            <ScalePressable
-              onPress={() => router.back()}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={20} color={Colors.textPrimary} />
-            </ScalePressable>
-          </View>
-        </GlassBackground>
-      </Animated.View>
-
       <Animated.ScrollView
         entering={FadeInDown.delay(200).springify()}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <StarField />
+        </View>
         <GlassBackground
           blurIntensity={28}
           blurTint="systemChromeMaterialDark"
@@ -105,6 +80,7 @@ export default function CardDetailsScreen() {
             ))}
         </GlassBackground>
       </Animated.ScrollView>
+
     </View>
   );
 }

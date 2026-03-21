@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -92,10 +92,16 @@ export default function SwipeSmartScreen() {
     }
   }, []);
 
+  const hasLoadedOnce = useRef(false);
+
   useFocusEffect(
     useCallback(() => {
-      setLoadingCards(true);
-      loadSavedCards();
+      if (!hasLoadedOnce.current) {
+        setLoadingCards(true);
+      }
+      loadSavedCards().then(() => {
+        hasLoadedOnce.current = true;
+      });
     }, [loadSavedCards]),
   );
 
@@ -155,7 +161,9 @@ export default function SwipeSmartScreen() {
 
   return (
     <View style={styles.container}>
-      <StarField />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+      </View>
 
       <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
 

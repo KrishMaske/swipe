@@ -277,15 +277,16 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <StarField />
-      <View style={styles.bgGlowTop} />
-      <View style={styles.bgGlowBottom} />
-
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 36, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <StarField />
+          <View style={styles.bgGlowTop} />
+          <View style={styles.bgGlowBottom} />
+        </View>
         {/* Removed redundant custom header - now using native header from AppNavigator */}
 
         <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.card}>
@@ -448,178 +449,182 @@ export default function SettingsScreen() {
         </ScalePressable>
       </ScrollView>
 
-      {activeModal !== null && (
+      <Modal
+        visible={activeModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeModal}
+      >
         <Animated.View
           entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(200)}
           style={StyleSheet.absoluteFill}
         >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalKeyboardWrap}
-          >
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {activeModal === 'email'
-                    ? 'Change Email'
-                    : activeModal === 'password'
-                      ? 'Change Password'
-                      : 'Delete Account'}
-                </Text>
-                <ScalePressable onPress={closeModal} style={styles.modalCloseButton}>
-                  <Ionicons name="close" size={18} color={Colors.textPrimary} />
-                </ScalePressable>
-              </View>
-
-              <Text style={styles.modalSubtitle}>
-                {activeModal === 'email'
-                  ? 'Enter your new email address. We will send verification to both addresses.'
-                  : activeModal === 'password'
-                    ? 'Enter your current password, then choose a different new password.'
-                    : 'Enter your password before permanently deleting your account.'}
-              </Text>
-
-              {activeModal === 'email' && (
-                <TextInput
-                  style={styles.input}
-                  value={emailInput}
-                  onChangeText={setEmailInput}
-                  placeholder="Enter new email"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              )}
-
-              {activeModal === 'password' && (
-                <>
-                  <View style={styles.passwordInputWrap}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      value={currentPassword}
-                      onChangeText={setCurrentPassword}
-                      placeholder="Current password"
-                      placeholderTextColor={Colors.textMuted}
-                      secureTextEntry={!currentPasswordVisible}
-                    />
-                    <ScalePressable
-                      onPress={() => setCurrentPasswordVisible((prev) => !prev)}
-                      style={styles.eyeButton}
-                    >
-                      <Ionicons
-                        name={currentPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                        size={20}
-                        color={Colors.textMuted}
-                      />
-                    </ScalePressable>
-                  </View>
-                  <View style={styles.passwordInputWrap}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      value={newPassword}
-                      onChangeText={setNewPassword}
-                      placeholder="New password"
-                      placeholderTextColor={Colors.textMuted}
-                      secureTextEntry={!newPasswordVisible}
-                    />
-                    <ScalePressable
-                      onPress={() => setNewPasswordVisible((prev) => !prev)}
-                      style={styles.eyeButton}
-                    >
-                      <Ionicons
-                        name={newPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                        size={20}
-                        color={Colors.textMuted}
-                      />
-                    </ScalePressable>
-                  </View>
-                  <View style={styles.passwordInputWrap}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="Confirm new password"
-                      placeholderTextColor={Colors.textMuted}
-                      secureTextEntry={!confirmPasswordVisible}
-                    />
-                    <ScalePressable
-                      onPress={() => setConfirmPasswordVisible((prev) => !prev)}
-                      style={styles.eyeButton}
-                    >
-                      <Ionicons
-                        name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                        size={20}
-                        color={Colors.textMuted}
-                      />
-                    </ScalePressable>
-                  </View>
-                </>
-              )}
-
-              {activeModal === 'delete' && (
-                <View style={styles.passwordInputWrap}>
-                  <TextInput
-                    style={styles.passwordInput}
-                    value={deletePassword}
-                    onChangeText={setDeletePassword}
-                    placeholder="Confirm password"
-                    placeholderTextColor={Colors.textMuted}
-                    secureTextEntry={!deletePasswordVisible}
-                  />
-                  <ScalePressable
-                    onPress={() => setDeletePasswordVisible((prev) => !prev)}
-                    style={styles.eyeButton}
-                  >
-                    <Ionicons
-                      name={deletePasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={Colors.textMuted}
-                    />
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.modalKeyboardWrap}
+            >
+              <View style={styles.modalCard}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {activeModal === 'email'
+                      ? 'Change Email'
+                      : activeModal === 'password'
+                        ? 'Change Password'
+                        : 'Delete Account'}
+                  </Text>
+                  <ScalePressable onPress={closeModal} style={styles.modalCloseButton}>
+                    <Ionicons name="close" size={18} color={Colors.textPrimary} />
                   </ScalePressable>
                 </View>
-              )}
 
-              {modalError ? <Text style={styles.modalError}>{modalError}</Text> : null}
+                <Text style={styles.modalSubtitle}>
+                  {activeModal === 'email'
+                    ? 'Enter your new email address. We will send verification to both addresses.'
+                    : activeModal === 'password'
+                      ? 'Enter your current password, then choose a different new password.'
+                      : 'Enter your password before permanently deleting your account.'}
+                </Text>
 
-              <View style={styles.modalActions}>
-                <ScalePressable onPress={closeModal} style={styles.modalSecondaryButton}>
-                  <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
-                </ScalePressable>
+                {activeModal === 'email' && (
+                  <TextInput
+                    style={styles.input}
+                    value={emailInput}
+                    onChangeText={setEmailInput}
+                    placeholder="Enter new email"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                )}
 
-                <ScalePressable
-                  onPress={
-                    activeModal === 'email'
-                      ? handleUpdateEmail
-                      : activeModal === 'password'
-                        ? handleUpdatePassword
-                        : handleDeleteAccount
-                  }
-                  style={styles.modalPrimaryWrap}
-                  disabled={emailLoading || passwordLoading || deleteLoading}
-                >
-                  <LinearGradient
-                    colors={activeModal === 'delete' ? ['#F87171', '#EF4444'] : [Colors.gradientAccentStart, Colors.gradientAccentEnd]}
-                    style={styles.modalPrimaryButton}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                {activeModal === 'password' && (
+                  <>
+                    <View style={styles.passwordInputWrap}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={currentPassword}
+                        onChangeText={setCurrentPassword}
+                        placeholder="Current password"
+                        placeholderTextColor={Colors.textMuted}
+                        secureTextEntry={!currentPasswordVisible}
+                      />
+                      <ScalePressable
+                        onPress={() => setCurrentPasswordVisible((prev) => !prev)}
+                        style={styles.eyeButton}
+                      >
+                        <Ionicons
+                          name={currentPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color={Colors.textMuted}
+                        />
+                      </ScalePressable>
+                    </View>
+                    <View style={styles.passwordInputWrap}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        placeholder="New password"
+                        placeholderTextColor={Colors.textMuted}
+                        secureTextEntry={!newPasswordVisible}
+                      />
+                      <ScalePressable
+                        onPress={() => setNewPasswordVisible((prev) => !prev)}
+                        style={styles.eyeButton}
+                      >
+                        <Ionicons
+                          name={newPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color={Colors.textMuted}
+                        />
+                      </ScalePressable>
+                    </View>
+                    <View style={styles.passwordInputWrap}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="Confirm new password"
+                        placeholderTextColor={Colors.textMuted}
+                        secureTextEntry={!confirmPasswordVisible}
+                      />
+                      <ScalePressable
+                        onPress={() => setConfirmPasswordVisible((prev) => !prev)}
+                        style={styles.eyeButton}
+                      >
+                        <Ionicons
+                          name={confirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color={Colors.textMuted}
+                        />
+                      </ScalePressable>
+                    </View>
+                  </>
+                )}
+
+                {activeModal === 'delete' && (
+                  <View style={styles.passwordInputWrap}>
+                    <TextInput
+                      style={styles.passwordInput}
+                      value={deletePassword}
+                      onChangeText={setDeletePassword}
+                      placeholder="Confirm password"
+                      placeholderTextColor={Colors.textMuted}
+                      secureTextEntry={!deletePasswordVisible}
+                    />
+                    <ScalePressable
+                      onPress={() => setDeletePasswordVisible((prev) => !prev)}
+                      style={styles.eyeButton}
+                    >
+                      <Ionicons
+                        name={deletePasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                        size={20}
+                        color={Colors.textMuted}
+                      />
+                    </ScalePressable>
+                  </View>
+                )}
+
+                {modalError ? <Text style={styles.modalError}>{modalError}</Text> : null}
+
+                <View style={styles.modalActions}>
+                  <ScalePressable onPress={closeModal} style={styles.modalSecondaryButton}>
+                    <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
+                  </ScalePressable>
+
+                  <ScalePressable
+                    onPress={
+                      activeModal === 'email'
+                        ? handleUpdateEmail
+                        : activeModal === 'password'
+                          ? handleUpdatePassword
+                          : handleDeleteAccount
+                    }
+                    style={styles.modalPrimaryWrap}
+                    disabled={emailLoading || passwordLoading || deleteLoading}
                   >
-                    {emailLoading || passwordLoading || deleteLoading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.modalPrimaryButtonText}>
-                        {activeModal === 'email' ? 'Send Verification' : activeModal === 'password' ? 'Update Password' : 'Continue'}
-                      </Text>
-                    )}
-                  </LinearGradient>
-                </ScalePressable>
+                    <LinearGradient
+                      colors={activeModal === 'delete' ? ['#F87171', '#EF4444'] : [Colors.gradientAccentStart, Colors.gradientAccentEnd]}
+                      style={styles.modalPrimaryButton}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      {emailLoading || passwordLoading || deleteLoading ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.modalPrimaryButtonText}>
+                          {activeModal === 'email' ? 'Send Verification' : activeModal === 'password' ? 'Update Password' : 'Continue'}
+                        </Text>
+                      )}
+                    </LinearGradient>
+                  </ScalePressable>
+                </View>
               </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
+            </KeyboardAvoidingView>
+          </View>
         </Animated.View>
-      )}
+      </Modal>
     </View>
   );
 }

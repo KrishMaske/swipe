@@ -31,7 +31,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgUri } from 'react-native-svg';
 import { api, Account, Budget } from '../services/api';
-import { useData } from '../context/DataContext';
+import { useAccounts } from '../context/AccountContext';
+import { useTransactions } from '../context/TransactionContext';
+import { useFraud } from '../context/FraudContext';
+import { useBudgets } from '../context/BudgetContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { getProviderLogoUrl, normalizeProviderKey } from '../utils/providerLogos';
@@ -68,6 +71,189 @@ const PROVIDER_LOGO_SCALE: Record<string, number> = {
   bofa: 1.65,
 };
 
+// --- Sub-components (Memoized) ---
+
+const BudgetCard = React.memo(({ 
+  budget, 
+  index, 
+  budgetCardWidth, 
+  spendingByBudget, 
+  formatCurrency, 
+  router, 
+  setContextMenuBudget 
+}: {
+  budget: Budget;
+  index: number;
+  budgetCardWidth: number;
+  spendingByBudget: Record<string, number>;
+  formatCurrency: (amount: number) => string;
+  router: any;
+  setContextMenuBudget: (budget: Budget) => void;
+}) => {
+  const spent = spendingByBudget[budget.id!] || 0;
+  const progress = Math.min(spent / budget.amount, 1);
+  const gradient =
+    progress >= 1
+      ? ['#FF6B6B', '#FF8A8A']
+      : progress >= 0.8
+        ? ['#FFB347', '#FFD27A']
+        : [Colors.gradientAccentStart, Colors.gradientAccentEnd];
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 70).springify()}>
+      <ScalePressable
+        onPress={() =>
+          router.push({
+            pathname: '/dashboard/budget/[id]',
+            params: { id: budget.id!, budgetName: budget.name }
+          })
+        }
+        onLongPress={() => setContextMenuBudget(budget)}
+        delayLongPress={1200}
+        style={[styles.budgetCard, { width: budgetCardWidth }]}
+      >
+        <View style={styles.budgetHeadRow}>
+          <Text style={styles.budgetName}>{budget.name}</Text>
+          <Text style={styles.budgetPeriod}>{budget.period}</Text>
+        </View>
+        <Text style={styles.budgetCategory}>{budget.category}</Text>
+        <View style={styles.progressTrack}>
+          <LinearGradient
+            colors={gradient as [string, string]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.progressFill, { width: `${progress * 100}%` }]}
+          />
+        </View>
+        <Text style={styles.budgetAmountText}>
+          {formatCurrency(spent)} / {formatCurrency(budget.amount)}
+        </Text>
+      </ScalePressable>
+    </Animated.View>
+  );
+});
+
+const AccountLogo = React.memo(({ 
+  provider, 
+  index, 
+  failedLogoProviders, 
+  setFailedLogoProviders 
+}: {
+  provider: string;
+  index: number;
+  failedLogoProviders: Record<string, boolean>;
+  setFailedLogoProviders: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+}) => {
+  const accountLogos = ['business-outline', 'card-outline', 'wallet-outline', 'albums-outline'] as const;
+  const providerKey = normalizeProviderKey(provider);
+  const logoUrl = getProviderLogoUrl(provider);
+  const showProviderLogo = !!logoUrl && !failedLogoProviders[providerKey];
+  const logoScale = PROVIDER_LOGO_SCALE[providerKey] ?? 1;
+  const logoSize = Math.round(LOGO_BASE_SIZE * logoScale);
+
+  if (showProviderLogo) {
+    return (
+      <View style={styles.accountLogoImageWrap}>
+        <SvgUri
+          uri={logoUrl!}
+          width={logoSize}
+          height={logoSize}
+          onError={() => {
+            if (!providerKey) return;
+            setFailedLogoProviders((prev) => ({ ...prev, [providerKey]: true }));
+          }}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <LinearGradient
+      colors={['rgba(130,166,255,0.25)', 'rgba(46,230,166,0.15)']}
+      style={styles.accountLogo}
+    >
+      <Ionicons
+        name={accountLogos[index % accountLogos.length]}
+        size={18}
+        color={Colors.accentBlueBright}
+      />
+    </LinearGradient>
+  );
+});
+
+const AccountRow = React.memo(({ 
+  account, 
+  index, 
+  router, 
+  failedLogoProviders, 
+  setFailedLogoProviders, 
+  formatCurrency 
+}: {
+  account: Account;
+  index: number;
+  router: any;
+  failedLogoProviders: Record<string, boolean>;
+  setFailedLogoProviders: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  formatCurrency: (amount: number) => string;
+}) => {
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 80).springify()}>
+      <ScalePressable
+        style={styles.accountRow}
+        onPress={() =>
+          router.push({
+            pathname: '/dashboard/account/[id]',
+            params: { id: account.acc_id, accType: account.acc_type, provider: account.provider }
+          })
+        }
+      >
+        <View style={styles.accountLeft}>
+          <AccountLogo 
+            provider={account.provider} 
+            index={index} 
+            failedLogoProviders={failedLogoProviders} 
+            setFailedLogoProviders={setFailedLogoProviders} 
+          />
+          <View>
+            <Text style={styles.accountName}>{account.acc_type}</Text>
+            <Text style={styles.accountProvider}>{account.provider}</Text>
+          </View>
+        </View>
+
+        <View style={styles.accountRight}>
+          <Text
+            style={[
+              styles.accountBalance,
+              {
+                color:
+                  account.available_balance === null
+                    ? Colors.textMuted
+                    : account.available_balance! >= 0
+                      ? Colors.textPrimary
+                      : Colors.negative,
+              },
+            ]}
+          >
+            {account.available_balance !== null ? formatCurrency(account.available_balance) : 'N/A'}
+          </Text>
+          <Text style={styles.accountCurrency}>{account.currency}</Text>
+        </View>
+      </ScalePressable>
+    </Animated.View>
+  );
+});
+
+function formatCurrency(amount: number): string {
+  const abs = Math.abs(amount);
+  const formatted = abs.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
+}
+
+// --- Main Component ---
+
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -78,12 +264,10 @@ export default function DashboardScreen() {
     accountsLoading: loading,
     fetchAccounts,
     invalidateAccounts,
-    budgetsCache,
-    fetchBudgets,
-    fetchFraudAlerts,
-    spendingByBudget,
-    fetchTransactions,
-  } = useData();
+  } = useAccounts();
+  const { budgetsCache, fetchBudgets, spendingByBudget } = useBudgets();
+  const { fetchFraudAlerts } = useFraud();
+  const { fetchTransactions } = useTransactions();
 
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -117,16 +301,6 @@ export default function DashboardScreen() {
       fetchFraudAlerts();
     }, [fetchAccounts, fetchBudgets, fetchFraudAlerts])
   );
-
-  useEffect(() => {
-    if (accounts && accounts.length > 0) {
-      accounts.forEach((acc) => {
-        if (acc.acc_id) {
-          fetchTransactions(acc.acc_id);
-        }
-      });
-    }
-  }, [accounts, fetchTransactions]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -177,9 +351,6 @@ export default function DashboardScreen() {
         await fetchAccounts(true);
         await fetchBudgets(true);
         await fetchFraudAlerts(true);
-        if (accounts && accounts.length > 0) {
-          await Promise.all(accounts.map((acc) => fetchTransactions(acc.acc_id, true)));
-        }
       };
 
       poll();
@@ -269,26 +440,15 @@ export default function DashboardScreen() {
   const hasAvailableBalance = accounts.some((a) => a.available_balance !== null);
   const totalAvailableBalance = accounts.reduce((sum, a) => sum + (a.available_balance || 0), 0);
 
-  const formatCurrency = (amount: number) => {
-    const abs = Math.abs(amount);
-    const formatted = abs.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return amount < 0 ? `-$${formatted}` : `$${formatted}`;
-  };
-
   const linkedAccountLabel = `${accounts.length} linked account${accounts.length !== 1 ? 's' : ''}`;
   const budgets = budgetsCache || [];
 
-  const accountLogos = useMemo(
-    () => ['business-outline', 'card-outline', 'wallet-outline', 'albums-outline'] as const,
-    []
-  );
 
   return (
     <View style={styles.container}>
-      <StarField />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+      </View>
 
       <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
 
@@ -390,49 +550,18 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.budgetList}>
-            {budgets.map((budget, index) => {
-              const spent = spendingByBudget[budget.id!] || 0;
-              const progress = Math.min(spent / budget.amount, 1);
-              const gradient =
-                progress >= 1
-                  ? ['#FF6B6B', '#FF8A8A']
-                  : progress >= 0.8
-                    ? ['#FFB347', '#FFD27A']
-                    : [Colors.gradientAccentStart, Colors.gradientAccentEnd];
-
-              return (
-                <Animated.View key={budget.id} entering={FadeInDown.delay(index * 70).springify()}>
-                  <ScalePressable
-                    onPress={() =>
-                      router.push({
-                        pathname: '/dashboard/budget/[id]',
-                        params: { id: budget.id!, budgetName: budget.name }
-                      })
-                    }
-                    onLongPress={() => setContextMenuBudget(budget)}
-                    delayLongPress={1200}
-                    style={[styles.budgetCard, { width: budgetCardWidth }]}
-                  >
-                    <View style={styles.budgetHeadRow}>
-                      <Text style={styles.budgetName}>{budget.name}</Text>
-                      <Text style={styles.budgetPeriod}>{budget.period}</Text>
-                    </View>
-                    <Text style={styles.budgetCategory}>{budget.category}</Text>
-                    <View style={styles.progressTrack}>
-                      <LinearGradient
-                        colors={gradient as [string, string]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[styles.progressFill, { width: `${progress * 100}%` }]}
-                      />
-                    </View>
-                    <Text style={styles.budgetAmountText}>
-                      {formatCurrency(spent)} / {formatCurrency(budget.amount)}
-                    </Text>
-                  </ScalePressable>
-                </Animated.View>
-              );
-            })}
+            {budgets.map((budget, index) => (
+              <BudgetCard
+                key={budget.id}
+                budget={budget}
+                index={index}
+                budgetCardWidth={budgetCardWidth}
+                spendingByBudget={spendingByBudget}
+                formatCurrency={formatCurrency}
+                router={router}
+                setContextMenuBudget={setContextMenuBudget}
+              />
+            ))}
           </Animated.ScrollView>
         )}
 
@@ -475,77 +604,17 @@ export default function DashboardScreen() {
             </ScalePressable>
           </View>
         ) : (
-          accounts.map((account, index) => {
-            const providerKey = normalizeProviderKey(account.provider);
-            const logoUrl = getProviderLogoUrl(account.provider);
-            const showProviderLogo = !!logoUrl && !failedLogoProviders[providerKey];
-            const logoScale = PROVIDER_LOGO_SCALE[providerKey] ?? 1;
-            const logoSize = Math.round(LOGO_BASE_SIZE * logoScale);
-
-            return (
-              <Animated.View key={account.acc_id} entering={FadeInDown.delay(index * 80).springify()}>
-                <ScalePressable
-                  style={styles.accountRow}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/dashboard/account/[id]',
-                      params: { id: account.acc_id, accType: account.acc_type, provider: account.provider }
-                    })
-                  }
-                >
-                  <View style={styles.accountLeft}>
-                    {showProviderLogo ? (
-                      <View style={styles.accountLogoImageWrap}>
-                        <SvgUri
-                          uri={logoUrl}
-                          width={logoSize}
-                          height={logoSize}
-                          onError={() => {
-                            if (!providerKey) return;
-                            setFailedLogoProviders((prev) => ({ ...prev, [providerKey]: true }));
-                          }}
-                        />
-                      </View>
-                    ) : (
-                      <LinearGradient
-                        colors={['rgba(130,166,255,0.25)', 'rgba(46,230,166,0.15)']}
-                        style={styles.accountLogo}
-                      >
-                        <Ionicons
-                          name={accountLogos[index % accountLogos.length]}
-                          size={18}
-                          color={Colors.accentBlueBright}
-                        />
-                      </LinearGradient>
-                    )}
-                    <View>
-                      <Text style={styles.accountName}>{account.acc_type}</Text>
-                      <Text style={styles.accountProvider}>{account.provider}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.accountRight}>
-                    <Text
-                      style={[
-                        styles.accountBalance,
-                        {
-                          color:
-                            account.available_balance === null
-                              ? Colors.textMuted
-                              : account.available_balance! >= 0
-                                ? Colors.textPrimary
-                                : Colors.negative,
-                        },
-                      ]}
-                    >
-                      {account.available_balance !== null ? formatCurrency(account.available_balance) : 'N/A'}
-                    </Text>
-                    <Text style={styles.accountCurrency}>{account.currency}</Text>
-                  </View>
-                </ScalePressable>
-              </Animated.View>
-            );
-          })
+          accounts.map((account, index) => (
+            <AccountRow
+              key={account.acc_id}
+              account={account}
+              index={index}
+              router={router}
+              failedLogoProviders={failedLogoProviders}
+              setFailedLogoProviders={setFailedLogoProviders}
+              formatCurrency={formatCurrency}
+            />
+          ))
         )}
       </Animated.ScrollView>
 

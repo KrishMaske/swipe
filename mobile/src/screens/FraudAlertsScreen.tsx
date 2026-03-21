@@ -25,36 +25,15 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { api, FraudTransaction } from '../services/api';
-import { useData } from '../context/DataContext';
+import { useAccounts } from '../context/AccountContext';
+import { useTransactions } from '../context/TransactionContext';
+import { useFraud } from '../context/FraudContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { Skeleton } from '../components/Skeleton';
+import { formatDate, formatAmount } from '../utils/format';
 
-function formatDate(txnDate: any): string {
-  try {
-    const d = new Date(txnDate);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    }
-    return 'Unknown';
-  } catch {
-    return 'Unknown';
-  }
-}
-
-function formatAmount(amount: number): string {
-  const abs = Math.abs(amount);
-  const formatted = abs.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
-}
 
 function riskLabel(score: number): { text: string; color: string } {
   if (score >= 0.75) return { text: 'Critical', color: '#FF4D4F' };
@@ -63,19 +42,86 @@ function riskLabel(score: number): { text: string; color: string } {
   return { text: 'No Risk', color: Colors.accentEmerald };
 }
 
+const FraudAlertRow = React.memo(({ 
+  item, 
+  index, 
+  updating, 
+  handleAction, 
+  formatAmount, 
+  formatDate, 
+  riskLabel 
+}: {
+  item: FraudTransaction;
+  index: number;
+  updating: string | null;
+  handleAction: (id: string, isFraud: boolean) => void;
+  formatAmount: (amount: number) => string;
+  formatDate: (date: any) => string;
+  riskLabel: (score: number) => { text: string; color: string };
+}) => {
+  const risk = riskLabel(item.risk_score ?? 0);
+  const isProcessing = updating === item.txn_id;
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 80).springify()} style={styles.queueCard}>
+      <View style={styles.queueHeader}>
+        <Text style={styles.queueMerchant}>{item.merchant || 'Unknown Merchant'}</Text>
+        <View style={[styles.riskBadge, { backgroundColor: risk.color + '1F' }]}>
+          <Text style={[styles.riskBadgeText, { color: risk.color }]}>{risk.text}</Text>
+        </View>
+      </View>
+
+      <Text style={[styles.queueMeta, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
+        {formatAmount(item.amount)}
+        <Text style={styles.queueMeta}> · {formatDate(item.txn_date)}</Text>
+      </Text>
+
+      <View style={styles.actionRow}>
+        <ScalePressable
+          style={[styles.actionButton, styles.safeButton]}
+          onPress={() => handleAction(item.txn_id, false)}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <ActivityIndicator size="small" color={Colors.accentEmerald} />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle-outline" size={16} color="#2EE6A6" />
+              <Text style={[styles.actionText, { color: Colors.textPrimary }]}>Mark Safe</Text>
+            </>
+          )}
+        </ScalePressable>
+
+        <ScalePressable
+          style={[styles.actionButton, styles.fraudButton]}
+          onPress={() => handleAction(item.txn_id, true)}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <ActivityIndicator size="small" color={Colors.negative} />
+          ) : (
+            <>
+              <Ionicons name="alert-circle-outline" size={16} color={Colors.negative} />
+              <Text style={[styles.actionText, { color: Colors.negative }]}>Confirm Fraud</Text>
+            </>
+          )}
+        </ScalePressable>
+      </View>
+    </Animated.View>
+  );
+});
+
 export default function FraudAlertsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    accounts,
-    fetchAccounts,
-    transactionsCache,
-    fetchTransactions,
-    fraudAlertsCache,
-    fraudAlertsLoading,
-    fetchFraudAlerts,
-    optimisticallyRemoveFraudAlert,
-  } = useData();
+  const { accounts, fetchAccounts } = useAccounts();
+  const { transactionsCache, fetchTransactions } = useTransactions();
+  const { 
+    fraudAlertsCache, 
+    fraudAlertsLoading, 
+    fetchFraudAlerts, 
+    optimisticallyRemoveFraudAlert 
+  } = useFraud();
 
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -184,7 +230,9 @@ export default function FraudAlertsScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StarField />
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <StarField />
+        </View>
         <View style={[styles.headerRow, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
           <View>
             <Text style={styles.headerEyebrow}>Swipe</Text>
@@ -218,8 +266,10 @@ export default function FraudAlertsScreen() {
 
   return (
     <View style={styles.container}>
-      <StarField />
-      <View style={styles.bgGlow} />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+        <View style={styles.bgGlow} />
+      </View>
 
       <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
 
@@ -279,54 +329,18 @@ export default function FraudAlertsScreen() {
           <>
             <Text style={styles.sectionTitle}>Action Queue</Text>
             <View style={styles.queueList}>
-              {queueTransactions.map((item, index) => {
-                const risk = riskLabel(item.risk_score ?? 0);
-                const isProcessing = updating === item.txn_id;
-                return (
-                  <Animated.View key={item.txn_id} entering={FadeInDown.delay(index * 80).springify()} style={styles.queueCard}>
-                    <View style={styles.queueHeader}>
-                      <Text style={styles.queueMerchant}>{item.merchant || 'Unknown Merchant'}</Text>
-                      <View style={[styles.riskBadge, { backgroundColor: risk.color + '1F' }]}>
-                        <Text style={[styles.riskBadgeText, { color: risk.color }]}>{risk.text}</Text>
-                      </View>
-                    </View>
-
-                    <Text style={[styles.queueMeta, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>{formatAmount(item.amount)}<Text style={styles.queueMeta}> · {formatDate(item.txn_date)}</Text></Text>
-
-                    <View style={styles.actionRow}>
-                      <ScalePressable
-                        style={[styles.actionButton, styles.safeButton]}
-                        onPress={() => handleAction(item.txn_id, false)}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? (
-                          <ActivityIndicator size="small" color={Colors.accentEmerald} />
-                        ) : (
-                          <>
-                            <Ionicons name="checkmark-circle-outline" size={16} color="#2EE6A6" />
-                            <Text style={[styles.actionText, { color: Colors.textPrimary }]}>Mark Safe</Text>
-                          </>
-                        )}
-                      </ScalePressable>
-
-                      <ScalePressable
-                        style={[styles.actionButton, styles.fraudButton]}
-                        onPress={() => handleAction(item.txn_id, true)}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? (
-                          <ActivityIndicator size="small" color={Colors.negative} />
-                        ) : (
-                          <>
-                            <Ionicons name="alert-circle-outline" size={16} color={Colors.negative} />
-                            <Text style={[styles.actionText, { color: Colors.negative }]}>Confirm Fraud</Text>
-                          </>
-                        )}
-                      </ScalePressable>
-                    </View>
-                  </Animated.View>
-                );
-              })}
+              {queueTransactions.map((item, index) => (
+                <FraudAlertRow
+                  key={item.txn_id}
+                  item={item}
+                  index={index}
+                  updating={updating}
+                  handleAction={handleAction}
+                  formatAmount={formatAmount}
+                  formatDate={formatDate}
+                  riskLabel={riskLabel}
+                />
+              ))}
             </View>
           </>
         )}

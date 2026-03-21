@@ -80,30 +80,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AccountProvider checkForScheduledSync={checkForScheduledSync} clearAllCaches={clearDataCaches} syncTrigger={syncTrigger}>
-      <SyncWrappedTransactionProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
+    <TransactionProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
+      <AccountProvider checkForScheduledSync={checkForScheduledSync} clearAllCaches={clearDataCaches} syncTrigger={syncTrigger}>
         <SyncWrappedFraudProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
           <SyncWrappedBudgetProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
             {children}
           </SyncWrappedBudgetProvider>
         </SyncWrappedFraudProvider>
-      </SyncWrappedTransactionProvider>
-    </AccountProvider>
-  );
-}
-
-// Helper components to avoid hook order issues and ensure access to TransactionContext
-function SyncWrappedTransactionProvider({ children, checkForScheduledSync, syncTrigger }: { 
-  children: React.ReactNode, 
-  checkForScheduledSync: () => Promise<boolean>,
-  syncTrigger: number
-}) {
-  return (
-    <TransactionProvider checkForScheduledSync={checkForScheduledSync} syncTrigger={syncTrigger}>
-      {children}
+      </AccountProvider>
     </TransactionProvider>
   );
 }
+
 
 function SyncWrappedFraudProvider({ children, checkForScheduledSync, syncTrigger }: { 
   children: React.ReactNode, 

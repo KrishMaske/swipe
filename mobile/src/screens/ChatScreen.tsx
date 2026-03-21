@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import Animated, {
   FadeInDown, 
   FadeInLeft, 
   FadeInRight, 
+  cancelAnimation,
   useAnimatedStyle, 
   useSharedValue, 
   withRepeat, 
@@ -55,6 +56,9 @@ function TypingIndicator() {
       -1,
       true
     );
+    return () => {
+      cancelAnimation(opacity);
+    };
   }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -152,8 +156,6 @@ export default function ChatScreen() {
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
-  const quickPrompts = useMemo(() => QUICK_PROMPTS, []);
-
   const nextId = () => {
     msgCounter.current += 1;
     return `msg_${msgCounter.current}_${Date.now()}`;
@@ -227,7 +229,9 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
-      <StarField />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+      </View>
 
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
         <View style={styles.headerTitleWrap}>
@@ -262,7 +266,7 @@ export default function ChatScreen() {
             </Text>
 
             <View style={styles.promptWrap}>
-              {quickPrompts.map((prompt) => (
+              {QUICK_PROMPTS.map((prompt) => (
                 <Pressable key={prompt} style={styles.promptChip} onPress={() => setInput(prompt)}>
                   <Ionicons name="flash-outline" size={14} color={Colors.accentBlueBright} />
                   <Text style={styles.promptText}>{prompt}</Text>

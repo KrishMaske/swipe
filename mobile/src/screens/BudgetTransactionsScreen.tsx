@@ -16,9 +16,10 @@ import { GlassBackground } from '../components/GlassBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { useData } from '../context/DataContext';
+import { useBudgets } from '../context/BudgetContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { formatCurrency } from '../utils/format';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScalePressable } from '../components/ScalePressable';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -44,14 +45,53 @@ const CATEGORIES = [
 
 const PERIOD_OPTIONS = ['monthly', 'weekly', 'biweekly', 'yearly'];
 
-function formatCurrency(amount: number): string {
-  const abs = Math.abs(amount);
-  const formatted = abs.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
-}
+
+
+const BudgetTransactionRow = React.memo(({ 
+  item, 
+  index, 
+  formatCurrency 
+}: { 
+  item: any; 
+  index: number; 
+  formatCurrency: (amount: number) => string;
+}) => {
+  const isNegative = Number(item.amount) < 0;
+  const dateStr = new Date(
+    typeof item.txn_date === 'string' ? item.txn_date : item.txn_date * 1000
+  ).toLocaleDateString();
+
+  return (
+    <Animated.View entering={FadeInDown.delay(200 + index * 50).springify()}>
+      <GlassBackground
+        blurIntensity={38}
+        blurTint="systemChromeMaterialDark"
+        style={styles.txnCard}
+        tintColor="rgba(0, 0, 0, 0.4)"
+        tintOpacity={0.6}
+      >
+        <View
+          style={[
+            styles.categoryDot,
+            { backgroundColor: isNegative ? Colors.negative : Colors.positive },
+          ]}
+        />
+        <View style={styles.txnInfo}>
+          <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
+          <Text style={styles.txnDate}>{dateStr}</Text>
+        </View>
+        <Text
+          style={[
+            styles.txnAmount,
+            { color: isNegative ? Colors.negative : Colors.positive },
+          ]}
+        >
+          {formatCurrency(Number(item.amount) || 0)}
+        </Text>
+      </GlassBackground>
+    </Animated.View>
+  );
+});
 
 export default function BudgetTransactionsScreen() {
   const router = useRouter();
@@ -72,7 +112,7 @@ export default function BudgetTransactionsScreen() {
   }>();
   
   const insets = useSafeAreaInsets();
-  const { budgetTransactions, fetchBudgets } = useData();
+  const { budgetTransactions, fetchBudgets } = useBudgets();
 
   const isNew = budgetId === 'create' || budgetId === 'new';
   const isEditing = editParam === 'true' || isNew;
@@ -144,8 +184,10 @@ export default function BudgetTransactionsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StarField />
-      <Animated.View entering={FadeInDown.delay(100).springify()}>
+      <Animated.View collapsable={false} entering={FadeInDown.delay(100).springify()}>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <StarField />
+        </View>
         <GlassBackground
           blurIntensity={38}
           blurTint="systemChromeMaterialDark"
@@ -181,38 +223,11 @@ export default function BudgetTransactionsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 80 }]}
           renderItem={({ item, index }) => (
-            <Animated.View entering={FadeInDown.delay(200 + index * 50).springify()}>
-                <GlassBackground
-                  blurIntensity={38}
-                  blurTint="systemChromeMaterialDark"
-                  style={styles.txnCard}
-                  tintColor="rgba(0, 0, 0, 0.4)"
-                  tintOpacity={0.6}
-                >
-                  <View
-                    style={[
-                      styles.categoryDot,
-                      { backgroundColor: Number(item.amount) < 0 ? Colors.negative : Colors.positive },
-                    ]}
-                  />
-                  <View style={styles.txnInfo}>
-                    <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
-                    <Text style={styles.txnDate}>
-                      {new Date(
-                        typeof item.txn_date === 'string' ? item.txn_date : item.txn_date * 1000
-                      ).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.txnAmount,
-                      { color: Number(item.amount) < 0 ? Colors.negative : Colors.positive },
-                    ]}
-                  >
-                    {formatCurrency(Number(item.amount) || 0)}
-                  </Text>
-                </GlassBackground>
-            </Animated.View>
+            <BudgetTransactionRow
+              item={item}
+              index={index}
+              formatCurrency={formatCurrency}
+            />
           )}
         />
       )}

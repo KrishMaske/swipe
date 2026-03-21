@@ -23,9 +23,12 @@ import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { Skeleton } from '../components/Skeleton';
 import StarField from '../components/StarField';
 import { api, Transaction } from '../services/api';
-import { useData } from '../context/DataContext';
+import { useAccounts } from '../context/AccountContext';
+import { useTransactions } from '../context/TransactionContext';
+import { useFraud } from '../context/FraudContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { parseTxnDate, formatDate, formatAmount } from '../utils/format';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -38,47 +41,98 @@ const DATE_RANGE_OPTIONS: Array<{ label: string; value: DateRangeOption }> = [
   { label: 'All', value: 'all' },
 ];
 
-function parseTxnDate(txnDate: unknown): Date | null {
-  if (txnDate === null || txnDate === undefined) return null;
-  if (typeof txnDate === 'number') {
-    const millis = txnDate < 1_000_000_000_000 ? txnDate * 1000 : txnDate;
-    const parsed = new Date(millis);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-  const parsed = new Date(String(txnDate));
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+const CATEGORY_COLORS: Record<string, string> = {
+  'Food & Dining': '#EF4444',
+  Transportation: '#B91C1C',
+  Shopping: '#F43F5E',
+  Entertainment: '#E11D48',
+  Bills: '#EF4444',
+  Healthcare: '#DC2626',
+  Travel: '#F87171',
+  Income: '#FB7185',
+  Uncategorized: '#6B7280',
+};
+
+function getCategoryColor(category: string): string {
+  return CATEGORY_COLORS[category] || Colors.accentBlue;
 }
 
-function formatDate(txnDate: unknown): string {
-  const d = parseTxnDate(txnDate);
-  if (!d) return 'Unknown';
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
-function formatAmount(amount: number): string {
-  const abs = Math.abs(amount);
-  const formatted = abs.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
-}
+
+const TransactionRow = React.memo(({ 
+  item, 
+  index, 
+  updating, 
+  setSelectedScanTxn,
+  renderLeftActions,
+  renderRightActions,
+  onAction
+}: {
+  item: Transaction;
+  index: number;
+  updating: string | null;
+  setSelectedScanTxn: (txn: Transaction) => void;
+  renderLeftActions: (prog: any, drag: any, txn: Transaction) => React.ReactNode;
+  renderRightActions: (prog: any, drag: any, txn: Transaction) => React.ReactNode;
+  onAction: (id: string, isFraud: boolean) => void;
+}) => {
+  const location = item.city && item.city !== 'REMOTE' 
+    ? (item.state && item.state !== 'REMOTE' ? `${item.city}, ${item.state}` : item.city)
+    : '';
+
+  return (
+    <Swipeable
+      renderLeftActions={(prog, drag) => renderLeftActions(prog, drag, item)}
+      renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
+      containerStyle={styles.swipeContainer}
+      friction={2}
+      leftThreshold={40}
+      rightThreshold={40}
+    >
+      <ScalePressable
+        onPress={() => setSelectedScanTxn(item)}
+        disabled={updating === item.txn_id}
+      >
+        <Animated.View
+          entering={FadeInDown.delay(index * 60).springify()}
+        >
+          <GlassBackground
+            blurIntensity={30}
+            blurTint="systemChromeMaterialDark"
+            style={[styles.txnCard, updating === item.txn_id && { opacity: 0.6 }]}
+            tintColor="rgba(0,0,0,0.5)"
+            tintOpacity={0.7}
+          >
+            <View style={[styles.categoryDot, { backgroundColor: getCategoryColor(item.category) }]} />
+            <View style={styles.txnInfo}>
+              <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
+              <View style={styles.txnMeta}>
+                <Text style={styles.txnCategory}>{item.category || 'Uncategorized'}</Text>
+                {!!location && (
+                  <>
+                    <Text style={styles.txnDot}>•</Text>
+                    <Text style={styles.txnLocation} numberOfLines={1}>{location}</Text>
+                  </>
+                )}
+              </View>
+              <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
+            </View>
+            <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
+              {formatAmount(item.amount)}
+            </Text>
+          </GlassBackground>
+        </Animated.View>
+      </ScalePressable>
+    </Swipeable>
+  );
+});
 
 export default function RecentScansScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    accounts,
-    transactionsCache,
-    fetchAccounts,
-    fetchTransactions,
-    fetchFraudAlerts,
-    optimisticallyRemoveFraudAlert,
-  } = useData();
+  const { accounts, fetchAccounts } = useAccounts();
+  const { transactionsCache, fetchTransactions } = useTransactions();
+  const { fetchFraudAlerts, optimisticallyRemoveFraudAlert } = useFraud();
 
   const [loading, setLoading] = useState(true);
   const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
@@ -157,7 +211,10 @@ export default function RecentScansScreen() {
     try {
       await api.updateFraudStatus(txnId, isConfirmedFraud);
       setSelectedScanTxn(null);
-      await Promise.all([fetchFraudAlerts(true), Promise.all((accounts || []).map((acc) => fetchTransactions(acc.acc_id)))]);
+      await Promise.all([
+        fetchFraudAlerts(true), 
+        Promise.all((accounts || []).map((acc) => fetchTransactions(acc.acc_id, true)))
+      ]);
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to update status');
     } finally {
@@ -165,7 +222,7 @@ export default function RecentScansScreen() {
     }
   };
 
-  const renderLeftActions = (_prog: any, _drag: any, txn: Transaction) => {
+  const renderLeftActions = useCallback((_prog: any, _drag: any, txn: Transaction) => {
     return (
       <ScalePressable
         style={styles.swipeActionSafe}
@@ -177,9 +234,9 @@ export default function RecentScansScreen() {
         </View>
       </ScalePressable>
     );
-  };
+  }, [accounts]);
 
-  const renderRightActions = (_prog: any, _drag: any, txn: Transaction) => {
+  const renderRightActions = useCallback((_prog: any, _drag: any, txn: Transaction) => {
     return (
       <ScalePressable
         style={styles.swipeActionFraud}
@@ -191,19 +248,21 @@ export default function RecentScansScreen() {
         </View>
       </ScalePressable>
     );
-  };
+  }, [accounts]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StarField />
-
       <GlassBackground
+        collapsable={false}
         blurIntensity={38}
         blurTint="systemChromeMaterialDark"
         style={styles.header}
         tintColor="rgba(0,0,0,0.4)"
         tintOpacity={0.6}
       >
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <StarField />
+        </View>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Recent Scans</Text>
@@ -236,20 +295,17 @@ export default function RecentScansScreen() {
         </ScrollView>
       </GlassBackground>
 
-     {loading ? (
-    <View style={styles.container}>
-        <StarField />
+      {!loading && (
+        <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+      )}
+
+      {loading ? (
         <View style={styles.list}>
           {[0, 1, 2, 3].map(i => (
             <Skeleton key={i} width="100%" height={90} borderRadius={24} style={{ marginBottom: 12 }} />
           ))}
         </View>
-      </View>
-    ) : (
-      <>
-      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
-
-      {recentScans.length === 0 ? (
+      ) : recentScans.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="shield-checkmark" size={44} color={Colors.accentEmerald} />
           <Text style={styles.emptyText}>No transactions found</Text>
@@ -264,90 +320,20 @@ export default function RecentScansScreen() {
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           renderItem={({ item, index }) => (
-            <Swipeable
-              renderLeftActions={(prog, drag) => renderLeftActions(prog, drag, item)}
-              renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
-              friction={2}
-              rightThreshold={40}
-              leftThreshold={40}
-              containerStyle={styles.swipeContainer}
-            >
-              <ScalePressable onLongPress={() => setSelectedScanTxn(item)} delayLongPress={1000}>
-                <Animated.View entering={FadeInDown.delay(index * 22).springify()}>
-                  <GlassBackground
-                    blurIntensity={38}
-                    blurTint="systemChromeMaterialDark"
-                    style={styles.txnCard}
-                    tintColor="rgba(0,0,0,0.4)"
-                    tintOpacity={0.6}
-                  >
-                    <View style={[styles.categoryDot, { backgroundColor: item.amount < 0 ? Colors.negative : Colors.positive }]} />
-                    <View style={styles.txnInfo}>
-                      <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
-                      <View style={styles.txnMeta}>
-                        <Text style={styles.txnCategory}>{item.category || 'Uncategorized'}</Text>
-                        {item.city && item.city !== 'REMOTE' && (
-                          <>
-                            <Text style={styles.txnDot}>·</Text>
-                            <Text style={styles.txnLocation}>
-                              {item.city}
-                              {item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                      <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
-                    </View>
-                    <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
-                      {formatAmount(item.amount)}
-                    </Text>
-                  </GlassBackground>
-                </Animated.View>
-              </ScalePressable>
-            </Swipeable>
+            <TransactionRow
+              item={item}
+              index={index}
+              updating={updating}
+              setSelectedScanTxn={setSelectedScanTxn}
+              renderLeftActions={renderLeftActions}
+              renderRightActions={renderRightActions}
+              onAction={handleAction}
+            />
           )}
         />
       )}
-      </>
-      )}
 
-      <Modal visible={selectedScanTxn !== null} transparent animationType="fade">
-        <View style={styles.inlineActionOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setSelectedScanTxn(null)} />
-          <GlassBackground
-            blurIntensity={65}
-            blurTint="systemChromeMaterialDark"
-            style={styles.scanActionCard}
-            tintColor="rgba(0,0,0,0.4)"
-            tintOpacity={0.6}
-          >
-            <Text style={styles.scanActionTitle} numberOfLines={2}>{selectedScanTxn?.merchant || 'Unknown Merchant'}</Text>
-            <Text style={styles.scanActionMeta}>Update this transaction's fraud status.</Text>
 
-            <ScalePressable
-              style={[styles.scanActionButton, styles.safeButton]}
-              onPress={() => selectedScanTxn && handleAction(selectedScanTxn.txn_id, false)}
-              disabled={!!selectedScanTxn && updating === selectedScanTxn.txn_id}
-            >
-              <Ionicons name="checkmark-circle-outline" size={18} color={Colors.textPrimary} />
-              <Text style={[styles.actionText, { color: Colors.textPrimary }]}>Set as Safe</Text>
-            </ScalePressable>
-
-            <ScalePressable
-              style={[styles.scanActionButton, styles.fraudButton]}
-              onPress={() => selectedScanTxn && handleAction(selectedScanTxn.txn_id, true)}
-              disabled={!!selectedScanTxn && updating === selectedScanTxn.txn_id}
-            >
-              <Ionicons name="alert-circle-outline" size={18} color={Colors.negative} />
-              <Text style={[styles.actionText, { color: Colors.negative }]}>Set as Fraud</Text>
-            </ScalePressable>
-
-            <ScalePressable style={styles.scanActionCancel} onPress={() => setSelectedScanTxn(null)}>
-              <Text style={styles.scanActionCancelText}>Cancel</Text>
-            </ScalePressable>
-          </GlassBackground>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -452,7 +438,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.navGlassBackground,
     padding: 16,
     borderRadius: 24,
-    marginBottom: 12,
+    marginBottom: 0, // Handled by swipeContainer
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 107, 0.45)', // Red glow border
     shadowColor: '#DC2626', // Red glow shadow

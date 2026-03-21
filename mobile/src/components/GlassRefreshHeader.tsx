@@ -6,6 +6,7 @@ import Animated, {
   Extrapolate,
   SharedValue,
   withSpring,
+  useSharedValue,
   useDerivedValue,
   useAnimatedProps,
   runOnJS,
@@ -132,28 +133,18 @@ function AnimatedText({
 }) {
   const pullDistance = useDerivedValue(() => Math.max(0, -scrollY.value));
   
-  // We use a small hack here: Reanimated's Animated.Text doesn't support 
-  // dynamic children well without useAnimatedProps for 'text' (only on some platforms).
-  // Better approach: use a state for the text but update it via runOnJS if needed,
-  // OR just use a simple sub-component that re-renders when refreshing changes,
-  // and for the "Pull" text, we'll just show it if not refreshing.
-  
-  if (refreshing) return <Text style={styles.text}>Updating...</Text>;
-
-  // To avoid render warnings, we can't use pullDistance.value here directly.
-  // Actually, for simple text that doesn't need to be per-frame animated based on scroll,
-  // we can just use a static message or a delayed state.
-  // But the user wants "Release to Sync" vs "Pull to Refresh".
-  
-  // Let's use a simple state that updates when threshold is crossed.
   const [canRelease, setCanRelease] = React.useState(false);
+  const isOverThreshold = useSharedValue(false);
 
   useDerivedValue(() => {
     const over = pullDistance.value > threshold - 5;
-    if (over !== canRelease) {
+    if (over !== isOverThreshold.value) {
+      isOverThreshold.value = over;
       runOnJS(setCanRelease)(over);
     }
   });
+
+  if (refreshing) return <Text style={styles.text}>Updating...</Text>;
 
   return (
     <Text style={styles.text}>

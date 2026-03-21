@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { api, Account } from '../services/api';
+import { useTransactions } from './TransactionContext';
 
 interface AccountContextType {
   accounts: Account[];
@@ -29,6 +30,7 @@ export function AccountProvider({ children, checkForScheduledSync, clearAllCache
   const [accountsLoading, setAccountsLoading] = useState(true);
   const accountsLoaded = useRef(false);
   const fetchInFlight = useRef<Promise<void> | null>(null);
+  const { fetchTransactions } = useTransactions();
 
   React.useEffect(() => {
     if (syncTrigger > 0) {
@@ -64,7 +66,20 @@ export function AccountProvider({ children, checkForScheduledSync, clearAllCache
       try {
         setAccountsLoading(true);
         const data = await api.getAccounts();
-        setAccounts(data || []);
+        const nextAccounts = data || [];
+        
+        setAccounts((prev) => {
+          if (prev.length === nextAccounts.length && JSON.stringify(prev[0]) === JSON.stringify(nextAccounts[0])) {
+            return prev;
+          }
+          return nextAccounts;
+        });
+
+        // Coalesce transaction fetches here instead of using useEffect in screens
+        if (nextAccounts.length > 0) {
+          await Promise.all(nextAccounts.map(acc => fetchTransactions(acc.acc_id, forceRefresh)));
+        }
+
         accountsLoaded.current = true;
       } catch (err: any) {
         Alert.alert("Sync Error", "Failed to fetch accounts. Using cached data.");
@@ -76,7 +91,7 @@ export function AccountProvider({ children, checkForScheduledSync, clearAllCache
 
     fetchInFlight.current = doFetch();
     await fetchInFlight.current;
-  }, [checkForScheduledSync]);
+  }, [checkForScheduledSync, fetchTransactions]);
 
   const invalidateAccounts = useCallback(() => {
     clearAllCaches();

@@ -25,14 +25,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { api, Transaction, TransactionUpdate } from '../services/api';
-import { useData } from '../context/DataContext';
+import { useAccounts } from '../context/AccountContext';
+import { useTransactions } from '../context/TransactionContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { parseTxnDate, formatDate, formatAmount } from '../utils/format';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
 import { Skeleton } from '../components/Skeleton';
 import { inlineStyles } from 'react-native-svg';
+import LiquidGlass from '../components/LiquidGlass';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
 
@@ -61,42 +64,7 @@ function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] || Colors.accentBlue;
 }
 
-function parseTxnDate(txnDate: unknown): Date | null {
-  if (txnDate === null || txnDate === undefined) {
-    return null;
-  }
 
-  if (typeof txnDate === 'number') {
-    const millis = txnDate < 1_000_000_000_000 ? txnDate * 1000 : txnDate;
-    const parsed = new Date(millis);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  const parsed = new Date(String(txnDate));
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function formatDate(txnDate: any): string {
-  const d = parseTxnDate(txnDate);
-  if (!d) {
-    return 'Unknown';
-  }
-
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function formatAmount(amount: number): string {
-  const abs = Math.abs(amount);
-  const formatted = abs.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
-}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TRANSACTION_MENU_WIDTH = 240;
@@ -105,7 +73,8 @@ export default function AccountDetailScreen() {
   const router = useRouter();
   const { id: accId, accType, provider } = useLocalSearchParams<{ id: string; accType: string; provider: string }>();
   const insets = useSafeAreaInsets();
-  const { transactionsCache, transactionsLoading, fetchTransactions } = useData();
+  const { accounts } = useAccounts();
+  const { fetchTransactions, transactionsCache, transactionsLoading } = useTransactions();
   const [selectedRange, setSelectedRange] = useState<DateRangeOption>(30);
   const [transactionMenuTarget, setTransactionMenuTarget] = useState<Transaction | null>(null);
   const [transactionMenuPosition, setTransactionMenuPosition] = useState({ x: 0, y: 0 });
@@ -122,29 +91,28 @@ export default function AccountDetailScreen() {
   const scrollY = useSharedValue(0);
   const REFRESH_THRESHOLD = 80;
 
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchTransactions(accId, true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
     onEndDrag: (event) => {
       if (event.contentOffset.y < -REFRESH_THRESHOLD) {
-        handleRefresh();
+        runOnJS(handleRefresh)();
       }
     },
   });
-
-  const handleRefresh = async () => {
-    'worklet';
-    if (refreshing) return;
-    runOnJS(setRefreshing)(true);
-    try {
-      await runOnJS(fetchTransactions)(accId, true);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      runOnJS(setRefreshing)(false);
-    }
-  };
 
   const transactions = transactionsCache[accId] || [];
   const loading = transactionsLoading[accId] && transactions.length === 0;
@@ -348,8 +316,11 @@ export default function AccountDetailScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StarField />
-        <View style={styles.header}>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <StarField />
+          </View>
+
+        <View collapsable={false} style={styles.header}>
            <Skeleton width={120} height={28} borderRadius={6} />
            <Skeleton width={80} height={14} borderRadius={4} style={{ marginTop: 8 }} />
            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
@@ -358,6 +329,7 @@ export default function AccountDetailScreen() {
              <Skeleton width={50} height={30} borderRadius={15} />
            </View>
         </View>
+
         <View style={styles.list}>
           {[0, 1, 2, 3, 4].map(i => (
             <Skeleton key={i} width="100%" height={80} borderRadius={20} style={{ marginBottom: 12 }} />
@@ -369,22 +341,62 @@ export default function AccountDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StarField />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <LiquidGlass/>
+      </View>
 
-      <Modal visible={transactionMenuTarget !== null} transparent animationType="fade" onRequestClose={closeTransactionMenu}>
-        <View style={styles.menuOverlay}>
-          <Pressable style={styles.sheetBackdrop} onPress={closeTransactionMenu} />
-          <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={[styles.contextMenu, { left: transactionMenuPosition.x, top: transactionMenuPosition.y }]}>
-            <ScalePressable
-              style={styles.contextMenuItem}
-              onPress={() => transactionMenuTarget && openEditModal(transactionMenuTarget)}
-            >
-              <Ionicons name="create-outline" size={20} color={Colors.textPrimary} />
-              <Text style={styles.contextMenuText}>Edit Transaction</Text>
-            </ScalePressable>
-          </GlassBackground>
+      {/* Account Header */}
+      <GlassBackground collapsable={false} blurIntensity={38} blurTint="systemChromeMaterialDark" style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Transactions</Text>
+            <Text style={styles.headerProvider}>{provider}</Text>
+          </View>
+          <View style={styles.headerCountPill}>
+            <Text style={styles.headerCount}>
+              {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
         </View>
-      </Modal>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {DATE_RANGE_OPTIONS.map((option) => {
+            const active = selectedRange === option.value;
+            return (
+              <ScalePressable
+                key={String(option.value)}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+                onPress={() => setSelectedRange(option.value)}
+              >
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  {option.label}
+                </Text>
+              </ScalePressable>
+            );
+          })}
+        </ScrollView>
+      </GlassBackground>
+
+      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
+
+      <Animated.FlatList
+        data={filteredTransactions}
+        keyExtractor={(item) => item.txn_id}
+        renderItem={renderTransaction}
+        contentContainerStyle={[
+          styles.list,
+          { paddingTop: 10, paddingBottom: insets.bottom + 100 }
+        ]}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      />
+
+
 
       <Modal visible={editingTransaction !== null} transparent animationType="fade" onRequestClose={closeEditModal}>
         <KeyboardAvoidingView
@@ -483,57 +495,6 @@ export default function AccountDetailScreen() {
           </GlassBackground>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* Account Header */}
-      <GlassBackground blurIntensity={38} blurTint="systemChromeMaterialDark" style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Transactions</Text>
-            <Text style={styles.headerProvider}>{provider}</Text>
-          </View>
-          <View style={styles.headerCountPill}>
-            <Text style={styles.headerCount}>
-              {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
-            </Text>
-          </View>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          {DATE_RANGE_OPTIONS.map((option) => {
-            const active = selectedRange === option.value;
-            return (
-              <ScalePressable
-                key={String(option.value)}
-                style={[styles.filterChip, active && styles.filterChipActive]}
-                onPress={() => setSelectedRange(option.value)}
-              >
-                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                  {option.label}
-                </Text>
-              </ScalePressable>
-            );
-          })}
-        </ScrollView>
-      </GlassBackground>
-
-      <GlassRefreshHeader scrollY={scrollY} refreshing={refreshing} threshold={REFRESH_THRESHOLD} />
-
-      <Animated.FlatList
-        data={filteredTransactions}
-        keyExtractor={(item) => item.txn_id}
-        renderItem={renderTransaction}
-        contentContainerStyle={[
-          styles.list,
-          { paddingTop: 10, paddingBottom: insets.bottom + 100 }
-        ]}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-      />
     </SafeAreaView>
   );
 }
@@ -653,9 +614,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accentBlueBright,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 90,
-    height: '100%',
-    borderRadius: 24,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    marginVertical: 4,
+    marginRight: 4,
   },
   swipeIconWrap: {
     alignItems: 'center',
