@@ -77,8 +77,7 @@
         {
           "url": "https://sentry.io/"
         }
-      ],
-      "@sentry/react-native"
+      ]
     ],
     "extra": {
       "eas": {
