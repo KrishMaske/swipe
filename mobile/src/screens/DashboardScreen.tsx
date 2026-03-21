@@ -45,6 +45,7 @@ import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { useAnimatedScrollHandler } from 'react-native-reanimated';
 import { Skeleton } from '../components/Skeleton';
 import { BudgetFormModal, BudgetData } from '../components/BudgetFormModal';
+import { useNavigationGuard } from '../hooks/useNavigationGuard';
 
 const SIMPLEFIN_ACCOUNT_URL = 'https://beta-bridge.simplefin.org/my-account';
 
@@ -80,7 +81,8 @@ const BudgetCard = React.memo(({
   spendingByBudget, 
   formatCurrency, 
   router, 
-  setContextMenuBudget 
+  setContextMenuBudget,
+  safeNavigate
 }: {
   budget: Budget;
   index: number;
@@ -88,6 +90,7 @@ const BudgetCard = React.memo(({
   spendingByBudget: Record<string, number>;
   formatCurrency: (amount: number) => string;
   router: any;
+  safeNavigate: (fn: () => void) => void;
   setContextMenuBudget: (budget: Budget) => void;
 }) => {
   const spent = spendingByBudget[budget.id!] || 0;
@@ -102,12 +105,12 @@ const BudgetCard = React.memo(({
   return (
     <Animated.View entering={FadeInDown.delay(index * 70).springify()}>
       <ScalePressable
-        onPress={() =>
+        onPress={() => safeNavigate(() =>
           router.push({
             pathname: '/dashboard/budget/[id]',
             params: { id: budget.id!, budgetName: budget.name }
           })
-        }
+        )}
         onLongPress={() => setContextMenuBudget(budget)}
         delayLongPress={1200}
         style={[styles.budgetCard, { width: budgetCardWidth }]}
@@ -187,7 +190,8 @@ const AccountRow = React.memo(({
   router, 
   failedLogoProviders, 
   setFailedLogoProviders, 
-  formatCurrency 
+  formatCurrency,
+  safeNavigate
 }: {
   account: Account;
   index: number;
@@ -195,17 +199,18 @@ const AccountRow = React.memo(({
   failedLogoProviders: Record<string, boolean>;
   setFailedLogoProviders: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   formatCurrency: (amount: number) => string;
+  safeNavigate: (fn: () => void) => void;
 }) => {
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).springify()}>
       <ScalePressable
         style={styles.accountRow}
-        onPress={() =>
+        onPress={() => safeNavigate(() =>
           router.push({
             pathname: '/dashboard/account/[id]',
             params: { id: account.acc_id, accType: account.acc_type, provider: account.provider }
           })
-        }
+        )}
       >
         <View style={styles.accountLeft}>
           <AccountLogo 
@@ -256,6 +261,7 @@ function formatCurrency(amount: number): string {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { safeNavigate } = useNavigationGuard();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const budgetCardWidth = Math.min(Math.max(width - 96, 240), 320);
@@ -280,18 +286,6 @@ export default function DashboardScreen() {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [updatingBudget, setUpdatingBudget] = useState(false);
   
-  const scrollY = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-    onEndDrag: (event) => {
-      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
-        runOnJS(onRefresh)();
-      }
-    },
-  });
-
   const REFRESH_THRESHOLD = 80;
 
   useFocusEffect(
@@ -362,6 +356,18 @@ export default function DashboardScreen() {
       setSyncing(false);
     }
   };
+
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(onRefresh)();
+      }
+    },
+  });
 
   const handleSync = async () => {
     await runBackendSync();
@@ -465,7 +471,7 @@ export default function DashboardScreen() {
           </View>
           <ScalePressable
             style={styles.settingsBtn}
-            onPress={() => router.push('/dashboard/settings')}
+            onPress={() => safeNavigate(() => router.push('/dashboard/settings'))}
           >
             <Ionicons name="settings-outline" size={24} color={Colors.textPrimary} />
           </ScalePressable>
@@ -559,6 +565,7 @@ export default function DashboardScreen() {
                 spendingByBudget={spendingByBudget}
                 formatCurrency={formatCurrency}
                 router={router}
+                safeNavigate={safeNavigate}
                 setContextMenuBudget={setContextMenuBudget}
               />
             ))}
@@ -591,7 +598,7 @@ export default function DashboardScreen() {
             <Ionicons name="business-outline" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Accounts Linked</Text>
             <Text style={styles.emptySubtitle}>Go to Settings to link your bank with SimpleFIN.</Text>
-            <ScalePressable style={styles.linkButton} onPress={() => router.push('/dashboard/settings')}>
+            <ScalePressable style={styles.linkButton} onPress={() => safeNavigate(() => router.push('/dashboard/settings'))}>
               <LinearGradient
                 colors={[Colors.gradientAccentStart, Colors.gradientAccentEnd]}
                 style={styles.linkButtonGradient}
@@ -613,6 +620,7 @@ export default function DashboardScreen() {
               failedLogoProviders={failedLogoProviders}
               setFailedLogoProviders={setFailedLogoProviders}
               formatCurrency={formatCurrency}
+              safeNavigate={safeNavigate}
             />
           ))
         )}

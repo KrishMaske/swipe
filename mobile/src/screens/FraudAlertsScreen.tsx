@@ -133,6 +133,21 @@ export default function FraudAlertsScreen() {
 
   const loading = fraudAlertsLoading && queueTransactions.length === 0 && scannedCount === 0;
 
+  const refreshAllTransactions = useCallback(async (forceRefresh = false) => {
+    const loadedAccounts = accounts || [];
+    await Promise.all(loadedAccounts.map((acc) => fetchTransactions(acc.acc_id, forceRefresh)));
+  }, [accounts, fetchTransactions]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAccounts(true);
+    await Promise.all([
+      fetchFraudAlerts(true),
+      refreshAllTransactions(true),
+    ]);
+    setRefreshing(false);
+  };
+
   const scrollY = useSharedValue(0);
   const REFRESH_THRESHOLD = 80;
 
@@ -173,21 +188,6 @@ export default function FraudAlertsScreen() {
     () => queueTransactions.filter((t) => Boolean(t.is_flagged_fraud) || (t.risk_score ?? 0) >= 0.35).length,
     [queueTransactions]
   );
-
-  const refreshAllTransactions = useCallback(async (forceRefresh = false) => {
-    const loadedAccounts = accounts || [];
-    await Promise.all(loadedAccounts.map((acc) => fetchTransactions(acc.acc_id, forceRefresh)));
-  }, [accounts, fetchTransactions]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchAccounts(true);
-    await Promise.all([
-      fetchFraudAlerts(true),
-      refreshAllTransactions(true),
-    ]);
-    setRefreshing(false);
-  };
 
   useFocusEffect(
     useCallback(() => {

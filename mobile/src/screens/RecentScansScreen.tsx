@@ -143,17 +143,6 @@ export default function RecentScansScreen() {
   const scrollY = useSharedValue(0);
   const REFRESH_THRESHOLD = 80;
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-    onEndDrag: (event) => {
-      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
-        runOnJS(handleRefresh)();
-      }
-    },
-  });
-
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -164,6 +153,17 @@ export default function RecentScansScreen() {
       setRefreshing(false);
     }
   };
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(handleRefresh)();
+      }
+    },
+  });
 
   const allTransactions = useMemo(() => {
     return Object.values(transactionsCache)
@@ -252,6 +252,9 @@ export default function RecentScansScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+      </View>
       <GlassBackground
         collapsable={false}
         blurIntensity={38}
@@ -260,9 +263,6 @@ export default function RecentScansScreen() {
         tintColor="rgba(0,0,0,0.4)"
         tintOpacity={0.6}
       >
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <StarField />
-        </View>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Recent Scans</Text>
@@ -440,12 +440,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 0, // Handled by swipeContainer
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.45)', // Red glow border
-    shadowColor: '#DC2626', // Red glow shadow
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 8,
+    borderColor: 'rgba(255,255,255,0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
     overflow: 'hidden',
   },
   categoryDot: {

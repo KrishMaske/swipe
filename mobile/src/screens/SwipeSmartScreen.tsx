@@ -67,20 +67,6 @@ export default function SwipeSmartScreen() {
   // Long-press context menu
   const [contextMenuCard, setContextMenuCard] = useState<WalletCard | null>(null);
 
-  const scrollY = useSharedValue(0);
-  const REFRESH_THRESHOLD = 80;
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-    onEndDrag: (event) => {
-      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
-        runOnJS(onRefresh)();
-      }
-    },
-  });
-
   const loadSavedCards = useCallback(async (forceRefresh = false) => {
     try {
       const cards = await api.getUserCards(forceRefresh);
@@ -110,6 +96,20 @@ export default function SwipeSmartScreen() {
     await loadSavedCards(true);
     setRefreshing(false);
   };
+
+  const scrollY = useSharedValue(0);
+  const REFRESH_THRESHOLD = 80;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onEndDrag: (event) => {
+      if (event.contentOffset.y < -REFRESH_THRESHOLD && !refreshing) {
+        runOnJS(onRefresh)();
+      }
+    },
+  });
 
   const openAddModal = () => {
     setPendingIds(savedCards.map((c) => c.id));
