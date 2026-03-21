@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Alert,
   Dimensions,
@@ -34,7 +34,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassRefreshHeader } from '../components/GlassRefreshHeader';
 import { useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
 import { Skeleton } from '../components/Skeleton';
-import { inlineStyles } from 'react-native-svg';
 import LiquidGlass from '../components/LiquidGlass';
 
 type DateRangeOption = 7 | 14 | 30 | 60 | 90 | 'all';
@@ -64,10 +63,77 @@ function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] || Colors.accentBlue;
 }
 
-
-
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TRANSACTION_MENU_WIDTH = 240;
+
+interface TransactionListItemProps {
+  item: Transaction;
+  index: number;
+  onEdit: (txn: Transaction) => void;
+  onLongPress: (txn: Transaction, event: any) => void;
+}
+
+const TransactionListItem = React.memo(({ item, index, onEdit, onLongPress }: TransactionListItemProps) => {
+  const isNegative = item.amount < 0;
+
+  const renderRightActions = () => {
+    return (
+      <ScalePressable
+        style={styles.swipeActionEdit}
+        onPress={() => onEdit(item)}
+      >
+        <View style={styles.swipeIconWrap}>
+          <Ionicons name="create-outline" size={24} color="#fff" />
+          <Text style={styles.swipeText}>Edit</Text>
+        </View>
+      </ScalePressable>
+    );
+  };
+
+  return (
+    <Animated.View>
+      <Swipeable
+        renderRightActions={renderRightActions}
+        friction={2}
+        enableTrackpadTwoFingerGesture
+        rightThreshold={40}
+        leftThreshold={40}
+        containerStyle={styles.swipeContainer}
+      >
+        <ScalePressable onLongPress={(event) => onLongPress(item, event)} delayLongPress={1000}>
+          <View style={styles.txnCard}>
+            <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive, shadowColor: isNegative ? Colors.negative : Colors.positive, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }]} />
+            <View style={styles.txnInfo}>
+              <Text style={styles.txnMerchant} numberOfLines={1}>
+                {item.merchant || 'Unknown'}
+              </Text>
+              <View style={styles.txnMeta}>
+                <Text style={styles.txnCategory}>{item.category}</Text>
+                {item.city && item.city !== 'REMOTE' && (
+                  <>
+                    <Text style={styles.txnDot}>·</Text>
+                    <Text style={styles.txnLocation}>
+                      {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
+                    </Text>
+                  </>
+                )}
+              </View>
+              <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
+            </View>
+            <Text
+              style={[
+                styles.txnAmount,
+                { color: isNegative ? Colors.negative : Colors.positive },
+              ]}
+            >
+              {formatAmount(item.amount)}
+            </Text>
+          </View>
+        </ScalePressable>
+      </Swipeable>
+    </Animated.View>
+  );
+});
 
 export default function AccountDetailScreen() {
   const router = useRouter();
@@ -91,15 +157,20 @@ export default function AccountDetailScreen() {
   const scrollY = useSharedValue(0);
   const REFRESH_THRESHOLD = 80;
 
+  const isMounted = React.useRef(true);
+  useEffect(() => {
+    return () => { isMounted.current = false; };
+  }, []);
+
   const handleRefresh = async () => {
-    if (refreshing) return;
+    if (refreshing || !isMounted.current) return;
     setRefreshing(true);
     try {
       await fetchTransactions(accId, true);
     } catch (e) {
       console.error(e);
     } finally {
-      setRefreshing(false);
+      if (isMounted.current) setRefreshing(false);
     }
   };
 
@@ -142,10 +213,12 @@ export default function AccountDetailScreen() {
   }, [transactions, selectedRange]);
 
   useEffect(() => {
-    // navigation.setOptions is removed as navigation prop is no longer passed
-    // If title needs to be set, it should be done via expo-router's _layout.tsx or screen options
-    fetchTransactions(accId);
-  }, [accId]); // Added accId to dependency array
+    let cancelled = false;
+    fetchTransactions(accId).catch(() => {
+      if (!cancelled) console.error('fetch failed');
+    });
+    return () => { cancelled = true; };
+  }, [accId]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -163,8 +236,7 @@ export default function AccountDetailScreen() {
   const closeTransactionMenu = () => {
     setTransactionMenuTarget(null);
   };
-
-  const openTransactionMenu = (transaction: Transaction, event: any) => {
+  const openTransactionMenu = useCallback((transaction: Transaction, event: any) => {
     const pageX = event?.nativeEvent?.pageX ?? SCREEN_WIDTH / 2;
     const pageY = event?.nativeEvent?.pageY ?? SCREEN_HEIGHT / 2;
     const left = Math.min(
@@ -178,9 +250,9 @@ export default function AccountDetailScreen() {
 
     setTransactionMenuPosition({ x: left, y: top });
     setTransactionMenuTarget(transaction);
-  };
+  }, [insets.top]);
 
-  const openEditModal = (transaction: Transaction) => {
+  const openEditModal = useCallback((transaction: Transaction) => {
     setTransactionMenuTarget(null);
     setEditingTransaction(transaction);
     setEditMerchant(transaction.merchant || '');
@@ -188,12 +260,10 @@ export default function AccountDetailScreen() {
     setEditCategory(transaction.category || '');
     setEditCity(transaction.city === 'REMOTE' ? '' : transaction.city || '');
     setEditState(transaction.state === 'REMOTE' ? '' : transaction.state || '');
-  };
+  }, []);
 
   const closeEditModal = () => {
-    if (savingEdit) {
-      return;
-    }
+    if (savingEdit) return;
     setEditingTransaction(null);
     setEditMerchant('');
     setEditDescription('');
@@ -203,9 +273,7 @@ export default function AccountDetailScreen() {
   };
 
   const saveTransactionEdit = async () => {
-    if (!editingTransaction) {
-      return;
-    }
+    if (!editingTransaction) return;
 
     const merchant = editMerchant.trim();
     const description = editDescription.trim();
@@ -243,91 +311,35 @@ export default function AccountDetailScreen() {
     }
   };
 
-
-  const renderRightActions = (_prog: RNAnimated.AnimatedInterpolation<number | string>, _drag: RNAnimated.AnimatedInterpolation<number | string>, txn: Transaction) => {
+  const renderTransaction = useCallback(({ item, index }: { item: Transaction; index: number }) => {
     return (
-      <ScalePressable
-        style={styles.swipeActionEdit}
-        onPress={() => openEditModal(txn)}
-      >
-        <View style={styles.swipeIconWrap}>
-          <Ionicons name="create-outline" size={24} color="#fff" />
-          <Text style={styles.swipeText}>Edit</Text>
-        </View>
-      </ScalePressable>
+      <TransactionListItem
+        item={item}
+        index={index}
+        onEdit={openEditModal}
+        onLongPress={openTransactionMenu}
+      />
     );
-  };
-
-  const renderTransaction = ({ item, index }: { item: Transaction; index: number }) => {
-    const catColor = getCategoryColor(item.category);
-    const isNegative = item.amount < 0;
-
-    return (
-      <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
-        <Swipeable
-          renderRightActions={(prog, drag) => renderRightActions(prog, drag, item)}
-          friction={2}
-          enableTrackpadTwoFingerGesture
-          rightThreshold={40}
-          leftThreshold={40}
-          containerStyle={styles.swipeContainer}
-        >
-          <ScalePressable onLongPress={(event) => openTransactionMenu(item, event)} delayLongPress={1000}>
-            <GlassBackground
-              blurIntensity={38}
-              blurTint="systemChromeMaterialDark"
-              style={styles.txnCard}
-              tintColor="rgba(0, 0, 0, 0.4)"
-              tintOpacity={0.6}
-            >
-              <View style={[styles.categoryDot, { backgroundColor: isNegative ? Colors.negative : Colors.positive, shadowColor: isNegative ? Colors.negative : Colors.positive, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }]} />
-              <View style={styles.txnInfo}>
-                <Text style={styles.txnMerchant} numberOfLines={1}>
-                  {item.merchant || 'Unknown'}
-                </Text>
-                <View style={styles.txnMeta}>
-                  <Text style={styles.txnCategory}>{item.category}</Text>
-                  {item.city && item.city !== 'REMOTE' && (
-                    <>
-                      <Text style={styles.txnDot}>·</Text>
-                      <Text style={styles.txnLocation}>
-                        {item.city}{item.state && item.state !== 'REMOTE' ? `, ${item.state}` : ''}
-                      </Text>
-                    </>
-                  )}
-                </View>
-                <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
-              </View>
-              <Text
-                style={[
-                  styles.txnAmount,
-                  { color: isNegative ? Colors.negative : Colors.positive },
-                ]}
-              >
-                {formatAmount(item.amount)}
-              </Text>
-            </GlassBackground>
-          </ScalePressable>
-        </Swipeable>
-      </Animated.View>
-    );
-  };
+  }, [openEditModal, openTransactionMenu]);
 
   if (loading) {
     return (
       <View style={styles.container}>
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <StarField />
-          </View>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <StarField />
+        </View>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <LiquidGlass />
+        </View>
 
         <View collapsable={false} style={styles.header}>
-           <Skeleton width={120} height={28} borderRadius={6} />
-           <Skeleton width={80} height={14} borderRadius={4} style={{ marginTop: 8 }} />
-           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-             <Skeleton width={50} height={30} borderRadius={15} />
-             <Skeleton width={50} height={30} borderRadius={15} />
-             <Skeleton width={50} height={30} borderRadius={15} />
-           </View>
+          <Skeleton width={120} height={28} borderRadius={6} />
+          <Skeleton width={80} height={14} borderRadius={4} style={{ marginTop: 8 }} />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <Skeleton width={50} height={30} borderRadius={15} />
+            <Skeleton width={50} height={30} borderRadius={15} />
+            <Skeleton width={50} height={30} borderRadius={15} />
+          </View>
         </View>
 
         <View style={styles.list}>
@@ -342,11 +354,18 @@ export default function AccountDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <LiquidGlass/>
+        <StarField />
       </View>
 
       {/* Account Header */}
-      <GlassBackground collapsable={false} blurIntensity={38} blurTint="systemChromeMaterialDark" style={styles.header}>
+      <GlassBackground
+        collapsable={false}
+        blurIntensity={38}
+        blurTint="systemChromeMaterialDark"
+        style={styles.header}
+        tintColor="rgba(0,0,0,0.4)"
+        tintOpacity={0.6}
+      >
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Transactions</Text>
@@ -394,9 +413,10 @@ export default function AccountDetailScreen() {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={5}
       />
-
-
 
       <Modal visible={editingTransaction !== null} transparent animationType="fade" onRequestClose={closeEditModal}>
         <KeyboardAvoidingView
@@ -408,9 +428,10 @@ export default function AccountDetailScreen() {
           <GlassBackground
             blurIntensity={65}
             blurTint="systemChromeMaterialDark"
+            glassStyle="regular"
             style={styles.editModalCard}
-            tintColor="rgba(0, 0, 0, 0.4)"
-            tintOpacity={0.6}
+            tintColor="rgba(0, 0, 0, 0.15)"
+            tintOpacity={0.2}
           >
             <ScrollView
               contentContainerStyle={[styles.editModalScrollContent, { paddingBottom: insets.bottom + 6 }]}
@@ -595,14 +616,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.navGlassBackground,
     padding: 16,
     borderRadius: 24,
-    marginBottom: 12,
+    marginBottom: 0,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
-    shadowColor: '#DC2626', // Red glow shadow
+    borderColor: 'rgba(255,255,255,0.06)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
     overflow: 'hidden',
   },
   swipeContainer: {
@@ -616,7 +637,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 80,
     height: 80,
-    borderRadius: 20,
+    borderRadius: 24,
     marginVertical: 4,
     marginRight: 4,
   },
@@ -716,10 +737,10 @@ const styles = StyleSheet.create({
     width: '85%',
     maxWidth: 400,
     maxHeight: '76%',
-    backgroundColor: Colors.navGlassBackground,
+    // backgroundColor removed — lets LiquidGlassView render through on iOS 26+
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: Colors.navGlassBorder,
+    borderColor: 'rgba(255,255,255,0.18)',
     overflow: 'hidden',
   },
   editModalScrollContent: {

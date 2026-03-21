@@ -91,7 +91,15 @@ function InitialLayout() {
   );
 }
 
-export default function RootLayout() {
+import * as Sentry from '@sentry/react-native';
+
+// Sentry initialization targeting your project DSN
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'YOUR_DSN_HERE',
+  debug: false,
+});
+
+function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
@@ -102,3 +110,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(RootLayout);

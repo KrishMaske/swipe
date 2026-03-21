@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassBackground } from '../components/GlassBackground';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import StarField from '../components/StarField';
+import { GlassBackground } from '../components/GlassBackground';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useBudgets } from '../context/BudgetContext';
 import { Colors } from '../theme/colors';
@@ -62,34 +63,26 @@ const BudgetTransactionRow = React.memo(({
   ).toLocaleDateString();
 
   return (
-    <Animated.View entering={FadeInDown.delay(200 + index * 50).springify()}>
-      <GlassBackground
-        blurIntensity={38}
-        blurTint="systemChromeMaterialDark"
-        style={styles.txnCard}
-        tintColor="rgba(0, 0, 0, 0.4)"
-        tintOpacity={0.6}
+    <View style={styles.txnCard}>
+      <View
+        style={[
+          styles.categoryDot,
+          { backgroundColor: isNegative ? Colors.negative : Colors.positive },
+        ]}
+      />
+      <View style={styles.txnInfo}>
+        <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
+        <Text style={styles.txnDate}>{dateStr}</Text>
+      </View>
+      <Text
+        style={[
+          styles.txnAmount,
+          { color: isNegative ? Colors.negative : Colors.positive },
+        ]}
       >
-        <View
-          style={[
-            styles.categoryDot,
-            { backgroundColor: isNegative ? Colors.negative : Colors.positive },
-          ]}
-        />
-        <View style={styles.txnInfo}>
-          <Text style={styles.txnMerchant} numberOfLines={1}>{item.merchant || 'Unknown'}</Text>
-          <Text style={styles.txnDate}>{dateStr}</Text>
-        </View>
-        <Text
-          style={[
-            styles.txnAmount,
-            { color: isNegative ? Colors.negative : Colors.positive },
-          ]}
-        >
-          {formatCurrency(Number(item.amount) || 0)}
-        </Text>
-      </GlassBackground>
-    </Animated.View>
+        {formatCurrency(Number(item.amount) || 0)}
+      </Text>
+    </View>
   );
 });
 
@@ -184,32 +177,31 @@ export default function BudgetTransactionsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Animated.View collapsable={false} entering={FadeInDown.delay(100).springify()}>
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <StarField />
-        </View>
-        <GlassBackground
-          blurIntensity={38}
-          blurTint="systemChromeMaterialDark"
-          style={styles.header}
-          tintColor="rgba(0, 0, 0, 0.4)"
-          tintOpacity={0.6}
-        >
-          <View style={styles.headerTopRow}>
-            <View style={styles.headerTitleWrap}>
-              <Text style={styles.headerTitle}>{budgetName || 'Budget'}</Text>
-              <Text style={styles.headerProvider}>Transactions</Text>
-            </View>
-            <View style={styles.headerActions}>
-              <View style={styles.headerCountPill}>
-                <Text style={styles.headerCount}>
-                  {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-                </Text>
-              </View>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+      </View>
+      <GlassBackground
+        collapsable={false}
+        blurIntensity={38}
+        blurTint="systemChromeMaterialDark"
+        style={styles.header}
+        tintColor="rgba(0, 0, 0, 0.4)"
+        tintOpacity={0.6}
+      >
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>{budgetName || 'Budget'}</Text>
+            <Text style={styles.headerProvider}>Transactions</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <View style={styles.headerCountPill}>
+              <Text style={styles.headerCount}>
+                {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+              </Text>
             </View>
           </View>
-        </GlassBackground>
-      </Animated.View>
+        </View>
+      </GlassBackground>
 
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
@@ -333,12 +325,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.25)', // Red glow border
-    shadowColor: '#DC2626', // Red glow shadow
+    borderColor: 'rgba(255,255,255,0.06)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
     overflow: 'hidden',
   },
   categoryDot: {

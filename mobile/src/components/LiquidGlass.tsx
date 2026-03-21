@@ -15,7 +15,7 @@ try {
 export default function LiquidGlass() {
   if (isLiquidGlassSupported) {
     return (
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={StyleSheet.absoluteFill} pointerEvents="none" collapsable={false}>
         <LiquidGlassView 
           style={StyleSheet.absoluteFill} 
           effect="clear"

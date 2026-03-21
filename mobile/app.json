@@ -71,7 +71,15 @@
       ],
       "expo-notifications",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "organization": "swipe-yb",
+          "project": "swipe"
+        }
+      ]
     ],
     "extra": {
       "eas": {
