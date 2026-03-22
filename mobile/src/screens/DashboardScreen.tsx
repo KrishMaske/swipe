@@ -261,7 +261,7 @@ function formatCurrency(amount: number): string {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { safeNavigate } = useNavigationGuard();
+  const { safeNavigate, isNavigating } = useNavigationGuard();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const budgetCardWidth = Math.min(Math.max(width - 96, 240), 320);
@@ -374,6 +374,10 @@ export default function DashboardScreen() {
   };
 
   const handleForceSync = async () => {
+    // Mark navigation as in-progress to block concurrent modal presentations
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+
     try {
       await WebBrowser.openBrowserAsync(SIMPLEFIN_ACCOUNT_URL, {
         controlsColor: Colors.accentBlueBright,
@@ -381,38 +385,46 @@ export default function DashboardScreen() {
         secondaryToolbarColor: Colors.bgPrimary,
         showTitle: true,
         enableBarCollapsing: true,
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        // PAGE_SHEET plays nicer with existing formSheet modals than FULL_SCREEN
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
       });
     } catch {
       Alert.alert('SimpleFIN', 'Could not open SimpleFIN account page.');
+      isNavigating.current = false;
       return;
     }
+
+    // Wait for WebBrowser dismissal animation to fully complete before
+    // allowing new modal presentations or triggering sync (which may show alerts)
+    await new Promise(resolve => setTimeout(resolve, 600));
+    isNavigating.current = false;
 
     await runBackendSync();
   };
 
   const handleDeleteBudget = async (id: string) => {
-    Alert.alert('Delete Budget', 'Are you sure you want to delete this budget and its transaction tracking?', [
-      { 
-        text: 'Cancel', 
-        style: 'cancel',
-        onPress: () => {
-          setContextMenuBudget?.(null);
-        }
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.deleteBudget(id);
-            await fetchBudgets(true);
-          } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to delete budget.');
-          }
+    // Delay Alert to let context menu dismissal animation finish
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    Alert.alert(
+      'Delete Budget',
+      'Are you sure you want to delete this budget and its transaction tracking?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteBudget(id);
+              await fetchBudgets(true);
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete budget.');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleCreateBudget = async (data: any) => {
@@ -626,40 +638,46 @@ export default function DashboardScreen() {
         )}
       </Animated.ScrollView>
 
-      <Modal visible={!!contextMenuBudget} transparent animationType="fade">
-        <View style={styles.centeredCardOverlay}>
-          <Pressable style={styles.sheetBackdrop} onPress={() => setContextMenuBudget(null)} />
-          <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={styles.contextMenu}>
-            <ScalePressable
-              style={styles.contextMenuItem}
-              onPress={() => {
-                const budget = contextMenuBudget;
-                if (!budget) return;
-                setContextMenuBudget(null);
-                setEditingBudget(budget);
-                setEditModalVisible(true);
-              }}
-            >
-              <Ionicons name="pencil" size={20} color={Colors.textPrimary} />
-              <Text style={styles.contextMenuText}>Edit Budget</Text>
-            </ScalePressable>
-            <View style={styles.contextMenuDivider} />
-            <ScalePressable
-              style={styles.contextMenuItem}
-              onPress={() => {
-                const idToDel = contextMenuBudget?.id;
-                if (idToDel) {
+      {contextMenuBudget !== null && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <Pressable
+            style={styles.sheetBackdrop}
+            onPress={() => setContextMenuBudget(null)}
+          />
+          <View style={styles.centeredCardOverlay} pointerEvents="box-none">
+            <GlassBackground blurIntensity={65} blurTint="systemChromeMaterialDark" style={styles.contextMenu}>
+              <ScalePressable
+                style={styles.contextMenuItem}
+                onPress={() => {
+                  const budget = contextMenuBudget;
                   setContextMenuBudget(null);
-                  handleDeleteBudget(idToDel);
-                }
-              }}
-            >
-              <Ionicons name="trash-outline" size={20} color={Colors.negative} />
-              <Text style={[styles.contextMenuText, { color: Colors.negative }]}>Delete Budget</Text>
-            </ScalePressable>
-          </GlassBackground>
+                  setTimeout(() => {
+                    setEditingBudget(budget);
+                    setEditModalVisible(true);
+                  }, 350);
+                }}
+              >
+                <Ionicons name="pencil" size={20} color={Colors.textPrimary} />
+                <Text style={styles.contextMenuText}>Edit Budget</Text>
+              </ScalePressable>
+              <View style={styles.contextMenuDivider} />
+              <ScalePressable
+                style={styles.contextMenuItem}
+                onPress={() => {
+                  const idToDel = contextMenuBudget?.id;
+                  setContextMenuBudget(null);
+                  if (idToDel) {
+                    handleDeleteBudget(idToDel);
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color={Colors.negative} />
+                <Text style={[styles.contextMenuText, { color: Colors.negative }]}>Delete Budget</Text>
+              </ScalePressable>
+            </GlassBackground>
+          </View>
         </View>
-      </Modal>
+      )}
 
       <BudgetFormModal
         visible={createModalVisible}

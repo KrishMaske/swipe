@@ -57,16 +57,21 @@ function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] || Colors.accentBlue;
 }
 
+function getRiskColor(score: number): string {
+  if (score >= 0.75) return '#FF4D4F';
+  if (score >= 0.5) return Colors.negative;
+  if (score >= 0.35) return '#FFB347';
+  return Colors.accentEmerald;
+}
 
-
-const TransactionRow = React.memo(({ 
-  item, 
-  index, 
-  updating, 
+const TransactionRow = React.memo(({
+  item,
+  index,
+  updating,
   setSelectedScanTxn,
   renderLeftActions,
   renderRightActions,
-  onAction
+  onAction,
 }: {
   item: Transaction;
   index: number;
@@ -76,7 +81,7 @@ const TransactionRow = React.memo(({
   renderRightActions: (prog: any, drag: any, txn: Transaction) => React.ReactNode;
   onAction: (id: string, isFraud: boolean) => void;
 }) => {
-  const location = item.city && item.city !== 'REMOTE' 
+  const location = item.city && item.city !== 'REMOTE'
     ? (item.state && item.state !== 'REMOTE' ? `${item.city}, ${item.state}` : item.city)
     : '';
 
@@ -93,9 +98,7 @@ const TransactionRow = React.memo(({
         onPress={() => setSelectedScanTxn(item)}
         disabled={updating === item.txn_id}
       >
-        <Animated.View
-          entering={FadeInDown.delay(index * 60).springify()}
-        >
+        <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
           <GlassBackground
             blurIntensity={30}
             blurTint="systemChromeMaterialDark"
@@ -115,7 +118,13 @@ const TransactionRow = React.memo(({
                   </>
                 )}
               </View>
-              <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
+              <View style={styles.txnDateRow}>
+                <Text style={styles.txnDate}>{formatDate(item.txn_date)}</Text>
+                <Text style={styles.txnDot}>•</Text>
+                <Text style={[styles.txnRisk, { color: getRiskColor(item.risk_score || 0) }]}>
+                  {Math.round((item.risk_score || 0) * 100)}% Risk
+                </Text>
+              </View>
             </View>
             <Text style={[styles.txnAmount, { color: item.amount < 0 ? Colors.negative : Colors.positive }]}>
               {formatAmount(item.amount)}
@@ -212,8 +221,8 @@ export default function RecentScansScreen() {
       await api.updateFraudStatus(txnId, isConfirmedFraud);
       setSelectedScanTxn(null);
       await Promise.all([
-        fetchFraudAlerts(true), 
-        Promise.all((accounts || []).map((acc) => fetchTransactions(acc.acc_id, true)))
+        fetchFraudAlerts(true),
+        Promise.all((accounts || []).map((acc) => fetchTransactions(acc.acc_id, true))),
       ]);
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to update status');
@@ -229,8 +238,8 @@ export default function RecentScansScreen() {
         onPress={() => handleAction(txn.txn_id, false)}
       >
         <View style={styles.swipeIconWrap}>
-          <Ionicons name="checkmark-circle-outline" size={24} color="#fff" />
-          <Text style={styles.swipeText}>Safe</Text>
+          <Ionicons name="checkmark-circle-outline" size={24} color={Colors.accentEmerald} />
+          <Text style={[styles.swipeText, { color: Colors.accentEmerald }]}>Safe</Text>
         </View>
       </ScalePressable>
     );
@@ -243,8 +252,8 @@ export default function RecentScansScreen() {
         onPress={() => handleAction(txn.txn_id, true)}
       >
         <View style={styles.swipeIconWrap}>
-          <Ionicons name="alert-circle-outline" size={24} color="#fff" />
-          <Text style={styles.swipeText}>Fraud</Text>
+          <Ionicons name="alert-circle-outline" size={24} color={Colors.negative} />
+          <Text style={[styles.swipeText, { color: Colors.negative }]}>Fraud</Text>
         </View>
       </ScalePressable>
     );
@@ -332,8 +341,6 @@ export default function RecentScansScreen() {
           )}
         />
       )}
-
-
     </SafeAreaView>
   );
 }
@@ -438,7 +445,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.navGlassBackground,
     padding: 16,
     borderRadius: 24,
-    marginBottom: 0, // Handled by swipeContainer
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
     shadowColor: '#000',
@@ -476,8 +483,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   txnLocation: {
-    ...Typography.caption1,
-    color: Colors.textMuted,
+    ...Typography.caption2,
+    color: Colors.textSecondary,
+    flexShrink: 1,
+  },
+  txnRisk: {
+    ...Typography.caption2,
+    fontWeight: '700',
+  },
+  txnDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 0,
   },
   txnDate: {
     ...Typography.caption2,
@@ -506,12 +523,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  inlineActionOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  swipeContainer: {
+    borderRadius: 24,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  swipeActionSafe: {
+    backgroundColor: 'rgba(46,230,166,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(46,230,166,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 22,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    width: 90,
+    height: '100%',
+    borderRadius: 24,
+  },
+  swipeActionFraud: {
+    backgroundColor: 'rgba(255,107,107,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,107,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    height: '100%',
+    borderRadius: 24,
+  },
+  swipeIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  swipeText: {
+    ...Typography.caption2,
+    fontWeight: '700',
   },
   scanActionCard: {
     width: '85%',
@@ -566,35 +610,11 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '600',
   },
-  swipeContainer: {
-    borderRadius: 24,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  swipeActionSafe: {
-    backgroundColor: Colors.positive,
+  inlineActionOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 90,
-    height: '100%',
-    borderRadius: 24,
-  },
-  swipeActionFraud: {
-    backgroundColor: Colors.negative,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 90,
-    height: '100%',
-    borderRadius: 24,
-  },
-  swipeIconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  swipeText: {
-    ...Typography.caption2,
-    color: '#fff',
-    fontWeight: '700',
+    paddingHorizontal: 22,
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
 });

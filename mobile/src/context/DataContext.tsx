@@ -8,7 +8,6 @@ import { BudgetProvider, useBudgets } from './BudgetContext';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,

@@ -32,14 +32,14 @@ export default function CardDetailsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+      </View>
       <Animated.ScrollView
         entering={FadeInDown.delay(200).springify()}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <StarField />
-        </View>
         <GlassBackground
           blurIntensity={28}
           blurTint="systemChromeMaterialDark"
