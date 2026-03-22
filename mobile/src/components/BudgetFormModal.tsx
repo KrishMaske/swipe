@@ -99,11 +99,19 @@ export function BudgetFormModal({
             <View style={styles.header}>
               <Text style={styles.title}>{initialData ? 'Edit Budget' : 'New Budget'}</Text>
               <View style={styles.headerActions}>
-                <ScalePressable onPress={onClose} style={styles.actionBtn}>
-                  <Ionicons name="close" size={24} color={Colors.textMuted} />
+                <ScalePressable onPress={onClose} disabled={isSaving} style={styles.actionBtn}>
+                  <Ionicons name="close" size={24} color={isSaving ? Colors.textMuted + '55' : Colors.textMuted} />
                 </ScalePressable>
-                <ScalePressable onPress={handleSave} style={[styles.actionBtn, styles.actionBtnSpacing]}>
-                  <Ionicons name="checkmark" size={24} color={Colors.textMuted} />
+                <ScalePressable
+                  onPress={handleSave}
+                  disabled={isSaving}
+                  style={[styles.actionBtn, styles.actionBtnSpacing]}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color={Colors.accentBlueBright} />
+                  ) : (
+                    <Ionicons name="checkmark" size={24} color={Colors.accentBlueBright} />
+                  )}
                 </ScalePressable>
               </View>
 
@@ -134,7 +142,12 @@ export function BudgetFormModal({
                 </ScalePressable>
 
                 {catDropdown && (
-                  <View style={styles.catPicker}>
+                  <ScrollView
+                    style={styles.catPicker}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                  >
                     {CATEGORIES.map((cat) => (
                       <ScalePressable
                         key={cat}
@@ -150,7 +163,7 @@ export function BudgetFormModal({
                         {category === cat && <Ionicons name="checkmark" size={16} color={Colors.accentBlueBright} />}
                       </ScalePressable>
                     ))}
-                  </View>
+                  </ScrollView>
                 )}
               </View>
 
@@ -277,7 +290,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1C1C1E',
     borderRadius: 14,
     maxHeight: 200,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.navGlassBorder,
   },
