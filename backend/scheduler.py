@@ -28,9 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 def _build_scheduler() -> AsyncIOScheduler:
-    timezone = os.getenv("SCHEDULER_TIMEZONE", "UTC")
     return AsyncIOScheduler(
-        timezone=timezone,
+        timezone="UTC",
         job_defaults={
             "coalesce": True,
             "max_instances": 1,
@@ -264,7 +263,7 @@ def start_scheduler() -> None:
     # Every day at 3:00 AM.
     scheduler.add_job(
         sync_all_accounts_job,
-        CronTrigger(hour="3", minute=0),
+        CronTrigger(hour="7", minute=0),
         id="account_sync_job",
         replace_existing=True,
     )

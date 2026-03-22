@@ -20,6 +20,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useNavigationGuard } from '../hooks/useNavigationGuard';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -32,6 +33,7 @@ type SettingsModal = 'email' | 'password' | 'delete' | null;
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { safeNavigate, isNavigating } = useNavigationGuard();
   const {
     user,
     signOut,
@@ -189,6 +191,8 @@ export default function SettingsScreen() {
   };
 
   const openSimplefinBridge = async () => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
     try {
       await WebBrowser.openBrowserAsync(SIMPLEFIN_BRIDGE_URL, {
         controlsColor: Colors.accentBlueBright,
@@ -196,7 +200,7 @@ export default function SettingsScreen() {
         secondaryToolbarColor: Colors.bgPrimary,
         showTitle: true,
         enableBarCollapsing: true,
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
       });
     } catch {
       Alert.alert('SimpleFIN Bridge', 'Failed to open SimpleFIN Bridge. Please try again.');
@@ -277,16 +281,16 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StarField />
+        <View style={styles.bgGlowTop} />
+        <View style={styles.bgGlowBottom} />
+      </View>
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 36, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <StarField />
-          <View style={styles.bgGlowTop} />
-          <View style={styles.bgGlowBottom} />
-        </View>
         {/* Removed redundant custom header - now using native header from AppNavigator */}
 
         <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.card}>

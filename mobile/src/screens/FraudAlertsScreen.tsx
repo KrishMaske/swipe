@@ -12,6 +12,7 @@ import StarField from '../components/StarField';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useNavigationGuard } from '../hooks/useNavigationGuard';
 import { ScalePressable } from '../components/ScalePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -67,7 +68,9 @@ const FraudAlertRow = React.memo(({
       <View style={styles.queueHeader}>
         <Text style={styles.queueMerchant}>{item.merchant || 'Unknown Merchant'}</Text>
         <View style={[styles.riskBadge, { backgroundColor: risk.color + '1F' }]}>
-          <Text style={[styles.riskBadgeText, { color: risk.color }]}>{risk.text}</Text>
+          <Text style={[styles.riskBadgeText, { color: risk.color }]}>
+            {Math.round((item.risk_score || 0) * 100)}% Risk
+          </Text>
         </View>
       </View>
 
@@ -102,7 +105,7 @@ const FraudAlertRow = React.memo(({
           ) : (
             <>
               <Ionicons name="alert-circle-outline" size={16} color={Colors.negative} />
-              <Text style={[styles.actionText, { color: Colors.negative }]}>Confirm Fraud</Text>
+              <Text style={[styles.actionText, { color: Colors.negative }]}>Mark Fraud</Text>
             </>
           )}
         </ScalePressable>
@@ -113,6 +116,7 @@ const FraudAlertRow = React.memo(({
 
 export default function FraudAlertsScreen() {
   const router = useRouter();
+  const { safeNavigate } = useNavigationGuard();
   const insets = useSafeAreaInsets();
   const { accounts, fetchAccounts } = useAccounts();
   const { transactionsCache, fetchTransactions } = useTransactions();
@@ -319,7 +323,7 @@ export default function FraudAlertsScreen() {
         <Text style={styles.sectionTitle}>Recent Scans</Text>
         <ScalePressable
           style={styles.viewScansButton}
-          onPress={() => router.push('/guard/recent-scans')}
+          onPress={() => safeNavigate(() => router.push('/guard/recent-scans'))}
         >
           <Ionicons name="list-outline" size={16} color={Colors.textPrimary} />
           <Text style={styles.viewScansText}>View Recent Scans</Text>
@@ -577,13 +581,16 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     marginTop: 10,
   },
   actionButton: {
     flex: 1,
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 12, // slightly taller for better touch target
+    paddingHorizontal: 32,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
@@ -592,12 +599,12 @@ const styles = StyleSheet.create({
   safeButton: {
     backgroundColor: 'rgba(46,230,166,0.11)',
     borderWidth: 1,
-    borderColor: 'rgba(46,230,166,0.3)',
+    borderColor: 'rgba(46,230,166,0.25)',
   },
   fraudButton: {
     backgroundColor: 'rgba(255,107,107,0.11)',
     borderWidth: 1,
-    borderColor: 'rgba(255,107,107,0.3)',
+    borderColor: 'rgba(255,107,107,0.25)',
   },
   actionText: {
     ...Typography.footnote,

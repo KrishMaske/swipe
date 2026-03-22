@@ -632,7 +632,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   swipeActionEdit: {
-    backgroundColor: Colors.accentBlueBright,
+    backgroundColor: Colors.navGlassBackground,
+    borderWidth: 1,
+    borderColor: Colors.navGlassBorder,
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,

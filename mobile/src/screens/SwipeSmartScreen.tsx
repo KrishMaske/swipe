@@ -28,6 +28,7 @@ import { GlassBackground } from '../components/GlassBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useNavigationGuard } from '../hooks/useNavigationGuard';
 import { Skeleton } from '../components/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, WalletCard } from '../services/api';
@@ -50,6 +51,7 @@ function getTopReward(card: WalletCard) {
 
 export default function SwipeSmartScreen() {
   const router = useRouter();
+  const { safeNavigate } = useNavigationGuard();
   const insets = useSafeAreaInsets();
 
   // Wallet state
@@ -235,10 +237,10 @@ export default function SwipeSmartScreen() {
               return (
                 <Animated.View key={card.id} entering={FadeInDown.delay(index * 60).springify()}>
                   <ScalePressable
-                    onPress={() => router.push({
+                    onPress={() => safeNavigate(() => router.push({
                       pathname: '/swipesmart/card-details',
                       params: { card: JSON.stringify(card) }
-                    })}
+                    }))}
                     onLongPress={() => setContextMenuCard(card)}
                     delayLongPress={1200}
                     style={styles.walletCard}
